@@ -28,7 +28,7 @@
 /* Projects grid layout */
 .projects-grid {
   display: grid;
-  grid-template-columns: repeat(2, auto);
+  grid-template-columns: repeat(3, auto);
   gap: 2rem;
   margin-top: 2rem;
 
