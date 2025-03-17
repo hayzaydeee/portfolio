@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Divine Eze | Projects</title>
+    <!--Google Fonts-->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Aladin&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800&family=Preahvihear&family=Tillana:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+
+    <!-- Favicon links -->
+    <link
+      rel="apple-touch-icon"
+      sizes="180x180"
+      href="media/apple-touch-icon.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="32x32"
+      href="media/favicon-32x32.png"
+    />
+    <link
+      rel="icon"
+      type="image/png"
+      sizes="16x16"
+      href="media/favicon-16x16.png"
+    />
+
+    <script
+      src="https://kit.fontawesome.com/e619007346.js"
+      crossorigin="anonymous"
+    ></script>
+    <link rel="stylesheet" href="css/main.css" />
+  </head>
+  <body class="grad-bg">
+    <header>
+      <a href="index.html" class="logo">hayzaydee</a>
+      <label for="nav-toggle" class="nav-toggle-label">
+        <span></span>
+      </label>
+    </header>
+    <input type="checkbox" id="nav-toggle" class="nav-toggle" />
+    <!-- Overlay for mobile that closes menu when clicked -->
+    <div class="overlay"></div>
+
+    <nav class="sidebar">
+      <ul>
+        <li><a href="index.html">home</a></li>
+        <li><a href="projects.html" class="active">projects</a></li>
+        <li><a href="contact.html">contact</a></li>
+        <li><a href="sitereport.html">site report</a></li>
+        <li><a href="videodemo.html">demo</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="projects" class="projects-page">
+        <h2 class="section-title">my projects</h2>
+        <p class="section-subtitle">
+          a collection of my recent work and personal projects
+        </p>
+
+        <div class="projects-grid">
+          <!-- Web Projects -->
+          <div class="project-card" data-category="web">
+            <div class="project-image">
+              <img
+                src="media/gradient.jpg"
+                srcset="media/gradient-small.jpg 480w, media/gradient.jpg 800w"
+                sizes="(max-width: 600px) 480px, 800px"
+                alt="E-Commerce Platform"
+                loading="lazy"
+              />
+            </div>
+            <div class="project-info">
+              <h4>e-Commerce platform</h4>
+              <p>
+                a full-stack e-commerce solution with React, Node.js and MongoDB
+              </p>
+              <div class="project-tags">
+                <span>React</span>
+                <span>Node.js</span>
+                <span>MongoDB</span>
+              </div>
+              <div class="project-links">
+                <a href="#" class="project-link"
+                  ><i class="fas fa-external-link-alt"></i> live demo</a
+                >
+                <a href="#" class="project-link"
+                  ><i class="fab fa-github"></i> GitHub</a
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="project-card" data-category="web">
+            <div class="project-image">
+              <img src="media/gradient.jpg" alt="Portfolio Website" />
+            </div>
+            <div class="project-info">
+              <h4>portfolio website</h4>
+              <p>
+                a responsive portfolio website built with HTML, CSS, and
+                JavaScript
+              </p>
+              <div class="project-tags">
+                <span>HTML</span>
+                <span>CSS</span>
+                <span>JavaScript</span>
+              </div>
+              <div class="project-links">
+                <a href="#" class="project-link"
+                  ><i class="fas fa-external-link-alt"></i> live demo</a
+                >
+                <a href="#" class="project-link"
+                  ><i class="fab fa-github"></i> GitHub</a
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="project-card" data-category="web">
+            <div class="project-image">
+              <img src="media/gradient.jpg" alt="Weather App" />
+            </div>
+            <div class="project-info">
+              <h4>weather app</h4>
+              <p>a weather application that uses OpenWeatherMap API</p>
+              <div class="project-tags">
+                <span>JavaScript</span>
+                <span>API</span>
+                <span>CSS</span>
+              </div>
+              <div class="project-links">
+                <a href="#" class="project-link"
+                  ><i class="fas fa-external-link-alt"></i> live demo</a
+                >
+                <a href="#" class="project-link"
+                  ><i class="fab fa-github"></i> GitHub</a
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- Mobile Projects -->
+          <div class="project-card" data-category="mobile">
+            <div class="project-image">
+              <img src="media/gradient.jpg" alt="Fitness Tracker App" />
+            </div>
+            <div class="project-info">
+              <h4>fitness tracker</h4>
+              <p>a mobile app for tracking workouts and fitness progress</p>
+              <div class="project-tags">
+                <span>React Native</span>
+                <span>Firebase</span>
+                <span>Redux</span>
+              </div>
+              <div class="project-links">
+                <a href="#" class="project-link"
+                  ><i class="fas fa-external-link-alt"></i> app store</a
+                >
+                <a href="#" class="project-link"
+                  ><i class="fab fa-github"></i> GitHub</a
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="project-card" data-category="mobile">
+            <div class="project-image">
+              <img src="media/gradient.jpg" alt="Recipe Finder App" />
+            </div>
+            <div class="project-info">
+              <h4>recipe finder</h4>
+              <p>a mobile application for discovering and saving recipes</p>
+              <div class="project-tags">
+                <span>Flutter</span>
+                <span>Dart</span>
+                <span>Firebase</span>
+              </div>
+              <div class="project-links">
+                <a href="#" class="project-link"
+                  ><i class="fas fa-external-link-alt"></i> play store</a
+                >
+                <a href="#" class="project-link"
+                  ><i class="fab fa-github"></i> GitHub</a
+                >
+              </div>
+            </div>
+          </div>
+
+          <!-- UI/UX Projects -->
+
+          <div class="project-card" data-category="ui">
+            <div class="project-image">
+              <img src="media/gradient.jpg" alt="Travel App UI Design" />
+            </div>
+            <div class="project-info">
+              <h4>travel planner UI</h4>
+              <p>UI/UX design for a travel planning application</p>
+              <div class="project-tags">
+                <span>Adobe XD</span>
+                <span>Illustrator</span>
+                <span>User Research</span>
+              </div>
+              <div class="project-links">
+                <a href="#" class="project-link"
+                  ><i class="fas fa-external-link-alt"></i> case study</a
+                >
+                <a href="#" class="project-link"
+                  ><i class="fab fa-dribbble"></i> Dribbble</a
+                >
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+    <footer>
+      <hr />
+      <div class="footer-content">
+        <div class="footer-social">
+          <a href="https://github.com/hayzaydeee"
+            ><i class="fab fa-github"></i
+          ></a>
+          <a href="https://www.linkedin.com/in/divine-eze-5b3719302/"
+            ><i class="fab fa-linkedin"></i
+          ></a>
+          <a href="https://instagram.com/hayzaydee"
+            ><i class="fab fa-twitter"></i
+          ></a>
+          <a href=""><i class="fab fa-dribbble"></i></a>
+        </div>
+        <p>&copy; 2025 Divine Eze. All rights reserved.</p>
+      </div>
+    </footer>
+
+    <script>
+      // Project filtering functionality
+      document.addEventListener("DOMContentLoaded", () => {
+        const filterButtons = document.querySelectorAll(".filter-btn");
+        const projectCards = document.querySelectorAll(".project-card");
+
+        filterButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            // Remove active class from all buttons
+            filterButtons.forEach((btn) => btn.classList.remove("active"));
+            // Add active class to clicked button
+            button.classList.add("active");
+
+            const filterValue = button.getAttribute("data-filter");
+
+            projectCards.forEach((card) => {
+              if (
+                filterValue === "all" ||
+                card.getAttribute("data-category") === filterValue
+              ) {
+                card.style.display = "flex";
+              } else {
+                card.style.display = "none";
+              }
+            });
+          });
+        });
+
+        // Close mobile menu when clicking overlay
+        const overlay = document.querySelector(".overlay");
+        const navToggle = document.getElementById("nav-toggle");
+
+        overlay.addEventListener("click", () => {
+          navToggle.checked = false;
+        });
+      });
+    </script>
+  </body>
+</html>

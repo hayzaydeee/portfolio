@@ -1,0 +1,101 @@
+
+:root {
+    /* Common variables */
+    --font-main: "Poppins", sans-serif;
+    --font-accent: "Preahvihear", sans-serif;
+    --radius-md: 8px;
+    --space-md: 1rem;
+    
+    /* Light Theme (Default - Green Theme) */
+    --primary-color: #64ffda;
+    --primary-color-light: #64ffda33;
+    --primary-color-lighter: #64ffda1a;
+    --primary-color-lightest: #64ffda0d;
+    
+    --secondary-color: #087E8B;
+    --secondary-color-dark: #00487c;
+    --secondary-color-darker: #032b43;
+    
+    --text-primary: #ffffff;
+    --text-secondary: #ccd6f6;
+    --text-tertiary: #a8b2d1;
+    --text-muted: #ffffffd9;
+    
+    --bg-primary: linear-gradient(303deg, #00487c, #087E8B, #032b43);
+    --bg-solid: #071930;
+    --bg-overlay: #ffffff1a;
+    --bg-card: #ffffff0d;
+    --bg-modal: #047692;
+    --bg-tooltip: #0a192fb3;
+    
+    /* Transition for theme changes */
+    --theme-transition: background 0.4s ease, 
+                        background-color 0.4s ease,
+                        color 0.4s ease, 
+                        border-color 0.4s ease;
+    
+    /* Spacing */
+    --space-xs: 0.25rem;    /* 4px */
+    --space-sm: 0.5rem;     /* 8px */
+    --space-lg: 2rem;       /* 32px */
+    --space-xl: 4rem;       /* 64px */
+    
+    /* Border Radius */
+    --radius-sm: 4px;
+    --radius-lg: 16px;
+    --radius-pill: 9999px;
+    
+    /* Shadows */
+    --shadow-sm: 0 1px 3px #0000001f;
+    --shadow-md: 0 4px 6px #0000001a;
+    --shadow-lg: 0 10px 15px #0000001a;
+    
+    /* Transitions */
+    --transition-fast: 0.2s ease;
+    --transition-medium: 0.3s ease;
+    --transition-slow: 0.5s ease;
+    --transition-bounce: 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+    
+    /* Z-index layers */
+    --z-modal: 1000;
+    --z-navbar: 900;
+    --z-overlay: 800;
+    --z-dropdown: 700;
+    --z-above: 10;
+    --z-normal: 1;
+    --z-below: -1;
+  
+    /* skill bar */
+    --skill-bar-height: 4px;
+    --skill-tag-radius: 15px;
+    --animation-timing: cubic-bezier(0.16, 1, 0.3, 1);
+  
+  }
+  
+  
+  /* Dark Theme - Added as alternate color scheme */
+  body.dark-mode {
+    /* Dark theme primary colors - Deep purple */
+    --primary-color: #BB86FC;
+    --primary-color-light: #bb86fc33;
+    --primary-color-lighter: #bb86fc1a;
+    --primary-color-lightest: #bb86fc0d;
+    
+    --secondary-color: #03DAC6;
+    --secondary-color-dark: #018786;
+    --secondary-color-darker: #015F5F;
+    
+    /* Dark theme text colors */
+    --text-primary: #E1E1E1;
+    --text-secondary: #BBBBBB;
+    --text-tertiary: #999999;
+    --text-muted: #ffffffb3;
+    
+    /* Dark theme backgrounds */
+    --bg-primary: linear-gradient(303deg, #121212, #1F1B24, #252131);
+    --bg-solid: #121212;
+    --bg-overlay: #ffffff12;
+    --bg-card: #1e1e1ee6;
+    --bg-modal: #1E1E1E;
+    --bg-tooltip: #1e1e1ef2;
+  }

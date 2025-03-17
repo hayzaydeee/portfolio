@@ -1,0 +1,54 @@
+
+/* CTA Button */
+.cta{
+  text-align: center;
+}
+
+.hire-btn {
+  display: inline-block;
+  color: var(--primary-color);
+  text-decoration: none;
+  border: 1px solid var(--primary-color);
+  border-radius: var(--radius-pill);
+  padding: 0.8rem 2rem;
+  transition: all var(--transition-medium);
+  position: relative;
+  overflow: hidden;
+  z-index: 1;
+}
+
+.hire-btn::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 100%;
+  background-color: var(--primary-color);
+  transition: width var(--transition-medium);
+  z-index: -1;
+}
+
+.hire-btn:hover {
+  color: var(--secondary-color-darker);
+}
+
+.hire-btn:hover::before {
+  width: 100%;
+}
+
+.hire-btn .fas {
+  margin-left: 8px;
+  transition: transform var(--transition-medium);
+}
+
+.hire-btn:hover .fas {
+  transform: translateX(5px) rotate(10deg);
+}
+
+.contact-form button{
+  background: inherit;
+  font-family: var(--font-main);
+  font-size: 1rem;
+  font-weight: 400;
+}

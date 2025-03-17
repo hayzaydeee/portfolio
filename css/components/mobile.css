@@ -1,0 +1,254 @@
+/* Mobile Navigation */
+.nav-toggle {
+  position: absolute;
+  opacity: 0;
+  z-index: -1;
+}
+
+.nav-toggle-label {
+  display: none;
+}
+
+/* Media Queries */
+@media screen and (max-width: 768px) {
+  /* Show the hamburger menu toggle on mobile */
+  .nav-toggle-label {
+    position: fixed;
+    right: 1rem;
+    top: 1.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 30px;
+    width: 30px;
+    cursor: pointer;
+    z-index: 101; /* Higher than header */
+  }
+
+  /* Style the hamburger icon */
+  .nav-toggle-label span,
+  .nav-toggle-label span::before,
+  .nav-toggle-label span::after {
+    display: block;
+    background: var(--text-primary);
+    height: 2px;
+    width: 24px;
+    position: relative;
+    transition: all 0.3s ease;
+  }
+
+  .nav-toggle-label span::before,
+  .nav-toggle-label span::after {
+    content: "";
+    position: absolute;
+  }
+
+  .nav-toggle-label span::before {
+    top: -8px;
+  }
+
+  .nav-toggle-label span::after {
+    top: 8px;
+  }
+
+
+  /* Style sidebar for mobile */
+  .sidebar {
+    position: fixed;
+    top: 20%;
+    left: 0;
+    height: 50%;
+    width: 40%;
+    max-width: 250px;
+    background-color: var(--primary-color-light);
+    border: 0.7px solid var(--secondary-color);
+    border-top-left-radius: 0 !important;
+    border-bottom-left-radius: 0 !important;
+    padding-top: 5rem;
+    z-index: 90;
+    transform: translateX(-100%);
+    transition: transform 0.3s ease;
+    display: block;
+
+  }
+
+  .sidebar ul {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+  }
+
+  .sidebar li {
+    margin-bottom: 2rem;
+    padding-left: 1.5rem;
+    opacity: 1;
+    animation: none;
+  }
+
+  /* Set position to relative for mobile view */
+  body {
+    position: relative;
+  }
+
+  /* Make sure the overlay is properly positioned relative to the body */
+  .overlay {
+    z-index: 89;
+  }
+
+  /* Make sure menu opens properly */
+  .nav-toggle:checked ~ .sidebar {
+    transform: translateX(0);
+    box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
+  }
+
+  /* Adjust main content to take full width */
+  main {
+    margin-left: 0 !important;
+    width: 100%;
+    padding: 4rem 1rem 1rem 1rem;
+    padding-top: 5rem !important; /* Important to override other styles */
+  }
+
+  .hero {
+    text-align: center;
+    min-height: 80vh;
+  }
+
+  h2 {
+    font-size: 2.5rem;
+  }
+
+  footer {
+    padding: 1.5rem 0 1rem;
+    margin-top: 2rem;
+  }
+
+  footer p {
+    font-size: 0.8rem;
+  }
+
+  .skills-container {
+    grid-template-columns: 1fr;
+  }
+
+  .skills h2 {
+    font-size: 2rem;
+  }
+
+  .section-title {
+    font-size: 2rem;
+  }
+
+  .projects-page {
+    padding: 4rem 1rem !important;
+  }
+
+  .projects-grid {
+    grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)) !important;
+  }
+
+  .contact-content {
+    grid-template-columns: 1fr;
+    gap: var(--space-lg);
+  }
+
+  .contact-form,
+  .contact-info {
+    padding: var(--space-md);
+  }
+
+  .contact-header {
+    padding: var(--space-md) 0;
+    margin-bottom: var(--space-lg);
+  }
+
+  .video-page {
+    padding: 5rem 1.5rem;
+  }
+
+  .video-container {
+    width: 100% !important;
+  }
+
+  .section-title {
+    font-size: 2rem;
+  }
+
+  header {
+    padding: 1rem 1.5rem;
+    background-color: var(--primary-color-light);
+    backdrop-filter: blur(8px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .report-page {
+    padding: 4rem 2rem !important;
+  }
+
+  .timeline-item::before {
+    left: -1.8rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .filter-container {
+    flex-direction: row;
+  }
+
+  .filter-btn {
+    font-size: 0.8rem;
+    padding: 0.4rem 0.8rem;
+  }
+
+  .project-info h4 {
+    font-size: 1.1rem;
+  }
+
+  .social-icons {
+    flex-wrap: wrap;
+  }
+
+  .form-group {
+    margin-bottom: var(--space-md);
+  }
+
+  .video-page {
+    padding: 4rem 1rem;
+  }
+
+  .section-title {
+    font-size: 1.8rem;
+  }
+
+  .video-info {
+    padding: 1.2rem;
+  }
+
+  .video-info p {
+    font-size: 1rem;
+  }
+
+  .hire {
+    padding: 0.6rem 1.2rem;
+    font-size: 0.9rem;
+  }
+}
+
+.overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(3, 43, 67, 0.7);
+  backdrop-filter: blur(3px);
+  z-index: 89;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.3s ease;
+}
+
+.nav-toggle:checked ~ .overlay {
+  opacity: 1;
+  visibility: visible;
+}

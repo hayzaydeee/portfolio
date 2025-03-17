@@ -1,0 +1,72 @@
+.sidebar {
+  top: 13rem;
+  left: 2rem;
+  position: fixed;
+  height: 50vh;
+  width: 7rem;
+  backdrop-filter: blur(10px) saturate(1.2);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  z-index: 90;
+  box-shadow: var(--shadow-lg);
+  border-radius: 1rem;
+  border: 0.7px solid var(--secondary-color);
+  border-color: var(--secondary-color);
+}
+
+.sidebar ul {
+  list-style: none;
+}
+
+.sidebar li {
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+  padding-left: 1rem;
+  padding-right: 1rem;
+  opacity: 0;
+  animation: fadeInRight 0.5s ease forwards;
+}
+
+.sidebar li:nth-child(1) { animation-delay: 0.1s; }
+.sidebar li:nth-child(2) { animation-delay: 0.2s; }
+.sidebar li:nth-child(3) { animation-delay: 0.3s; }
+.sidebar li:nth-child(4) { animation-delay: 0.4s; }
+.sidebar li:nth-child(5) { animation-delay: 0.5s; }
+
+.sidebar a {
+  color: var(--text-secondary);
+  text-decoration: none;
+  display: inline-block;
+  transition: all var(--transition-medium);
+  position: relative;
+}
+
+.sidebar a.active {
+  color: var(--primary-color);
+}
+
+.sidebar a::after {
+  content: "";
+  position: absolute;
+  bottom: -5px;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background-color: white;
+  transition: width 0.3s ease, background-color 0.3s ease;
+}
+
+.sidebar a.active::after {
+  padding-left: 0.5rem;
+  width: 100%;
+  background-color: #66bfbf;
+}
+
+/* Don't apply animation in mobile mode to avoid flicker */
+@media screen and (max-width: 768px) {
+  .sidebar li {
+    opacity: 1;
+    animation: none;
+  }
+}
