@@ -40,7 +40,7 @@ function getIcon(type: Currently["type"]) {
           ))}
         </svg>
       );
-    case "verse":
+    case "thought":
       return (
         <span className="mr-2 -mt-px shrink-0 text-(--color-accent-muted) font-serif text-lg leading-none">
           &ldquo;
@@ -81,7 +81,7 @@ export function CurrentlyIndicator({ data }: CurrentlyIndicatorProps) {
       >
         {data.content}
       </a>
-    ) : data.type === "verse" ? (
+    ) : data.type === "thought" ? (
       <Link href="/notebook" className="hover:text-(--color-base-dark) transition-colors">
         {data.content}
       </Link>

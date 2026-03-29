@@ -2,7 +2,7 @@ import { createClient } from "@/lib/supabase/server";
 
 export type Currently = {
   id: string;
-  type: "project" | "music" | "verse" | "film" | "book";
+  type: "project" | "music" | "thought" | "film" | "book";
   verb: string;
   content: string;
   link: string | null;

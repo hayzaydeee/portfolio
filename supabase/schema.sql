@@ -9,18 +9,19 @@
 create table if not exists projects (
   id            uuid primary key default gen_random_uuid(),
   slug          text unique not null,
-  name          text not null,
-  description   text,
-  problem       text,
-  build         text,
+  title         text not null,
+  tagline       text,
+  problem_notes text,
+  build_notes   text,
   stack         text[],
   personal_note text,
   live_url      text,
   repo_url      text,
-  image_path    text,
+  thumbnail_url text,
+  is_featured   boolean not null default false,
   status        text not null default 'draft'
                   check (status in ('published', 'draft', 'archived', 'in_progress')),
-  sort_order    integer not null default 0,
+  order_index   integer not null default 0,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
@@ -52,31 +53,36 @@ create table if not exists tracks (
 );
 
 create table if not exists analysis_essays (
-  id         uuid primary key default gen_random_uuid(),
-  slug       text unique not null,
-  title      text not null,
-  content    text,          -- MDX/Markdown
-  status     text not null default 'draft'
-               check (status in ('published', 'draft', 'archived')),
-  created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  id                 uuid primary key default gen_random_uuid(),
+  slug               text unique not null,
+  title              text not null,
+  subject            text not null default '',
+  content            text,          -- MDX/Markdown
+  body_html          text,          -- Tiptap HTML output
+  read_time_minutes  integer,
+  status             text not null default 'draft'
+                       check (status in ('published', 'draft', 'archived')),
+  created_at         timestamptz not null default now(),
+  updated_at         timestamptz not null default now()
 );
 
 create table if not exists notebook_entries (
-  id          uuid primary key default gen_random_uuid(),
-  slug        text unique not null,
-  journal     text not null
-                check (journal in ('reflections', 'fragments', 'annotations', 'responses', 'buildlog')),
-  title       text,
-  content     text,          -- MDX/Markdown
-  source      text not null default 'admin'
-                check (source in ('admin', 'bito')),
-  status      text not null default 'draft'
-                check (status in ('published', 'draft', 'staged', 'rejected', 'archived')),
-  tags        text[],
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now(),
-  published_at timestamptz
+  id                uuid primary key default gen_random_uuid(),
+  slug              text unique not null,
+  journal           text not null
+                      check (journal in ('reflections', 'fragments', 'annotations', 'responses', 'buildlog')),
+  title             text,
+  content           text,          -- MDX/Markdown
+  body_html         text,          -- Tiptap HTML output
+  read_time_minutes integer,
+  source            text not null default 'admin'
+                      check (source in ('admin', 'bito')),
+  status            text not null default 'draft'
+                      check (status in ('published', 'draft', 'staged', 'rejected', 'archived')),
+  tags              text[],
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now(),
+  published_at      timestamptz
 );
 
 create table if not exists wall_pieces (
@@ -115,6 +121,7 @@ create table if not exists site_settings (
   room_notebook_visible   boolean not null default true,
   room_wall_visible       boolean not null default true,
   bito_webhook_secret     text,
+  last_bito_webhook_at    timestamptz,
   updated_at              timestamptz not null default now()
 );
 

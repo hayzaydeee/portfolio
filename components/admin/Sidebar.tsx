@@ -1,6 +1,8 @@
 import { HzyMark } from "@/components/nav/HzyMark";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { QuickEditCurrently } from "@/components/admin/QuickEditCurrently";
+import type { Currently } from "@/lib/data/currently";
 
 const SECTIONS = [
   { href: "/admin", label: "overview", accent: "var(--admin-accent-overview)" },
@@ -13,9 +15,10 @@ const SECTIONS = [
 
 interface AdminSidebarProps {
   active: string;
+  current: Currently | null;
 }
 
-export function AdminSidebar({ active }: AdminSidebarProps) {
+export function AdminSidebar({ active, current }: AdminSidebarProps) {
   return (
     <aside className="w-55 shrink-0 border-r border-black/10 flex flex-col h-full bg-(--lobby-surface-deep)">
       {/* Brand */}
@@ -50,15 +53,10 @@ export function AdminSidebar({ active }: AdminSidebarProps) {
         })}
       </nav>
 
-      {/* Currently quick-edit widget placeholder */}
-      <div className="px-5 py-5 border-t border-black/10">
-        <p className="text-[10px] font-sans text-(--color-text-muted) mb-1.5">now</p>
-        <Link
-          href="/admin/settings"
-          className="text-xs font-sans text-(--color-text-muted) hover:text-(--color-base-dark) transition-colors"
-        >
-          update currently →
-        </Link>
+      {/* Currently quick-edit widget */}
+      <div className="px-4 py-5 border-t border-white/8">
+        <p className="text-[10px] font-sans text-(--color-text-muted) mb-2.5 uppercase tracking-wider">now</p>
+        <QuickEditCurrently current={current} />
       </div>
     </aside>
   );
