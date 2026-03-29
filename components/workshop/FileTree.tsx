@@ -13,27 +13,17 @@ type TreeNode = {
   hidden?: boolean;
 };
 
-const FILE_TREE: TreeNode[] = [
-  {
-    name: "hayzaydee",
-    type: "dir",
-    children: [
-      {
-        name: "projects",
-        type: "dir",
-        children: [
-          { name: "vrrbose", type: "dir", slug: "vrrbose", isNew: true, children: [] },
-          { name: "bito.works", type: "dir", slug: "bito-works", children: [] },
-          { name: "gaff3r", type: "dir", slug: "gaff3r", children: [] },
-          { name: "predictionsLeague", type: "dir", slug: "predictions-league", children: [] },
-        ],
-      },
-      { name: "experience", type: "dir", children: [] },
-      { name: "education", type: "dir", children: [] },
-      { name: "stack.json", type: "file", slug: "stack" },
-      { name: "README.md", type: "file", slug: "readme" },
-    ],
-  },
+export type WorkshopProject = {
+  name: string;
+  slug: string;
+  isNew?: boolean;
+};
+
+const STATIC_FILE_NODES: TreeNode[] = [
+  { name: "experience", type: "dir", children: [] },
+  { name: "education", type: "dir", children: [] },
+  { name: "stack.json", type: "file", slug: "stack" },
+  { name: "README.md", type: "file", slug: "readme" },
 ];
 
 const DEBUG_NODES: TreeNode[] = [
@@ -48,6 +38,7 @@ const DEBUG_NODES: TreeNode[] = [
 interface FileTreeProps {
   activeSlug: string | null;
   onSelect: (slug: string) => void;
+  projects: WorkshopProject[];
 }
 
 function TreeItem({
@@ -134,10 +125,31 @@ function TreeItem({
   );
 }
 
-export function FileTree({ activeSlug, onSelect }: FileTreeProps) {
+export function FileTree({ activeSlug, onSelect, projects }: FileTreeProps) {
   const [showHidden, setShowHidden] = useState(false);
 
-  const allNodes = showHidden ? [...FILE_TREE, ...DEBUG_NODES] : FILE_TREE;
+  const rootTree: TreeNode[] = [
+    {
+      name: "hayzaydee",
+      type: "dir",
+      children: [
+        {
+          name: "projects",
+          type: "dir",
+          children: projects.map((p) => ({
+            name: p.name,
+            type: "dir" as const,
+            slug: p.slug,
+            isNew: p.isNew,
+            children: [],
+          })),
+        },
+        ...STATIC_FILE_NODES,
+      ],
+    },
+  ];
+
+  const allNodes = showHidden ? [...rootTree, ...DEBUG_NODES] : rootTree;
 
   return (
     <div

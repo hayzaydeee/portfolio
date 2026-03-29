@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 
 export type Currently = {
   id: string;
@@ -10,7 +10,7 @@ export type Currently = {
 
 export async function getCurrently(): Promise<Currently | null> {
   try {
-    const supabase = await createClient();
+    const supabase = await createPublicClient();
     const { data, error } = await supabase
       .from("currently")
       .select("id, type, verb, content, link")

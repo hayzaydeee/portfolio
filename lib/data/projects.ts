@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createPublicClient } from "@/lib/supabase/server";
 
 export type FeaturedProject = {
   id: string;
@@ -15,7 +15,7 @@ export type FeaturedProject = {
 
 export async function getFeaturedProjects(limit = 3): Promise<FeaturedProject[]> {
   try {
-    const supabase = await createClient();
+    const supabase = await createPublicClient();
     const { data, error } = await supabase
       .from("projects")
       .select(
@@ -28,6 +28,30 @@ export async function getFeaturedProjects(limit = 3): Promise<FeaturedProject[]>
 
     if (error || !data) return [];
     return data as FeaturedProject[];
+  } catch {
+    return [];
+  }
+}
+
+export type PublishedProject = {
+  slug: string;
+  title: string;
+  status: string;
+  is_featured: boolean;
+  order_index: number;
+};
+
+export async function getPublishedProjects(): Promise<PublishedProject[]> {
+  try {
+    const supabase = await createPublicClient();
+    const { data, error } = await supabase
+      .from("projects")
+      .select("slug, title, status, is_featured, order_index")
+      .eq("status", "published")
+      .order("order_index", { ascending: true });
+
+    if (error || !data) return [];
+    return data as PublishedProject[];
   } catch {
     return [];
   }
