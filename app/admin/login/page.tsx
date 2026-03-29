@@ -1,7 +1,14 @@
 import { signIn } from "@/auth";
 import { HzyMark } from "@/components/nav/HzyMark";
 
-export default function AdminLoginPage() {
+export default async function AdminLoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const { error } = await searchParams;
+  const accessDenied = error === "AccessDenied";
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-(--lobby-surface-deep)">
       {/* Ambient radial glow */}
@@ -26,6 +33,18 @@ export default function AdminLoginPage() {
         <p className="text-xs font-sans text-accent-muted text-center mb-9 tracking-widest uppercase">
           sign in to continue
         </p>
+
+        {/* Access-denied notification */}
+        {accessDenied && (
+          <div className="mb-7 rounded-lg border border-red-900/40 bg-red-950/30 px-4 py-3 text-xs font-sans leading-relaxed">
+            <p className="text-red-300 mb-1.5">
+              access denied — double-check you signed in with the right Google account.
+            </p>
+            <p className="text-red-500/70">
+              this area is private. if you stumbled here by accident, there's nothing to see.
+            </p>
+          </div>
+        )}
 
         {/* Divider */}
         <div className="h-px bg-white/6 mb-9" />
