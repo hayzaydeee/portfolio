@@ -31,6 +31,10 @@ export const metadata: Metadata = {
   metadataBase: new URL("https://hayzaydee.me"),
 };
 
+// Google Sans Code is not in next/font/google — loaded via <link> in the <head>
+const GOOGLE_SANS_CODE_URL =
+  "https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500&display=swap";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -41,7 +45,14 @@ export default function RootLayout({
       lang="en"
       className={`${fresca.variable} ${garamond.variable} ${texturina.variable} h-full antialiased`}
     >
-      <body className="min-h-full">{children}</body>
+      <head>
+        {/* Google Sans Code — not available in next/font/google */}
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+        {/* eslint-disable-next-line @next/next/no-page-custom-font */}
+        <link rel="stylesheet" href={GOOGLE_SANS_CODE_URL} />
+      </head>
+      <body className="min-h-full flex flex-col">{children}</body>
     </html>
   );
 }

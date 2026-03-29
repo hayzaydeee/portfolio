@@ -1,8 +1,5 @@
 @import "tailwindcss";
 
-/* Google Sans Code — not in next/font/google, loaded directly */
-@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500&display=swap');
-
 /* ── Design tokens ─────────────────────────────────────────────────── */
 @theme inline {
   /* Typography — CSS vars set by next/font on <html> */
@@ -22,9 +19,12 @@
 
 /* ── Room palette tokens (raw CSS vars, used with var() in components) */
 :root {
-  /* Lobby */
-  --lobby-surface:      #F5F4F0;
-  --lobby-surface-deep: #EDE9E0;
+  /* Lobby — dark mode */
+  --lobby-surface:      #0C110A;
+  --lobby-surface-deep: #131910;
+  --lobby-text:         #DCE8D8;
+  --lobby-card:         #1B2218;
+  --lobby-accent:       #52A873;
 
   /* Workshop */
   --workshop-base:        #0A120D;
@@ -66,7 +66,7 @@
 body {
   font-family: var(--font-sans);
   background: var(--lobby-surface);
-  color: var(--color-base-dark);
+  color: var(--lobby-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

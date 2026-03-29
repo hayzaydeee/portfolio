@@ -13,12 +13,11 @@ export default auth((req) => {
     return NextResponse.redirect(loginUrl);
   }
 
-  return NextResponse.next();
+  // Pass pathname as header so server components can read the active section
+  const res = NextResponse.next();
+  res.headers.set("x-pathname", req.nextUrl.pathname);
+  return res;
 });
-
-export const config = {
-  matcher: ["/admin/:path*"],
-};
 
 export const config = {
   matcher: ["/admin/:path*"],
