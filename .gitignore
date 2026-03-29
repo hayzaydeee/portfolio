@@ -1,13 +1,34 @@
-/docs 
+# Next.js
+.next/
+out/
+build/
 
-/node_modules
+# Dependencies
+node_modules/
 
-/.vscode
+# Env files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
 
-/.idea
-/.DS_Store
-/.env
-/.env.local
-/.env.development
-/.env.test
-/.env.production
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Vercel
+.vercel
+
+# TypeScript
+*.tsbuildinfo
+next-env.d.ts
+
+# Project-specific
+docs/
+
+# Editor
+.vscode/
+.idea/
+.DS_Store

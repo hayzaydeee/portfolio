@@ -1,0 +1,83 @@
+@import "tailwindcss";
+
+/* Google Sans Code — not in next/font/google, loaded directly */
+@import url('https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500&display=swap');
+
+/* ── Design tokens ─────────────────────────────────────────────────── */
+@theme inline {
+  /* Typography — CSS vars set by next/font on <html> */
+  --font-sans:   var(--font-fresca), sans-serif;
+  --font-mono:   'Google Sans Code', ui-monospace, monospace;
+  --font-serif:  var(--font-garamond), Georgia, serif;
+  --font-script: var(--font-texturina), Georgia, serif;
+
+  /* Global palette */
+  --color-base-dark:    #141414;
+  --color-base-light:   #F5F4F0;
+  --color-accent:       #1E6B3C;
+  --color-accent-light: #52A873;
+  --color-accent-muted: #A3C4A8;
+  --color-text-muted:   #8C8C88;
+}
+
+/* ── Room palette tokens (raw CSS vars, used with var() in components) */
+:root {
+  /* Lobby */
+  --lobby-surface:      #F5F4F0;
+  --lobby-surface-deep: #EDE9E0;
+
+  /* Workshop */
+  --workshop-base:        #0A120D;
+  --workshop-panel:       #0F1A11;
+  --workshop-tree:        #080F0A;
+  --workshop-tree-border: #1A2E1D;
+  --workshop-text:        #D4E8D8;
+  --workshop-text-muted:  #5A7A5E;
+  --workshop-syntax:      #52A873;
+  --workshop-syntax-dim:  #2D6B42;
+  --workshop-tab:         #0C1610;
+  --workshop-accent:      #1E6B3C;
+
+  /* Studio */
+  --studio-base:          #1A0A0E;
+  --studio-player-accent: #2D6B42;
+
+  /* Notebook */
+  --notebook-surface:      #E8E0D0;
+  --notebook-reflections:  #7A4F1E;
+  --notebook-fragments:    #4A6B4A;
+  --notebook-annotations:  #1E2E5A;
+  --notebook-responses:    #6B1E2E;
+  --notebook-buildlog:     #2A2E35;
+
+  /* Wall */
+  --wall-surface: #F0E8D8;
+
+  /* Admin sidebar accent per section */
+  --admin-accent-overview:  #1E6B3C;
+  --admin-accent-workshop:  #2D6B42;
+  --admin-accent-studio:    #8B1F35;
+  --admin-accent-notebook:  #7A4F1E;
+  --admin-accent-wall:      #C4855A;
+  --admin-accent-settings:  #1E6B3C;
+}
+
+/* ── Base styles ────────────────────────────────────────────────────── */
+body {
+  font-family: var(--font-sans);
+  background: var(--lobby-surface);
+  color: var(--color-base-dark);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Respect reduced motion preference — override all Motion transitions */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
