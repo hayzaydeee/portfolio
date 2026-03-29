@@ -14,7 +14,7 @@ export default function AdminLoginPage() {
         }}
       />
 
-      <div className="relative w-full max-w-xs px-8 py-10 bg-(--lobby-card) rounded-2xl border border-white/[0.06] shadow-xl shadow-black/40">
+      <div className="relative w-full max-w-xs px-8 py-10 bg-(--lobby-card) rounded-2xl border border-white/6 shadow-xl shadow-black/40">
         {/* Mark */}
         <div className="flex justify-center mb-9">
           <HzyMark mode="dark" size={40} animate />
@@ -39,7 +39,7 @@ export default function AdminLoginPage() {
         >
           <button
             type="submit"
-            className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg border border-white/10 text-sm font-sans text-(--lobby-text) bg-white/[0.04] hover:bg-white/[0.08] hover:border-white/20 transition-colors cursor-pointer"
+            className="w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-lg border border-white/10 text-sm font-sans text-(--lobby-text) bg-white/4 hover:bg-white/8 hover:border-white/20 transition-colors cursor-pointer"
           >
             {/* Google icon */}
             <svg width="16" height="16" viewBox="0 0 18 18" aria-hidden="true" className="shrink-0">
