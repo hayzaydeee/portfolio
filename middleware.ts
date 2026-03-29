@@ -2,7 +2,8 @@ import { auth } from "@/auth";
 import { NextResponse } from "next/server";
 
 export default auth((req) => {
-  const isLoginPage = req.nextUrl.pathname === "/admin/login";
+  const pathname = req.nextUrl.pathname.replace(/\/$/, "");
+  const isLoginPage = pathname === "/admin/login";
 
   // Allow the login page through regardless of auth state
   if (isLoginPage) return NextResponse.next();
