@@ -29,6 +29,17 @@ export const metadata: Metadata = {
   title: "hayzaydee — Divine Eze",
   description: "Software engineer, musician, writer. A studio, not a portfolio.",
   metadataBase: new URL("https://hayzaydee.me"),
+  icons: {
+    icon: [
+      { url: "/favicon-16x16.png", sizes: "16x16", type: "image/png" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon.ico" },
+    ],
+    apple: { url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" },
+    other: [
+      { rel: "manifest", url: "/site.webmanifest" },
+    ],
+  },
 };
 
 // Google Sans Code is not in next/font/google — loaded via <link> in the <head>
