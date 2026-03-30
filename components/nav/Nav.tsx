@@ -18,9 +18,69 @@ function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
 }
 
+// ── Mood ring — nav temperature shifts subtly per room ────────────────────────
+
+type RoomKey = "default" | "work" | "music";
+
+const ROOM_NAV: Record<
+  RoomKey,
+  {
+    header: string;
+    link: string;
+    linkHover: string;
+    activeLink: string;
+    underline: string;
+    mobile: string;
+    mobileLink: string;
+    mobileActive: string;
+    hamburger: string;
+  }
+> = {
+  default: {
+    header: "bg-(--lobby-surface)/90 border-white/6",
+    link: "text-(--lobby-text)",
+    linkHover: "hover:text-(--lobby-accent)",
+    activeLink: "text-(--lobby-accent)",
+    underline: "bg-(--lobby-accent)",
+    mobile: "bg-(--lobby-surface)",
+    mobileLink: "text-(--lobby-text)",
+    mobileActive: "text-(--lobby-accent)",
+    hamburger: "bg-(--lobby-text)",
+  },
+  work: {
+    header: "bg-(--workshop-panel)/95 border-(--workshop-tree-border)",
+    link: "text-(--workshop-text)",
+    linkHover: "hover:text-(--workshop-syntax)",
+    activeLink: "text-(--workshop-syntax)",
+    underline: "bg-(--workshop-syntax)",
+    mobile: "bg-(--workshop-panel)",
+    mobileLink: "text-(--workshop-text)",
+    mobileActive: "text-(--workshop-syntax)",
+    hamburger: "bg-(--workshop-text)",
+  },
+  music: {
+    header: "bg-(--studio-panel)/95 border-white/5",
+    link: "text-(--studio-text)",
+    linkHover: "hover:text-(--studio-accent-light)",
+    activeLink: "text-(--studio-accent-light)",
+    underline: "bg-(--studio-accent-light)",
+    mobile: "bg-(--studio-panel)",
+    mobileLink: "text-(--studio-text)",
+    mobileActive: "text-(--studio-accent-light)",
+    hamburger: "bg-(--studio-text)",
+  },
+};
+
+function getRoomKey(pathname: string): RoomKey {
+  if (pathname.startsWith("/work")) return "work";
+  if (pathname.startsWith("/music")) return "music";
+  return "default";
+}
+
 export function Nav() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const roomStyle = ROOM_NAV[getRoomKey(pathname)];
 
   // Close mobile menu on route change
   useEffect(() => {
@@ -35,7 +95,12 @@ export function Nav() {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-6 bg-(--lobby-surface)/90 backdrop-blur-md border-b border-white/6">
+      <header
+        className={cn(
+          "fixed top-0 left-0 right-0 z-40 h-14 flex items-center px-6 backdrop-blur-md border-b transition-colors duration-300",
+          roomStyle.header
+        )}
+      >
         <nav className="w-full max-w-5xl mx-auto flex items-center justify-between">
           {/* Mark */}
           <Link href="/" aria-label="hayzaydee home" className="flex items-center shrink-0">
@@ -55,15 +120,15 @@ export function Nav() {
                     className={cn(
                       "relative text-sm font-sans pb-0.5 transition-colors",
                       active
-                        ? "text-(--lobby-accent)"
-                        : "text-(--lobby-text) hover:text-(--lobby-accent)"
+                        ? roomStyle.activeLink
+                        : cn(roomStyle.link, roomStyle.linkHover)
                     )}
                   >
                     {label}
                     {active && (
                       <motion.span
                         layoutId="nav-underline"
-                        className="absolute bottom-0 left-0 right-0 h-px bg-(--lobby-accent)"
+                        className={cn("absolute bottom-0 left-0 right-0 h-px", roomStyle.underline)}
                         transition={{ type: "spring", stiffness: 380, damping: 40 }}
                       />
                     )}
@@ -74,7 +139,7 @@ export function Nav() {
             <li>
               <a
                 href="mailto:hayzayd33@gmail.com"
-                className="text-sm font-sans text-(--lobby-text) hover:text-(--lobby-accent) transition-colors"
+                className={cn("text-sm font-sans transition-colors", roomStyle.link, roomStyle.linkHover)}
               >
                 ↗ get in touch
               </a>
@@ -90,17 +155,17 @@ export function Nav() {
           >
             <motion.span
               animate={menuOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
-              className="block w-5 h-px bg-(--lobby-text) origin-center"
+              className={cn("block w-5 h-px origin-center", roomStyle.hamburger)}
               transition={{ duration: 0.2 }}
             />
             <motion.span
               animate={menuOpen ? { opacity: 0 } : { opacity: 1 }}
-              className="block w-5 h-px bg-(--lobby-text)"
+              className={cn("block w-5 h-px", roomStyle.hamburger)}
               transition={{ duration: 0.15 }}
             />
             <motion.span
               animate={menuOpen ? { rotate: -45, y: -6 } : { rotate: 0, y: 0 }}
-              className="block w-5 h-px bg-(--lobby-text) origin-center"
+              className={cn("block w-5 h-px origin-center", roomStyle.hamburger)}
               transition={{ duration: 0.2 }}
             />
           </button>
@@ -116,7 +181,7 @@ export function Nav() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 z-30 bg-(--lobby-surface) flex flex-col items-center justify-center gap-8 md:hidden"
+            className={cn("fixed inset-0 z-30 flex flex-col items-center justify-center gap-8 md:hidden", roomStyle.mobile)}
           >
             {NAV_LINKS.map(({ href, label }, i) => (
               <motion.div
@@ -131,8 +196,8 @@ export function Nav() {
                   className={cn(
                     "text-3xl font-sans",
                     isActive(pathname, href)
-                      ? "text-(--lobby-accent)"
-                      : "text-(--lobby-text)"
+                      ? roomStyle.mobileActive
+                      : roomStyle.mobileLink
                   )}
                 >
                   {label}

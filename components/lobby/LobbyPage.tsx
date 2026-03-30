@@ -10,6 +10,7 @@ import { ProjectCards } from "./ProjectCards";
 import { TechStack } from "./TechStack";
 import { CTA } from "./CTA";
 import { TourNudge } from "./TourNudge";
+import { GuidedTour } from "./GuidedTour";
 import { CurrentlyIndicator } from "./CurrentlyIndicator";
 import type { Currently } from "@/lib/data/currently";
 import type { FeaturedProject } from "@/lib/data/projects";
@@ -21,6 +22,7 @@ interface LobbyPageProps {
 
 export function LobbyPage({ currently, projects }: LobbyPageProps) {
   const [showSplash, setShowSplash] = useState<boolean | null>(null);
+  const [tourActive, setTourActive] = useState(false);
 
   useEffect(() => {
     const seen = sessionStorage.getItem("hzy-splash-seen");
@@ -56,10 +58,14 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
         <ProjectCards projects={projects} />
         <TechStack />
         <CTA />
-        <TourNudge />
+        <TourNudge onStart={() => setTourActive(true)} />
       </motion.div>
 
       <CurrentlyIndicator data={currently} />
+
+      <AnimatePresence>
+        {tourActive && <GuidedTour onClose={() => setTourActive(false)} />}
+      </AnimatePresence>
     </>
   );
 }
