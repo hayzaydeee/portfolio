@@ -83,7 +83,7 @@ export function TechStack() {
                     className={cn(
                       "text-base font-sans transition-colors duration-300",
                       fadeOut && settled
-                        ? "text-(--color-text-muted)"
+                        ? "text-text-muted"
                         : "text-(--lobby-text)"                   )}
                   >
                     {item.word}

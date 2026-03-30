@@ -129,6 +129,10 @@ create table if not exists site_settings (
 insert into site_settings (id) values (gen_random_uuid())
 on conflict do nothing;
 
+-- ─── Migration: stack_json ────────────────────────────────────────────────────
+-- Run this against your Supabase project to add the stack editor column:
+-- ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS stack_json jsonb;
+
 -- ─────────────────────────────────────────────────────────────────────
 -- TRIGGERS — auto-update updated_at
 -- ─────────────────────────────────────────────────────────────────────

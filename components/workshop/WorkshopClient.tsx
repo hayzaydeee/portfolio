@@ -49,14 +49,13 @@ const LIFE_LOG_CONTENT = `[WARN]  purpose.exe is running but output is unclear
 
 // ─── File content renderer ────────────────────────────────────────────────────
 
-function FileContent({ slug }: { slug: string | null }) {
+function FileContent({ slug, highlightedStackHtml }: { slug: string | null; highlightedStackHtml?: string | null }) {
   if (!slug) return null;
 
   if (slug === "readme") {
     return (
       <pre
-        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap"
-        style={{ color: "var(--workshop-text)" }}
+        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap text-(--workshop-text)"
       >
         {README_CONTENT}
       </pre>
@@ -64,10 +63,16 @@ function FileContent({ slug }: { slug: string | null }) {
   }
 
   if (slug === "stack") {
+    if (highlightedStackHtml) {
+      return (
+        <div
+          className="text-sm overflow-auto h-full"          dangerouslySetInnerHTML={{ __html: highlightedStackHtml }}
+        />
+      );
+    }
     return (
       <pre
-        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap"
-        style={{ color: "var(--workshop-text-muted)" }}
+        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap text-(--workshop-text-muted)"
       >
         {STACK_CONTENT}
       </pre>
@@ -77,8 +82,7 @@ function FileContent({ slug }: { slug: string | null }) {
   if (slug === "life-log") {
     return (
       <pre
-        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap"
-        style={{ color: "var(--workshop-syntax-dim)" }}
+        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap text-(--workshop-syntax-dim)"
       >
         {LIFE_LOG_CONTENT}
       </pre>
@@ -87,8 +91,7 @@ function FileContent({ slug }: { slug: string | null }) {
 
   return (
     <div
-      className="flex-1 flex items-center justify-center p-6 font-mono text-xs"
-      style={{ color: "var(--workshop-text-muted)" }}
+      className="flex-1 flex items-center justify-center p-6 font-mono text-xs text-(--workshop-text-muted)"
     >
       // select a file to view
     </div>
@@ -100,11 +103,12 @@ function FileContent({ slug }: { slug: string | null }) {
 type WorkshopClientProps = {
   projects: WorkshopProject[];
   currently: Currently | null;
+  highlightedStackHtml?: string | null;
 };
 
 const FILE_SLUGS = new Set(["readme", "stack", "life-log"]);
 
-export function WorkshopClient({ projects, currently }: WorkshopClientProps) {
+export function WorkshopClient({ projects, currently, highlightedStackHtml }: WorkshopClientProps) {
   const router = useRouter();
   const { openTabs, activeSlug, openTab, closeTab } = useTabState("readme");
   const [mobilePanel, setMobilePanel] = useState<"tree" | "content">("content");
@@ -124,15 +128,11 @@ export function WorkshopClient({ projects, currently }: WorkshopClientProps) {
     <div className="flex flex-col h-screen overflow-hidden">
       {/* IDE top bar */}
       <header
-        className="flex items-center justify-between px-4 py-2 border-b shrink-0"
-        style={{
-          background: "var(--workshop-panel)",
-          borderColor: "var(--workshop-tree-border)",
-        }}
+        className="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-(--workshop-panel) border-(--workshop-tree-border)"
       >
         <Link href="/" aria-label="back to lobby" className="flex items-center gap-2">
           <HzyMark mode="dark" size={20} />
-          <span className="font-mono text-xs" style={{ color: "var(--workshop-text-muted)" }}>
+          <span className="font-mono text-xs text-(--workshop-text-muted)">
             ~/workshop
           </span>
         </Link>
@@ -141,8 +141,7 @@ export function WorkshopClient({ projects, currently }: WorkshopClientProps) {
             <Link
               key={r}
               href={r === "work" ? "/work" : `/${r}`}
-              className="font-mono text-xs transition-colors"
-              style={{ color: "var(--workshop-text-muted)" }}
+              className="font-mono text-xs transition-colors text-(--workshop-text-muted)"
             >
               {r}
             </Link>
@@ -152,20 +151,18 @@ export function WorkshopClient({ projects, currently }: WorkshopClientProps) {
 
       {/* Mobile tab selector */}
       <div
-        className="md:hidden flex gap-0 border-b shrink-0"
-        style={{ borderColor: "var(--workshop-tree-border)" }}
+        className="md:hidden flex gap-0 border-b shrink-0 border-(--workshop-tree-border)"
       >
         {(["tree", "content"] as const).map((p) => (
           <button
             key={p}
             type="button"
             onClick={() => setMobilePanel(p)}
-            className="flex-1 py-2 text-xs font-mono transition-colors"
-            style={{
-              color: mobilePanel === p ? "var(--workshop-text)" : "var(--workshop-text-muted)",
-              background: mobilePanel === p ? "var(--workshop-tab)" : "transparent",
-              borderBottom: mobilePanel === p ? "2px solid var(--workshop-syntax)" : "none",
-            }}
+            className={`flex-1 py-2 text-xs font-mono transition-colors ${
+              mobilePanel === p
+                ? "text-(--workshop-text) bg-(--workshop-tab) border-b-2 border-(--workshop-syntax)"
+                : "text-(--workshop-text-muted)"
+            }`}
           >
             {p === "tree" ? "explorer" : "editor"}
           </button>
@@ -177,11 +174,10 @@ export function WorkshopClient({ projects, currently }: WorkshopClientProps) {
         {/* File tree panel */}
         <aside
           className={[
-            "w-60 border-r overflow-hidden shrink-0",
+            "w-60 border-r border-(--workshop-tree-border) overflow-hidden shrink-0",
             "hidden md:flex md:flex-col",
             mobilePanel === "tree" ? "flex flex-col w-full md:w-60" : "",
           ].join(" ")}
-          style={{ borderColor: "var(--workshop-tree-border)" }}
         >
           <FileTree activeSlug={activeSlug} onSelect={handleSelect} projects={projects} />
         </aside>
@@ -189,10 +185,9 @@ export function WorkshopClient({ projects, currently }: WorkshopClientProps) {
         {/* Content panel */}
         <div
           className={[
-            "flex-1 flex flex-col overflow-hidden",
+            "flex-1 flex flex-col overflow-hidden bg-(--workshop-panel)",
             mobilePanel === "content" ? "flex" : "hidden md:flex",
           ].join(" ")}
-          style={{ background: "var(--workshop-panel)" }}
         >
           {openTabs.length > 0 && (
             <TabBar
@@ -205,7 +200,7 @@ export function WorkshopClient({ projects, currently }: WorkshopClientProps) {
 
           <div className="flex-1 overflow-hidden flex flex-col">
             {activeSlug ? (
-              <FileContent slug={activeSlug} />
+              <FileContent slug={activeSlug} highlightedStackHtml={highlightedStackHtml} />
             ) : (
               <ActivityFeed currently={currently} />
             )}

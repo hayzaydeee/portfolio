@@ -79,7 +79,7 @@ export function Splash({ onDismiss }: SplashProps) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, ease: "easeOut" }}
             onClick={onDismiss}
-            className="mt-8 text-sm font-sans text-(--color-accent) hover:text-(--color-accent-light) transition-colors cursor-pointer"
+            className="mt-8 text-sm font-sans text-accent hover:text-accent-light transition-colors cursor-pointer"
           >
             let&apos;s go →
           </motion.button>

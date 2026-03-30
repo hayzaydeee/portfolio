@@ -13,8 +13,7 @@ export default function WorkshopLayout({
   // No global Nav/Footer — the Workshop is a self-contained IDE environment
   return (
     <div
-      className="min-h-screen flex flex-col"
-      style={{ background: "var(--workshop-base)", color: "var(--workshop-text)" }}
+      className="min-h-screen flex flex-col bg-(--workshop-base) text-(--workshop-text)"
     >
       {children}
     </div>

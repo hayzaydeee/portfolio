@@ -43,12 +43,11 @@ export function TabBar({ activeSlug, onSelect, onClose, openTabs }: TabBarProps)
           <div
             key={slug}
             className={cn(
-              "flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-r cursor-pointer shrink-0 group transition-colors",
+              "flex items-center gap-2 px-3 py-1.5 text-xs font-mono border-r border-r-(--workshop-tree-border) cursor-pointer shrink-0 group transition-colors",
               isActive
                 ? "text-(--workshop-text) border-b-2 border-b-(--workshop-syntax)"
                 : "text-(--workshop-text-muted) hover:text-(--workshop-text) hover:bg-(--workshop-panel)"
             )}
-            style={{ borderRightColor: "var(--workshop-tree-border)" }}
             onClick={() => onSelect(slug)}
           >
             {/* Modified dot (aesthetic) */}

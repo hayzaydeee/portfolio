@@ -1,10 +1,19 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateContent } from "@/lib/revalidate";
+import { highlight } from "@/lib/shiki";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
+
+export type StackJson = {
+  languages: string[];
+  frontend: string[];
+  backend: string[];
+  tools: string[];
+};
 
 export type SiteSettings = {
   id: string;
@@ -14,6 +23,7 @@ export type SiteSettings = {
   room_wall_visible: boolean;
   bito_webhook_secret: string | null;
   last_bito_webhook_at: string | null;
+  stack_json: StackJson | null;
   updated_at: string;
 };
 
@@ -124,5 +134,77 @@ export async function triggerRedeploy(): Promise<SettingsActionState> {
     return { success: true, message: "Redeploy triggered" };
   } catch {
     return { success: false, error: "Failed to trigger redeploy" };
+  }
+}
+
+// ─── Stack JSON ───────────────────────────────────────────────────────────
+
+const stackItemSchema = z.array(z.string().max(50)).max(30).default([]);
+
+const stackJsonSchema = z.object({
+  languages: stackItemSchema,
+  frontend: stackItemSchema,
+  backend: stackItemSchema,
+  tools: stackItemSchema,
+});
+
+function formatStackAsJsonc(stack: StackJson): string {
+  const base = JSON.stringify(
+    {
+      languages: stack.languages,
+      frontend: stack.frontend,
+      backend: stack.backend,
+      tools: stack.tools,
+    },
+    null,
+    2
+  );
+  return base.replace(/\n}$/, "\n  // yes this file has comments. yes i know.\n}");
+}
+
+export async function getHighlightedStackJson(stack: StackJson): Promise<string> {
+  const jsonc = formatStackAsJsonc(stack);
+  try {
+    return await highlight(jsonc, "jsonc");
+  } catch {
+    return `<pre style="color:#A8C5A0">${jsonc.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`;
+  }
+}
+
+export async function updateStackJson(
+  _prev: SettingsActionState,
+  formData: FormData
+): Promise<SettingsActionState> {
+  let raw: { languages: string[]; frontend: string[]; backend: string[]; tools: string[] };
+  try {
+    raw = {
+      languages: JSON.parse((formData.get("languages") as string) || "[]"),
+      frontend: JSON.parse((formData.get("frontend") as string) || "[]"),
+      backend: JSON.parse((formData.get("backend") as string) || "[]"),
+      tools: JSON.parse((formData.get("tools") as string) || "[]"),
+    };
+  } catch {
+    return { success: false, error: "Invalid JSON in stack fields" };
+  }
+
+  const parsed = stackJsonSchema.safeParse(raw);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid stack data" };
+  }
+
+  try {
+    const supabase = await createClient();
+    const { error } = await supabase
+      .from("site_settings")
+      .update({ stack_json: parsed.data })
+      .not("id", "is", null);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidateContent("settings");
+    revalidatePath("/work");
+    return { success: true, message: "Stack saved" };
+  } catch {
+    return { success: false, error: "Failed to save stack" };
   }
 }

@@ -153,8 +153,7 @@ export function FileTree({ activeSlug, onSelect, projects }: FileTreeProps) {
 
   return (
     <div
-      className="flex flex-col h-full overflow-y-auto py-3 select-none"
-      style={{ background: "var(--workshop-tree)" }}
+      className="flex flex-col h-full overflow-y-auto py-3 select-none bg-(--workshop-tree)"
     >
       <div className="flex-1">
         {allNodes.map((node) => (

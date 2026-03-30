@@ -114,7 +114,7 @@ function Toolbar({ editor }: ToolbarProps) {
           />
           <button
             type="submit"
-            className="px-2 py-1 rounded text-xs font-mono bg-black/8 text-(--color-base-dark) hover:bg-black/12 transition-colors"
+            className="px-2 py-1 rounded text-xs font-mono bg-black/8 text-base-dark hover:bg-black/12 transition-colors"
           >
             set
           </button>
@@ -148,8 +148,8 @@ function ToolbarButton({ onClick, active, title, children }: ToolbarButtonProps)
       className={[
         "px-2 py-1 rounded text-sm font-mono leading-none transition-colors",
         active
-          ? "bg-black/8 text-(--color-base-dark)"
-          : "text-(--color-text-muted) hover:bg-black/5 hover:text-(--color-base-dark)",
+          ? "bg-black/8 text-base-dark"
+          : "text-text-muted hover:bg-black/5 hover:text-base-dark",
       ].join(" ")}
     >
       {children}

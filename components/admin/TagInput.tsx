@@ -11,6 +11,8 @@ type TagInputProps = {
   name?: string;
   /** Max number of tags */
   max?: number;
+  /** Called whenever the tag list changes */
+  onChange?: (tags: string[]) => void;
 };
 
 export function TagInput({
@@ -18,6 +20,7 @@ export function TagInput({
   placeholder = "Add tag",
   name = "tags",
   max = 20,
+  onChange,
 }: TagInputProps) {
   const [tags, setTags] = useState<string[]>(defaultTags);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -25,12 +28,16 @@ export function TagInput({
   function addTag(raw: string) {
     const tag = raw.trim().toLowerCase().replace(/\s+/g, "-");
     if (!tag || tags.includes(tag) || tags.length >= max) return;
-    setTags((prev) => [...prev, tag]);
+    const next = [...tags, tag];
+    setTags(next);
+    onChange?.(next);
     if (inputRef.current) inputRef.current.value = "";
   }
 
   function removeTag(tag: string) {
-    setTags((prev) => prev.filter((t) => t !== tag));
+    const next = tags.filter((t) => t !== tag);
+    setTags(next);
+    onChange?.(next);
   }
 
   function handleKeyDown(e: KeyboardEvent<HTMLInputElement>) {
@@ -38,7 +45,9 @@ export function TagInput({
       e.preventDefault();
       addTag(inputRef.current?.value ?? "");
     } else if (e.key === "Backspace" && !inputRef.current?.value && tags.length > 0) {
-      setTags((prev) => prev.slice(0, -1));
+      const next = tags.slice(0, -1);
+      setTags(next);
+      onChange?.(next);
     }
   }
 

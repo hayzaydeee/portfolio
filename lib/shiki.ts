@@ -78,6 +78,7 @@ function getHighlighter(): Promise<Highlighter> {
         "tsx",
         "jsx",
         "json",
+        "jsonc",
         "bash",
         "css",
         "html",

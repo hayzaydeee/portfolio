@@ -84,15 +84,15 @@ export function Seedling() {
                 style={{ top: `${y}px` }}
               >
                 <div className="text-(--lobby-text) font-sans">{node.label}</div>
-                <div className="text-(--color-text-muted) text-xs mt-0.5">{node.sub}</div>
-                <div className="text-(--color-accent-muted) text-xs mt-0.5">{node.date}</div>
+                <div className="text-text-muted text-xs mt-0.5">{node.sub}</div>
+                <div className="text-accent-muted text-xs mt-0.5">{node.date}</div>
               </motion.div>
             );
           })}
         </div>
 
         {/* Mobile: vertical timeline */}
-        <div className="md:hidden flex flex-col gap-8 pl-6 border-l-2 border-(--color-accent-muted)">
+        <div className="md:hidden flex flex-col gap-8 pl-6 border-l-2 border-accent-muted">
           {NODES.map((node, i) => (
             <motion.div
               key={node.label}
@@ -103,16 +103,16 @@ export function Seedling() {
               className="relative"
             >
               {/* dot */}
-              <span className="absolute -left-6.25 top-1 w-2.5 h-2.5 rounded-full bg-(--color-accent) border-2 border-(--lobby-surface)" />
+              <span className="absolute -left-6.25 top-1 w-2.5 h-2.5 rounded-full bg-accent border-2 border-(--lobby-surface)" />
               <div className="text-sm font-sans text-(--lobby-text)">{node.label}</div>
-              <div className="text-xs text-(--color-text-muted) mt-0.5">{node.sub}</div>
-              <div className="text-xs text-(--color-accent-muted) mt-0.5">{node.date}</div>
+              <div className="text-xs text-text-muted mt-0.5">{node.sub}</div>
+              <div className="text-xs text-accent-muted mt-0.5">{node.date}</div>
             </motion.div>
           ))}
         </div>
 
         {/* Still growing anchor */}
-        <p className="mt-12 text-sm font-sans text-(--color-accent-muted) text-center tracking-wide">
+        <p className="mt-12 text-sm font-sans text-accent-muted text-center tracking-wide">
          still growing.
         </p>
       </div>
