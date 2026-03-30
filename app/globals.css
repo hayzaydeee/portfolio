@@ -63,7 +63,13 @@
   --notebook-buildlog:     #2A2E35;
 
   /* Wall */
-  --wall-surface: #F0E8D8;
+  --wall-surface:          #F0E8D8;
+  --wall-texture:          #E6DBCA;
+  --wall-polaroid:         #FAF6F0;
+  --wall-shadow:           rgba(28, 22, 16, 0.18);
+  --wall-caption:          #2A2018;
+  --wall-date:             #8A7A65;
+  --wall-pin:              #C4392A;
 
   /* Admin sidebar accent per section */
   --admin-accent-overview:  #1E6B3C;
