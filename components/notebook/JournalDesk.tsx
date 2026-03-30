@@ -74,7 +74,6 @@ function JournalCard({
 
   return (
     <motion.div
-      layoutId={`journal-${journal.id}`}
       className="relative cursor-pointer select-none"
       style={{
         rotate: journal.rotation,
@@ -202,7 +201,6 @@ export function JournalDesk() {
           {JOURNALS.map((j) => (
             <motion.div
               key={j.id}
-              layoutId={`journal-${j.id}`}
               className="cursor-pointer"
               whileTap={{ scale: 0.97 }}
               onClick={() => handleOpen(j.id)}
