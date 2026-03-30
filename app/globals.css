@@ -52,6 +52,10 @@
 
   /* Notebook */
   --notebook-surface:      #E8E0D0;
+  --notebook-shadow:       #D4C9B5;
+  --notebook-text:         #1C1A16;
+  --notebook-text-muted:   #7A7060;
+  --notebook-border:       rgba(28, 26, 22, 0.12);
   --notebook-reflections:  #7A4F1E;
   --notebook-fragments:    #4A6B4A;
   --notebook-annotations:  #1E2E5A;
@@ -161,4 +165,70 @@ body {
   border: none;
   border-top: 1px solid var(--studio-border);
   margin: 2.5em 0;
+}
+
+/* ── Notebook entry prose ───────────────────────────────────────────── */
+.prose-notebook {
+  font-family: var(--font-serif);
+  font-size: 1.0625rem;
+  line-height: 1.8;
+  color: var(--notebook-text);
+}
+
+.prose-notebook p { margin-bottom: 1.4em; }
+
+.prose-notebook h2,
+.prose-notebook h3 {
+  font-family: var(--font-sans);
+  color: var(--notebook-text);
+  margin-top: 2em;
+  margin-bottom: 0.6em;
+}
+
+.prose-notebook h2 { font-size: 1.2rem; }
+.prose-notebook h3 { font-size: 1rem; }
+
+.prose-notebook blockquote {
+  margin: 1.75em 0;
+  padding-left: 1.25em;
+  border-left: 2px solid currentColor;
+  font-size: 1.1rem;
+  font-style: italic;
+  opacity: 0.85;
+}
+
+.prose-notebook code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: rgba(28, 26, 22, 0.06);
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+
+.prose-notebook pre {
+  background: rgba(28, 26, 22, 0.06);
+  border-radius: 4px;
+  padding: 1em 1.25em;
+  overflow-x: auto;
+  margin: 1.5em 0;
+}
+
+.prose-notebook pre code { background: transparent; padding: 0; }
+
+.prose-notebook a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+/* Build log: sans body */
+.prose-notebook--buildlog {
+  font-family: var(--font-sans);
+  font-size: 1rem;
+}
+
+/* Fragments: more whitespace */
+.prose-notebook--fragments {
+  font-size: 1rem;
+  line-height: 1.9;
 }
