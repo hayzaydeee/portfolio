@@ -43,7 +43,7 @@ function StagingRow({ entry }: StagingRowProps) {
                 year: "numeric",
               })}
             </span>
-            <span className="text-[10px] text-[#1E4A6B] bg-[#1E4A6B]/8 px-1.5 py-0.5 rounded">
+            <span className="text-[10px] text-(--admin-status-scheduled) bg-(--admin-status-scheduled)/8 px-1.5 py-0.5 rounded">
               from bito.works
             </span>
             <select

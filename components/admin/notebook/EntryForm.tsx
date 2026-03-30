@@ -11,7 +11,7 @@ import { useState } from "react";
 const JOURNAL_OPTIONS: { value: NotebookEntry["journal"]; label: string; color: string }[] = [
   { value: "reflections",  label: "Reflections",  color: "accent" },
   { value: "fragments",    label: "Fragments",    color: "#7A4F1E" },
-  { value: "annotations",  label: "Annotations",  color: "#1E4A6B" },
+  { value: "annotations",  label: "Annotations",  color: "var(--admin-status-scheduled)" },
   { value: "responses",    label: "Responses",    color: "#6B1E6B" },
   { value: "buildlog",     label: "Build log",    color: "#2C2C28" },
 ];

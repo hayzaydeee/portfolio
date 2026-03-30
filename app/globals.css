@@ -60,6 +60,11 @@
   --admin-accent-notebook:  #7A4F1E;
   --admin-accent-wall:      #C4855A;
   --admin-accent-settings:  #1E6B3C;
+
+  /* Admin status colors */
+  --admin-status-scheduled: #1E4A6B;
+  --admin-status-staged:    #B87A00;
+  --admin-status-archived:  #6B6B67;
 }
 
 /* ── Base styles ────────────────────────────────────────────────────── */
