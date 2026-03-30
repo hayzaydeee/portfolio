@@ -12,12 +12,17 @@ type Props = {
 };
 
 export async function generateStaticParams() {
-  const supabase = createBuildClient();
-  const { data } = await supabase
-    .from("projects")
-    .select("slug")
-    .eq("status", "published");
-  return (data ?? []).map((p: { slug: string }) => ({ project: p.slug }));
+  try {
+    const supabase = createBuildClient();
+    const { data } = await supabase
+      .from("projects")
+      .select("slug")
+      .eq("status", "published");
+    return (data ?? []).map((p: { slug: string }) => ({ project: p.slug }));
+  } catch {
+    // Supabase env vars not available at build time — no static pages pre-generated
+    return [];
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

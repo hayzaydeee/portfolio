@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useEditor, EditorContent, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import CharacterCount from "@tiptap/extension-character-count";
+import Link from "@tiptap/extension-link";
 import { autosaveEntry } from "@/app/actions/notebook";
 
 // ─── Toolbar ──────────────────────────────────────────────────────────────────
@@ -14,7 +15,32 @@ type ToolbarProps = {
 };
 
 function Toolbar({ editor }: ToolbarProps) {
+  const [linkInputOpen, setLinkInputOpen] = useState(false);
+  const [linkHref, setLinkHref] = useState("");
+  const linkInputRef = useRef<HTMLInputElement>(null);
+
   if (!editor) return null;
+  const ed = editor; // rebind after null guard so closures infer Editor (not Editor | null)
+
+  function handleLinkButton() {
+    if (ed.isActive("link")) {
+      ed.chain().focus().unsetLink().run();
+    } else {
+      setLinkInputOpen(true);
+      setLinkHref("");
+      setTimeout(() => linkInputRef.current?.focus(), 0);
+    }
+  }
+
+  function handleLinkConfirm(e: React.FormEvent) {
+    e.preventDefault();
+    const href = linkHref.trim();
+    if (href) {
+      ed.chain().focus().setLink({ href }).run();
+    }
+    setLinkInputOpen(false);
+    setLinkHref("");
+  }
 
   return (
     <div className="flex items-center gap-0.5 border-b border-black/10 px-3 py-2 flex-wrap">
@@ -69,6 +95,39 @@ function Toolbar({ editor }: ToolbarProps) {
       >
         —
       </ToolbarButton>
+      <div className="w-px h-4 bg-black/15 mx-1" />
+      {linkInputOpen ? (
+        <form onSubmit={handleLinkConfirm} className="flex items-center gap-1">
+          <input
+            ref={linkInputRef}
+            type="url"
+            value={linkHref}
+            onChange={(e) => setLinkHref(e.target.value)}
+            placeholder="https://"
+            className="text-xs px-2 py-1 rounded border border-black/15 bg-transparent outline-none focus:border-black/30 w-44"
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setLinkInputOpen(false);
+                setLinkHref("");
+              }
+            }}
+          />
+          <button
+            type="submit"
+            className="px-2 py-1 rounded text-xs font-mono bg-black/8 text-(--color-base-dark) hover:bg-black/12 transition-colors"
+          >
+            set
+          </button>
+        </form>
+      ) : (
+        <ToolbarButton
+          onClick={handleLinkButton}
+          active={ed.isActive("link")}
+          title={ed.isActive("link") ? "Remove link" : "Add link"}
+        >
+          url
+        </ToolbarButton>
+      )}
     </div>
   );
 }
@@ -137,6 +196,7 @@ export function RichTextEditor({
       StarterKit,
       Placeholder.configure({ placeholder }),
       CharacterCount,
+      Link.configure({ openOnClick: false }),
     ],
     content: initialHtml,
     onUpdate({ editor }) {

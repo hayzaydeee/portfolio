@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
 import { createClient } from "@/lib/supabase/server";
 import { z } from "zod";
+
+// ─── Rate limiter ─────────────────────────────────────────────────────────────
+
+let ratelimit: Ratelimit | null = null;
+try {
+  ratelimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(20, "1 m"),
+  });
+} catch {
+  console.warn("[ingest] Upstash Redis not configured — rate limiting disabled");
+}
 
 // ─── Payload schema ───────────────────────────────────────────────────────────
 
@@ -73,6 +87,16 @@ function generateSlug(title: string | undefined, id: string): string {
 // ─── Route handler ────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
+  // Rate limit by IP before any DB access
+  const ip =
+    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (ratelimit) {
+    const { success } = await ratelimit.limit(`bito:${ip}`);
+    if (!success) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 });
+    }
+  }
+
   const rawBody = await req.text();
 
   // Get the stored webhook secret from Supabase
