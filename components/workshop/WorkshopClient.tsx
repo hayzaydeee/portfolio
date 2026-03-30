@@ -7,6 +7,7 @@ import { FileTree } from "@/components/workshop/FileTree";
 import { TabBar, useTabState } from "@/components/workshop/TabBar";
 import { ActivityFeed } from "@/components/workshop/ActivityFeed";
 import { StatusBar } from "@/components/workshop/StatusBar";
+import { AskTerminal } from "@/components/workshop/AskTerminal";
 import { HzyMark } from "@/components/nav/HzyMark";
 import type { WorkshopProject } from "@/components/workshop/FileTree";
 import type { Currently } from "@/lib/data/currently";
@@ -54,11 +55,15 @@ function FileContent({ slug, highlightedStackHtml }: { slug: string | null; high
 
   if (slug === "readme") {
     return (
-      <pre
-        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap text-(--workshop-text)"
-      >
-        {README_CONTENT}
-      </pre>
+      <div className="p-6 overflow-auto h-full flex flex-col gap-6">
+        <pre className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-(--workshop-text)">
+          {README_CONTENT}
+        </pre>
+        <AskTerminal
+          defaultQuery="what are you most focused on right now?"
+          variant="workshop"
+        />
+      </div>
     );
   }
 
@@ -81,11 +86,15 @@ function FileContent({ slug, highlightedStackHtml }: { slug: string | null; high
 
   if (slug === "life-log") {
     return (
-      <pre
-        className="p-6 font-mono text-sm leading-relaxed overflow-auto h-full whitespace-pre-wrap text-(--workshop-syntax-dim)"
-      >
-        {LIFE_LOG_CONTENT}
-      </pre>
+      <div className="p-6 overflow-auto h-full flex flex-col gap-6">
+        <pre className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-(--workshop-syntax-dim)">
+          {LIFE_LOG_CONTENT}
+        </pre>
+        <AskTerminal
+          defaultQuery="what does this log mean?"
+          variant="life-log"
+        />
+      </div>
     );
   }
 

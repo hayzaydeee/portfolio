@@ -4,18 +4,7 @@ import { ExternalLink, GitBranch } from "lucide-react";
 
 import type { Project } from "@/app/actions/projects";
 import { StatusBadge } from "@/components/admin/StatusBadge";
-
-// ─── AskFunction stub (wired in Phase 6) ─────────────────────────────────────
-
-function AskFunction() {
-  return (
-    <div
-      className="mt-12 border border-dashed rounded-lg p-4 font-mono text-xs opacity-40 select-none border-(--workshop-syntax-dim) text-(--workshop-text-muted)"
-    >
-      // ask about this project — coming soon
-    </div>
-  );
-}
+import { AskTerminal } from "@/components/workshop/AskTerminal";
 
 // ─── Sanitized HTML block ─────────────────────────────────────────────────────
 
@@ -161,7 +150,11 @@ export function ProjectFile({ project }: ProjectFileProps) {
         </section>
       )}
 
-      <AskFunction />
+      <AskTerminal
+        className="mt-12"
+        defaultQuery={`what's the most interesting part of ${project.title}?`}
+        variant="workshop"
+      />
     </div>
   );
 }
