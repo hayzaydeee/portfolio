@@ -173,7 +173,7 @@ export function TechStack({ mode = "resting" }: { mode?: "sequence" | "resting" 
   const isSequence = mode === "sequence";
   const containerRef = useRef<HTMLDivElement>(null);
   const { scrollYProgress } = useScroll({
-    target: containerRef,
+    target: isSequence ? undefined : containerRef,
     offset: ["start 0.8", "end 0.2"],
   });
 
