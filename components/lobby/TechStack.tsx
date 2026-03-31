@@ -1,8 +1,9 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { motion, useInView } from "motion/react";
+import { useRef } from "react";
+import { motion, useScroll, useTransform } from "motion/react";
 import { cn } from "@/lib/utils";
+import { SectionHeading } from "./SectionHeading";
 import {
   SiJavascript,
   SiTypescript,
@@ -16,18 +17,17 @@ import {
 
 const ICON_SIZE = 20;
 
-// Words that map to icons
 const WORDS: Array<{
   word: string;
   Icon?: React.ComponentType<{ size: number; className?: string }>;
-  keep?: boolean; // non-icon words — fade to muted
+  keep?: boolean;
 }> = [
   { word: "I", keep: false },
   { word: "work", keep: false },
   { word: "primarily", keep: false },
   { word: "in", keep: false },
   { word: "JavaScript", Icon: SiJavascript },
-  { word: "—" , keep: false },
+  { word: "—", keep: false },
   { word: "React,", Icon: SiReact },
   { word: "Node,", Icon: SiNodedotjs },
   { word: "Express,", Icon: SiExpress },
@@ -37,63 +37,184 @@ const WORDS: Array<{
   { word: "experience", keep: false },
   { word: "in", keep: false },
   { word: "Kotlin,", Icon: SiKotlin },
-  { word: "C++,", keep: true }, // no icon, but keep
+  { word: "C++,", keep: true },
   { word: "TypeScript,", Icon: SiTypescript },
   { word: "and", keep: false },
   { word: "Python.", Icon: SiPython },
 ];
 
-export function TechStack() {
-  const ref = useRef<HTMLDivElement>(null);
-  const isInView = useInView(ref, { once: true, margin: "-80px" });
-  const [settled, setSettled] = useState(false);
+/* ── Scroll-driven word ───────────────────────────────────────────── */
 
-  useEffect(() => {
-    if (isInView) {
-      const t = setTimeout(() => setSettled(true), 1200);
-      return () => clearTimeout(t);
-    }
-  }, [isInView]);
+function Word({
+  item,
+  index,
+  total,
+  progress,
+}: {
+  item: (typeof WORDS)[number];
+  index: number;
+  total: number;
+  progress: ReturnType<typeof useScroll>["scrollYProgress"];
+}) {
+  const hasIcon = !!item.Icon;
+  const fadeOut = !hasIcon && item.keep !== true;
+
+  // Phase 1 (0–0.5): all words appear in sequence
+  const appearStart = (index / total) * 0.5;
+  const appearEnd = appearStart + 0.08;
+  const wordOpacity = useTransform(progress, [appearStart, appearEnd], [0, 1]);
+  const wordY = useTransform(progress, [appearStart, appearEnd], [6, 0]);
+
+  // Phase 2 (0.5–0.8): non-icon words fade, icons resolve
+  const settleOpacity = useTransform(
+    progress,
+    [0.5, 0.8],
+    [1, fadeOut ? 0.3 : 1]
+  );
+
+  // Combine: word appears then optionally fades
+  const combinedOpacity = useTransform(
+    () => wordOpacity.get() * settleOpacity.get()
+  );
+
+  // Icon visibility tied to settle phase
+  const iconOpacity = useTransform(progress, [0.55, 0.75], [0, 1]);
 
   return (
-    <section ref={ref} className="bg-(--lobby-surface) py-20 px-6">
-      <div className="max-w-5xl mx-auto">
-        <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
-          {WORDS.map((item, i) => {
-            const hasIcon = !!item.Icon;
-            const fadeOut = !hasIcon && item.keep !== true;
+    <motion.span
+      className="inline-flex items-center gap-1"
+      style={{ opacity: combinedOpacity, y: wordY }}
+    >
+      {hasIcon && item.Icon ? (
+        <>
+          {/* Text form visible pre-settle */}
+          <motion.span
+            className="text-base font-sans text-(--lobby-text)"
+            style={{ opacity: useTransform(iconOpacity, (v) => 1 - v) }}
+          >
+            {item.word}
+          </motion.span>
+          {/* Icon form visible post-settle */}
+          <motion.span style={{ opacity: iconOpacity, position: "absolute" }}>
+            <item.Icon size={ICON_SIZE} className="text-(--lobby-text)" />
+          </motion.span>
+        </>
+      ) : (
+        <span
+          className={cn(
+            "text-base font-sans text-(--lobby-text)"
+          )}
+        >
+          {item.word}
+        </span>
+      )}
+    </motion.span>
+  );
+}
 
-            return (
-              <motion.span
+/* ── Timed sequence word ──────────────────────────────────────────── */
+
+function SequenceWord({
+  item,
+  index,
+  total,
+}: {
+  item: (typeof WORDS)[number];
+  index: number;
+  total: number;
+}) {
+  const hasIcon = !!item.Icon;
+  const fadeOut = !hasIcon && item.keep !== true;
+
+  return (
+    <motion.span
+      className="inline-flex items-center gap-1 relative"
+      initial={{ opacity: 0, y: 6 }}
+      animate={{
+        opacity: fadeOut ? [0, 1, 0.3] : 1,
+        y: 0,
+      }}
+      transition={{
+        delay: (index / total) * 2,
+        duration: 0.4,
+      }}
+    >
+      {hasIcon && item.Icon ? (
+        <>
+          <motion.span
+            className="text-base font-sans text-(--lobby-text)"
+            initial={{ opacity: 1 }}
+            animate={{ opacity: 0 }}
+            transition={{ delay: 2.5, duration: 0.3 }}
+          >
+            {item.word}
+          </motion.span>
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 2.5, duration: 0.3 }}
+            style={{ position: "absolute" }}
+          >
+            <item.Icon size={ICON_SIZE} className="text-(--lobby-text)" />
+          </motion.span>
+        </>
+      ) : (
+        <span className="text-base font-sans text-(--lobby-text)">
+          {item.word}
+        </span>
+      )}
+    </motion.span>
+  );
+}
+
+/* ── TechStack ────────────────────────────────────────────────────── */
+
+export function TechStack({ mode = "resting" }: { mode?: "sequence" | "resting" }) {
+  const isSequence = mode === "sequence";
+  const containerRef = useRef<HTMLDivElement>(null);
+  const { scrollYProgress } = useScroll({
+    target: containerRef,
+    offset: ["start 0.8", "end 0.2"],
+  });
+
+  if (isSequence) {
+    return (
+      <section className="min-h-screen flex items-center justify-center bg-(--lobby-surface) px-6">
+        <div className="max-w-5xl mx-auto w-full">
+          <SectionHeading>TECH STACK</SectionHeading>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+            {WORDS.map((item, i) => (
+              <SequenceWord
                 key={`${item.word}-${i}`}
-                initial={{ opacity: 0, y: 6 }}
-                animate={isInView ? { opacity: fadeOut && settled ? 0.3 : 1, y: 0 } : {}}
-                transition={{
-                  delay: i * 0.04,
-                  duration: 0.3,
-                  ease: "easeOut",
-                  opacity: { delay: i * 0.04 + (settled ? 0.1 : 0), duration: 0.4 },
-                }}
-                className="inline-flex items-center gap-1"
-              >
-                {hasIcon && settled && item.Icon ? (
-                  <item.Icon size={ICON_SIZE} className="text-(--lobby-text)" />
-                ) : (
-                  <span
-                    className={cn(
-                      "text-base font-sans transition-colors duration-300",
-                      fadeOut && settled
-                        ? "text-text-muted"
-                        : "text-(--lobby-text)"                   )}
-                  >
-                    {item.word}
-                  </span>
-                )}
-              </motion.span>
-            );
-          })}
+                item={item}
+                index={i}
+                total={WORDS.length}
+              />
+            ))}
+          </div>
         </div>
-      </div>
-    </section>
+      </section>
+    );
+  }
+
+  return (
+    <div ref={containerRef} className="min-h-[60vh]">
+      <section className="sticky top-0 bg-(--lobby-surface) py-20 px-6 flex items-center min-h-[50vh]">
+        <div className="max-w-5xl mx-auto w-full">
+          <SectionHeading>TECH STACK</SectionHeading>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
+            {WORDS.map((item, i) => (
+              <Word
+                key={`${item.word}-${i}`}
+                item={item}
+                index={i}
+                total={WORDS.length}
+                progress={scrollYProgress}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
   );
 }

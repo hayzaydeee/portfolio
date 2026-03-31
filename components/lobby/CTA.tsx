@@ -1,7 +1,9 @@
 "use client";
 
 import { useActionState } from "react";
+import { motion } from "motion/react";
 import { sendContact, type ContactState } from "@/app/actions/contact";
+import { SectionHeading } from "./SectionHeading";
 import Link from "next/link";
 
 const INITIAL: ContactState = { success: false };
@@ -94,40 +96,97 @@ function ContactForm() {
   );
 }
 
-export function CTA() {
-  return (
-    <section className="bg-(--lobby-surface-deep) py-20 px-6">
-      <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-16">
-        {/* Left column — direct actions */}
-        <div>
-          <h2 className="text-2xl font-sans text-(--lobby-text) mb-8">let&apos;s talk</h2>
-          <div className="flex flex-col gap-5">
-            <a
-              href="mailto:hayzayd33@gmail.com"
-              className="text-base font-sans text-(--lobby-accent) hover:text-(--color-accent-light) transition-colors"
-            >
-              hayzayd33@gmail.com ↗
-            </a>
-            <a
-              href="/cv.pdf"
-              download
-              className="self-start text-sm font-sans px-4 py-2 rounded-md border border-white/20 text-(--lobby-text) hover:border-(--lobby-accent) hover:text-(--lobby-accent) transition-colors"
-            >
-              download CV
-            </a>
-            <Link
-              href="/work"
-              className="text-sm font-sans text-(--color-text-muted) hover:text-(--lobby-text) transition-colors"
-            >
-              view my work →
-            </Link>
-          </div>
-        </div>
+export function CTA({ mode = "resting" }: { mode?: "sequence" | "resting" }) {
+  const isSequence = mode === "sequence";
 
-        {/* Right column — contact form */}
-        <div>
-          <ContactForm />
-        </div>
+  return (
+    <section
+      className={`bg-(--lobby-surface-deep) px-6 ${
+        isSequence ? "min-h-screen flex items-center justify-center" : "py-20"
+      }`}
+    >
+      <div className="max-w-5xl mx-auto w-full">
+        <SectionHeading>LET&apos;S TALK</SectionHeading>
+
+        {isSequence ? (
+          <div className="grid md:grid-cols-2 gap-16">
+            {/* Left column — slides from left */}
+            <motion.div
+              initial={{ opacity: 0, x: -30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+              <div className="flex flex-col gap-5">
+                <a
+                  href="mailto:hayzayd33@gmail.com"
+                  className="text-base font-sans text-(--lobby-accent) hover:text-(--color-accent-light) transition-colors"
+                >
+                  hayzayd33@gmail.com ↗
+                </a>
+                <a
+                  href="/cv.pdf"
+                  download
+                  className="self-start text-sm font-sans px-4 py-2 rounded-md border border-white/20 text-(--lobby-text) hover:border-(--lobby-accent) hover:text-(--lobby-accent) transition-colors"
+                >
+                  download CV
+                </a>
+                <Link
+                  href="/work"
+                  className="text-sm font-sans text-(--color-text-muted) hover:text-(--lobby-text) transition-colors"
+                >
+                  view my work →
+                </Link>
+              </div>
+            </motion.div>
+
+            {/* Right column — slides from right */}
+            <motion.div
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+            >
+              <ContactForm />
+            </motion.div>
+          </div>
+        ) : (
+          <motion.div
+            className="grid md:grid-cols-2 gap-16"
+            initial={{ opacity: 0, y: 20 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true, margin: "-80px" }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+          >
+            {/* Left column — direct actions */}
+            <div>
+              <div className="flex flex-col gap-5">
+                <a
+                  href="mailto:hayzayd33@gmail.com"
+                  className="text-base font-sans text-(--lobby-accent) hover:text-(--color-accent-light) transition-colors"
+                >
+                  hayzayd33@gmail.com ↗
+                </a>
+                <a
+                  href="/cv.pdf"
+                  download
+                  className="self-start text-sm font-sans px-4 py-2 rounded-md border border-white/20 text-(--lobby-text) hover:border-(--lobby-accent) hover:text-(--lobby-accent) transition-colors"
+                >
+                  download CV
+                </a>
+                <Link
+                  href="/work"
+                  className="text-sm font-sans text-(--color-text-muted) hover:text-(--lobby-text) transition-colors"
+                >
+                  view my work →
+                </Link>
+              </div>
+            </div>
+
+            {/* Right column — contact form */}
+            <div>
+              <ContactForm />
+            </div>
+          </motion.div>
+        )}
       </div>
     </section>
   );

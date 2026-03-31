@@ -4,14 +4,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { Download } from "lucide-react";
 import { HzyMark } from "./HzyMark";
+import { useSplashActive } from "@/lib/splash-context";
 import { cn } from "@/lib/utils";
 
 const NAV_LINKS = [
   { href: "/work", label: "work" },
+  { href: "/notebook", label: "journal" },
   { href: "/music", label: "music" },
-  { href: "/notebook", label: "notebook" },
-  { href: "/wall", label: "wall" },
+  { href: "/wall", label: "art" },
 ] as const;
 
 function isActive(pathname: string, href: string) {
@@ -80,6 +82,7 @@ function getRoomKey(pathname: string): RoomKey {
 export function Nav() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const splashActive = useSplashActive();
   const roomStyle = ROOM_NAV[getRoomKey(pathname)];
 
   // Close mobile menu on route change
@@ -102,15 +105,24 @@ export function Nav() {
         )}
       >
         <nav className="w-full max-w-5xl mx-auto flex items-center justify-between">
-          {/* Mark */}
+          {/* Mark — DOM-present during splash (opacity 0) for layoutId handoff */}
           <Link href="/" aria-label="hayzaydee home" className="flex items-center shrink-0">
-            <motion.div layoutId="hzy-mark">
+            <motion.div
+              layoutId="hzy-mark"
+              animate={{ opacity: splashActive ? 0 : 1 }}
+              transition={{ duration: 0.4, delay: splashActive ? 0 : 0.15 }}
+            >
               <HzyMark mode="dark" size={48} />
             </motion.div>
           </Link>
 
-          {/* Desktop links */}
-          <ul className="hidden md:flex items-center gap-6 list-none m-0 p-0">
+          {/* Desktop links — hidden during splash */}
+          <motion.ul
+            className="hidden md:flex items-center gap-6 list-none m-0 p-0"
+            animate={{ opacity: splashActive ? 0 : 1 }}
+            transition={{ duration: 0.4, delay: splashActive ? 0 : 0.6 }}
+            style={{ pointerEvents: splashActive ? "none" : "auto" }}
+          >
             {NAV_LINKS.map(({ href, label }) => {
               const active = isActive(pathname, href);
               return (
@@ -136,22 +148,44 @@ export function Nav() {
                 </li>
               );
             })}
-            <li>
-              <a
-                href="mailto:hayzayd33@gmail.com"
-                className={cn("text-sm font-sans transition-colors", roomStyle.link, roomStyle.linkHover)}
-              >
-                ↗ get in touch
-              </a>
-            </li>
-          </ul>
+          </motion.ul>
 
-          {/* Mobile hamburger */}
-          <button
+          {/* Right edge — CV + get in touch, hidden during splash */}
+          <motion.div
+            className="hidden md:flex items-center gap-5"
+            animate={{ opacity: splashActive ? 0 : 1 }}
+            transition={{ duration: 0.4, delay: splashActive ? 0 : 0.6 }}
+            style={{ pointerEvents: splashActive ? "none" : "auto" }}
+          >
+            <a
+              href="/Divine%20Eze's%20Resume.pdf"
+              download
+              className={cn(
+                "flex items-center gap-1.5 text-sm font-sans transition-colors",
+                roomStyle.link,
+                roomStyle.linkHover
+              )}
+            >
+              <Download size={14} />
+              CV
+            </a>
+            <a
+              href="mailto:hayzayd33@gmail.com"
+              className={cn("text-sm font-sans transition-colors", roomStyle.link, roomStyle.linkHover)}
+            >
+              get in touch
+            </a>
+          </motion.div>
+
+          {/* Mobile hamburger — hidden during splash */}
+          <motion.button
             className="md:hidden flex flex-col justify-center items-center w-8 h-8 gap-1.5"
             aria-label={menuOpen ? "close menu" : "open menu"}
             aria-expanded={menuOpen}
             onClick={() => setMenuOpen((v) => !v)}
+            animate={{ opacity: splashActive ? 0 : 1 }}
+            transition={{ duration: 0.3, delay: splashActive ? 0 : 0.6 }}
+            style={{ pointerEvents: splashActive ? "none" : "auto" }}
           >
             <motion.span
               animate={menuOpen ? { rotate: 45, y: 6 } : { rotate: 0, y: 0 }}
@@ -168,7 +202,7 @@ export function Nav() {
               className={cn("block w-5 h-px origin-center", roomStyle.hamburger)}
               transition={{ duration: 0.2 }}
             />
-          </button>
+          </motion.button>
         </nav>
       </header>
 
@@ -209,12 +243,21 @@ export function Nav() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 8 }}
               transition={{ delay: NAV_LINKS.length * 0.06, duration: 0.2 }}
+              className="flex flex-col items-center gap-4"
             >
+              <a
+                href="/Divine%20Eze's%20Resume.pdf"
+                download
+                className="flex items-center gap-2 text-xl font-sans text-(--lobby-text)"
+              >
+                <Download size={18} />
+                CV
+              </a>
               <a
                 href="mailto:hayzayd33@gmail.com"
                 className="text-xl font-sans text-(--lobby-text)"
-             >
-                ↗ get in touch
+              >
+                get in touch
               </a>
             </motion.div>
           </motion.div>

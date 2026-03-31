@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { useSetSplashActive } from "@/lib/splash-context";
 import { Splash } from "./Splash";
+import { SequenceController } from "./SequenceController";
 import { Hero } from "./Hero";
 import { About } from "./About";
 import { Seedling } from "./Seedling";
@@ -15,39 +17,92 @@ import { CurrentlyIndicator } from "./CurrentlyIndicator";
 import type { Currently } from "@/lib/data/currently";
 import type { FeaturedProject } from "@/lib/data/projects";
 
+/* ── Returning visitor flag ───────────────────────────────────────── */
+// Module-level: reset on page refresh (new JS context), persists on navigate-back
+let lobbyVisited = false;
+
 interface LobbyPageProps {
   currently: Currently | null;
   projects: FeaturedProject[];
 }
 
-export function LobbyPage({ currently, projects }: LobbyPageProps) {
-  const [showSplash, setShowSplash] = useState(true);
-  const [tourActive, setTourActive] = useState(false);
+type Phase = "splash" | "sequence" | "resting";
 
-  function handleDismiss() {
-    setShowSplash(false);
+export function LobbyPage({ currently, projects }: LobbyPageProps) {
+  const [phase, setPhase] = useState<Phase>(() =>
+    lobbyVisited ? "resting" : "splash"
+  );
+  const [tourActive, setTourActive] = useState(false);
+  const setSplashActive = useSetSplashActive();
+
+  // Sync splash state to context so Nav can react
+  useEffect(() => {
+    setSplashActive(phase === "splash");
+  }, [phase, setSplashActive]);
+
+  function handleSplashDismiss() {
+    setPhase("sequence");
+  }
+
+  function handleSequenceComplete() {
+    lobbyVisited = true;
+    setPhase("resting");
+  }
+
+  function handleTourStart() {
+    lobbyVisited = true;
+    setPhase("resting");
+    setTourActive(true);
   }
 
   return (
     <>
+      {/* Splash */}
       <AnimatePresence>
-        {showSplash && <Splash onDismiss={handleDismiss} />}
+        {phase === "splash" && <Splash onDismiss={handleSplashDismiss} />}
       </AnimatePresence>
 
-      <motion.div
-        initial={false}
-        animate={{ opacity: showSplash ? 0 : 1, y: showSplash ? 12 : 0 }}
-        transition={{ duration: 0.4, ease: "easeOut" }}
-        style={{ pointerEvents: showSplash ? "none" : undefined }}
-      >
-        <Hero />
-        <About />
-        <Seedling />
-        <ProjectCards projects={projects} />
-        <TechStack />
-        <CTA />
-        <TourNudge onStart={() => setTourActive(true)} />
-      </motion.div>
+      {/* Sequence mode */}
+      <AnimatePresence>
+        {phase === "sequence" && (
+          <motion.div
+            key="sequence"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.3 }}
+          >
+            <SequenceController
+              projects={projects}
+              onComplete={handleSequenceComplete}
+              onTourStart={handleTourStart}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Resting state */}
+      <AnimatePresence>
+        {phase === "resting" && (
+          <motion.div
+            key="resting"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+          >
+            <Hero mode="resting" />
+            <About mode="resting" />
+            <Seedling mode="resting" />
+            <TechStack mode="resting" />
+            <ProjectCards projects={projects} mode="resting" />
+            <CTA mode="resting" />
+            <TourNudge
+              mode="resting"
+              onStart={() => setTourActive(true)}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       <CurrentlyIndicator data={currently} />
 
