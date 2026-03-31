@@ -8,6 +8,9 @@
   --font-serif:  var(--font-garamond), Georgia, serif;
   --font-script: var(--font-texturina), Georgia, serif;
 
+  /* Animations */
+  --animate-blink: blink 0.7s step-end infinite;
+
   /* Global palette */
   --color-base-dark:    #141414;
   --color-base-light:   #F5F4F0;
@@ -92,6 +95,16 @@ body {
   color: var(--lobby-text);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes underline-draw {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 /* Respect reduced motion preference — override all Motion transitions */

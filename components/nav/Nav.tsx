@@ -105,7 +105,7 @@ export function Nav() {
           {/* Mark */}
           <Link href="/" aria-label="hayzaydee home" className="flex items-center shrink-0">
             <motion.div layoutId="hzy-mark">
-              <HzyMark mode="dark" size={26} />
+              <HzyMark mode="dark" size={48} />
             </motion.div>
           </Link>
 

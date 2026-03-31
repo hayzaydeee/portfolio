@@ -21,24 +21,12 @@ interface LobbyPageProps {
 }
 
 export function LobbyPage({ currently, projects }: LobbyPageProps) {
-  const [showSplash, setShowSplash] = useState<boolean | null>(null);
+  const [showSplash, setShowSplash] = useState(true);
   const [tourActive, setTourActive] = useState(false);
 
-  useEffect(() => {
-    const seen = sessionStorage.getItem("hzy-splash-seen");
-    setShowSplash(!seen);
-  }, []);
-
   function handleDismiss() {
-    sessionStorage.setItem("hzy-splash-seen", "1");
     setShowSplash(false);
   }
-
-  // During SSR and hydration, render neither splash nor lobby until
-  // sessionStorage check resolves (prevents flash)
-  if (showSplash === null) {
-    return <div className="min-h-screen bg-(--lobby-surface)" />;
- }
 
   return (
     <>

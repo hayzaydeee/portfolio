@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useId } from "react";
 
 const FILL_MAP = {
   light: "#141414",
@@ -12,10 +12,12 @@ export type HzyMarkMode = keyof typeof FILL_MAP;
 
 interface HzyMarkProps {
   mode?: HzyMarkMode;
-  /** Size in px — applied to both width and height */
+  /** Size in px — applied to both width and height. Omit to fill container (100%). */
   size?: number;
   /** Run the reveal animation on mount */
   animate?: boolean;
+  /** Duration of clip-path reveal in ms */
+  duration?: number;
   className?: string;
 }
 
@@ -24,11 +26,13 @@ const SVG_PATH =
 
 export function HzyMark({
   mode = "light",
-  size = 32,
+  size,
   animate: shouldAnimate = false,
+  duration = 1500,
   className,
 }: HzyMarkProps) {
   const rectWidthRef = useRef<SVGRectElement>(null);
+  const clipId = useId().replace(/:/g, "");
 
   useEffect(() => {
     if (!shouldAnimate || !rectWidthRef.current) return;
@@ -42,7 +46,7 @@ export function HzyMark({
     }
 
     let start: number | null = null;
-    const dur = 1500;
+    const dur = duration;
 
     function ease(t: number) {
       return t < 0.5 ? 2 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
@@ -64,18 +68,18 @@ export function HzyMark({
 
   return (
     <svg
-      width={size}
-      height={size}
+      width={size ?? "100%"}
+      height={size ?? "100%"}
       viewBox="0 0 1024 1024"
       aria-hidden="true"
       className={className}
     >
       <defs>
-        <clipPath id="hzy-clip">
+        <clipPath id={`hzy-clip-${clipId}`}>
           <rect ref={rectWidthRef} x="0" y="0" width={shouldAnimate ? "0" : "1024"} height="1024" />
         </clipPath>
       </defs>
-      <path clipPath="url(#hzy-clip)" fill={fill} d={SVG_PATH} />
+      <path clipPath={`url(#hzy-clip-${clipId})`} fill={fill} style={{ transition: "fill 0.8s ease-in-out" }} d={SVG_PATH} />
     </svg>
   );
 }
