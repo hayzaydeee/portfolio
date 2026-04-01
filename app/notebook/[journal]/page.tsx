@@ -25,6 +25,10 @@ const JOURNAL_META: Record<Journal, { label: string; description: string }> = {
     label: "Build log",
     description: "Software and building, thinking in progress.",
   },
+  cookbook: {
+    label: "Cookbook",
+    description: "Recipes I've made, meals I keep coming back to.",
+  },
 };
 
 const VALID_JOURNALS = new Set<string>([
@@ -33,6 +37,7 @@ const VALID_JOURNALS = new Set<string>([
   "annotations",
   "responses",
   "buildlog",
+  "cookbook",
 ]);
 
 type Props = { params: Promise<{ journal: string }> };

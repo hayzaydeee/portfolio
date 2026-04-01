@@ -116,11 +116,12 @@ function StudioDecoration() {
 
 function NotebookDecoration() {
   const journals = [
-    { color: "var(--notebook-reflections)", rotate: "-8deg", x: "8%", y: "15%" },
-    { color: "var(--notebook-fragments)", rotate: "4deg", x: "22%", y: "20%" },
-    { color: "var(--notebook-annotations)", rotate: "-3deg", x: "36%", y: "12%" },
-    { color: "var(--notebook-responses)", rotate: "6deg", x: "50%", y: "18%" },
-    { color: "var(--notebook-buildlog)", rotate: "-5deg", x: "64%", y: "14%" },
+    { color: "var(--notebook-reflections)", rotate: "-8deg", x: "5%", y: "15%" },
+    { color: "var(--notebook-fragments)", rotate: "4deg", x: "19%", y: "20%" },
+    { color: "var(--notebook-annotations)", rotate: "-3deg", x: "33%", y: "12%" },
+    { color: "var(--notebook-responses)", rotate: "6deg", x: "47%", y: "18%" },
+    { color: "var(--notebook-buildlog)", rotate: "-5deg", x: "61%", y: "14%" },
+    { color: "var(--notebook-cookbook)", rotate: "3deg", x: "75%", y: "20%" },
   ];
   return (
     <div className="absolute inset-0 pointer-events-none select-none opacity-30">

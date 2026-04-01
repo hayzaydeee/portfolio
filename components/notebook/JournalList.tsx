@@ -10,6 +10,7 @@ const JOURNAL_COLOR: Record<Journal, string> = {
   annotations: "var(--notebook-annotations)",
   responses:   "var(--notebook-responses)",
   buildlog:    "var(--notebook-buildlog)",
+  cookbook:    "var(--notebook-cookbook)",
 };
 
 function formatDate(dateStr: string | null): string {

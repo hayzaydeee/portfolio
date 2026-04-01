@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "notebook — hayzaydee",
-  description: "Five journals. Reflections, fragments, annotations, responses, and build log.",
+  description: "Six journals. Reflections, fragments, annotations, responses, build log, and a cookbook.",
 };
 
 export default function NotebookLayout({ children }: { children: React.ReactNode }) {

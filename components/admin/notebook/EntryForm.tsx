@@ -14,6 +14,7 @@ const JOURNAL_OPTIONS: { value: NotebookEntry["journal"]; label: string; color: 
   { value: "annotations",  label: "Annotations",  color: "var(--admin-status-scheduled)" },
   { value: "responses",    label: "Responses",    color: "#6B1E6B" },
   { value: "buildlog",     label: "Build log",    color: "#2C2C28" },
+  { value: "cookbook",     label: "Cookbook",     color: "#B85C38" },
 ];
 
 type EntryFormProps = {

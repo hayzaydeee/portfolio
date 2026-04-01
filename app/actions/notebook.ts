@@ -9,7 +9,7 @@ import { revalidateContent } from "@/lib/revalidate";
 export type NotebookEntry = {
   id: string;
   slug: string;
-  journal: "reflections" | "fragments" | "annotations" | "responses" | "buildlog";
+  journal: "reflections" | "fragments" | "annotations" | "responses" | "buildlog" | "cookbook";
   title: string | null;
   content: string | null;
   body_html: string | null;
@@ -49,7 +49,7 @@ function generateSlug(title: string | null, id: string): string {
 // ─── Validation ───────────────────────────────────────────────────────────────
 
 const entrySchema = z.object({
-  journal: z.enum(["reflections", "fragments", "annotations", "responses", "buildlog"]),
+  journal: z.enum(["reflections", "fragments", "annotations", "responses", "buildlog", "cookbook"]),
   title: z.string().max(200).optional().or(z.literal("")),
   body_html: z.string().optional(),
   tags: z.array(z.string().max(50)).max(10).optional(),

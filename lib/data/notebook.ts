@@ -1,6 +1,6 @@
 import { createPublicClient } from "@/lib/supabase/server";
 
-export type Journal = "reflections" | "fragments" | "annotations" | "responses" | "buildlog";
+export type Journal = "reflections" | "fragments" | "annotations" | "responses" | "buildlog" | "cookbook";
 
 export type NotebookEntry = {
   id: string;

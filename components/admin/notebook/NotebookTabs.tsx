@@ -114,6 +114,7 @@ const JOURNAL_LABELS: Record<NotebookEntry["journal"], string> = {
   annotations: "Annotations",
   responses: "Responses",
   buildlog: "Build log",
+  cookbook: "Cookbook",
 };
 
 type WriteTabProps = {

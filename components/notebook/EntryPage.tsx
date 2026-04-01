@@ -11,6 +11,7 @@ const JOURNAL_COLOR: Record<Journal, string> = {
   annotations: "var(--notebook-annotations)",
   responses:   "var(--notebook-responses)",
   buildlog:    "var(--notebook-buildlog)",
+  cookbook:    "var(--notebook-cookbook)",
 };
 
 const JOURNAL_LABEL: Record<Journal, string> = {
@@ -19,6 +20,7 @@ const JOURNAL_LABEL: Record<Journal, string> = {
   annotations: "Annotations",
   responses:   "Responses",
   buildlog:    "Build log",
+  cookbook:    "Cookbook",
 };
 
 function formatDate(dateStr: string | null): string {
@@ -47,6 +49,8 @@ export function EntryPage({ entry, journal, prevSlug, nextSlug }: Props) {
       ? "prose-notebook prose-notebook--buildlog"
       : journal === "fragments"
       ? "prose-notebook prose-notebook--fragments"
+      : journal === "cookbook"
+      ? "prose-notebook prose-notebook--cookbook"
       : "prose-notebook";
 
   return (

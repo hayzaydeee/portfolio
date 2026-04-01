@@ -61,6 +61,15 @@ const JOURNALS: JournalConfig[] = [
     offsetX: -8,
     offsetY: 4,
   },
+  {
+    id: "cookbook",
+    label: "Cookbook",
+    description: "Recipes & meals",
+    color: "var(--notebook-cookbook)",
+    rotation: 1.5,
+    offsetX: 14,
+    offsetY: -4,
+  },
 ];
 
 function JournalCard({
