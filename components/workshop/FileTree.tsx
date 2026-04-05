@@ -138,10 +138,9 @@ export function FileTree({ activeSlug, onSelect, projects }: FileTreeProps) {
           type: "dir",
           children: projects.map((p) => ({
             name: p.name,
-            type: "dir" as const,
+            type: "file" as const,
             slug: p.slug,
             isNew: p.isNew,
-            children: [],
           })),
         },
         ...STATIC_FILE_NODES,

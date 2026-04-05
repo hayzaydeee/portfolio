@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useRef, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TagInput } from "@/components/admin/TagInput";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
@@ -36,13 +36,26 @@ export function ProjectForm({ project }: ProjectFormProps) {
   const [deleteInput, setDeleteInput] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Controlled field state (persists through server action error re-renders)
+  const [title, setTitle] = useState(project?.title ?? "");
+  const [slug, setSlug] = useState(project?.slug ?? "");
+  const [tagline, setTagline] = useState(project?.tagline ?? "");
+  const [liveUrl, setLiveUrl] = useState(project?.live_url ?? "");
+  const [repoUrl, setRepoUrl] = useState(project?.repo_url ?? "");
+  const [status, setStatus] = useState(project?.status ?? "draft");
+  const [orderIndex, setOrderIndex] = useState(String(project?.order_index ?? 0));
+  const [isFeatured, setIsFeatured] = useState(project?.is_featured ?? false);
+  const [personalNote, setPersonalNote] = useState(project?.personal_note ?? "");
+
   // Rich text refs (values set via hidden inputs from RichTextEditor)
   const formRef = useRef<HTMLFormElement>(null);
 
   // Redirect to workshop list on success (new project)
-  if (state.success && state.id && !isEdit) {
-    router.push(`/admin/workshop/${state.id}`);
-  }
+  useEffect(() => {
+    if (state.success && state.id && !isEdit) {
+      router.push(`/admin/workshop/${state.id}`);
+    }
+  }, [state.success, state.id, isEdit, router]);
 
   async function handleThumbnailFile(file: File) {
     if (!project?.id) {
@@ -88,7 +101,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
               type="text"
               required
               maxLength={100}
-              defaultValue={project?.title}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) focus:outline-none focus:border-accent/50"
             />
           </div>
@@ -99,7 +113,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
               type="text"
               required
               maxLength={100}
-              defaultValue={project?.slug}
+              value={slug}
+              onChange={(e) => setSlug(e.target.value)}
               placeholder="my-project"
               pattern="[a-z0-9-]+"
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 font-mono text-(--color-base-dark) focus:outline-none focus:border-accent/50"
@@ -115,7 +130,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
             name="tagline"
             type="text"
             maxLength={100}
-            defaultValue={project?.tagline ?? ""}
+            value={tagline}
+            onChange={(e) => setTagline(e.target.value)}
             className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) focus:outline-none focus:border-accent/50"
           />
         </div>
@@ -126,7 +142,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
             <input
               name="live_url"
               type="url"
-              defaultValue={project?.live_url ?? ""}
+              value={liveUrl}
+              onChange={(e) => setLiveUrl(e.target.value)}
               placeholder="https://"
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) focus:outline-none focus:border-accent/50"
             />
@@ -136,7 +153,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
             <input
               name="repo_url"
               type="url"
-              defaultValue={project?.repo_url ?? ""}
+              value={repoUrl}
+              onChange={(e) => setRepoUrl(e.target.value)}
               placeholder="https://github.com/"
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) focus:outline-none focus:border-accent/50"
             />
@@ -148,7 +166,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
             <label className="block text-xs text-(--color-text-muted) mb-1">Status</label>
             <select
               name="status"
-              defaultValue={project?.status ?? "draft"}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) bg-white focus:outline-none focus:border-accent/50"
             >
               <option value="draft">Draft</option>
@@ -163,7 +182,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
               name="order_index"
               type="number"
               min={0}
-              defaultValue={project?.order_index ?? 0}
+              value={orderIndex}
+              onChange={(e) => setOrderIndex(e.target.value)}
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) focus:outline-none focus:border-accent/50"
             />
           </div>
@@ -173,7 +193,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
                 type="checkbox"
                 name="is_featured"
                 value="true"
-                defaultChecked={project?.is_featured ?? false}
+                checked={isFeatured}
+                onChange={(e) => setIsFeatured(e.target.checked)}
                 className="rounded border-black/20"
               />
               <span className="text-xs text-(--color-base-dark)">Show in lobby</span>
@@ -214,7 +235,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
           <textarea
             name="personal_note"
             maxLength={200}
-            defaultValue={project?.personal_note ?? ""}
+            value={personalNote}
+            onChange={(e) => setPersonalNote(e.target.value)}
             rows={2}
             placeholder="What the project taught or means."
             className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) resize-none focus:outline-none focus:border-accent/50"

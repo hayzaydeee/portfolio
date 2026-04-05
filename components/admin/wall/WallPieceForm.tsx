@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MediaUpload } from "@/components/admin/MediaUpload";
 import {
@@ -45,6 +45,16 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
   const [type, setType] = useState<WallPiece["type"]>(piece?.type ?? "art");
   const [status, setStatus] = useState(piece?.status ?? "draft");
 
+  // Controlled field state (persists through server action error re-renders)
+  const [caption, setCaption] = useState(piece?.caption ?? "");
+  const [description, setDescription] = useState(piece?.description ?? "");
+  const [altText, setAltText] = useState(piece?.alt_text ?? "");
+  const [youtubeUrl, setYoutubeUrl] = useState(piece?.youtube_url ?? "");
+  const [duration, setDuration] = useState(piece?.duration ?? "");
+  const [publishAt, setPublishAt] = useState(
+    piece?.publish_at ? new Date(piece.publish_at).toISOString().slice(0, 16) : ""
+  );
+
   // Image upload state
   const [imageUrl, setImageUrl] = useState<string | null>(piece?.image_path ?? null);
   const [imageUploading, setImageUploading] = useState(false);
@@ -60,9 +70,11 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  if (state.success && state.id && !isEdit) {
-    router.push(`/admin/wall/${state.id}`);
-  }
+  useEffect(() => {
+    if (state.success && state.id && !isEdit) {
+      router.push(`/admin/wall/${state.id}`);
+    }
+  }, [state.success, state.id, isEdit, router]);
 
   async function handleImageFile(file: File) {
     if (!piece?.id) {
@@ -150,7 +162,8 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
               name="caption"
               type="text"
               maxLength={200}
-              defaultValue={piece?.caption ?? ""}
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
               placeholder="A short caption for the polaroid"
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
             />
@@ -164,7 +177,8 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
               name="description"
               rows={3}
               maxLength={1000}
-              defaultValue={piece?.description ?? ""}
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
               placeholder="Longer description shown in the lightbox"
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50 resize-none"
             />
@@ -176,7 +190,8 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
               name="alt_text"
               type="text"
               maxLength={300}
-              defaultValue={piece?.alt_text ?? ""}
+              value={altText}
+              onChange={(e) => setAltText(e.target.value)}
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
             />
           </div>
@@ -191,7 +206,8 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
                 <input
                   name="youtube_url"
                   type="url"
-                  defaultValue={piece?.youtube_url ?? ""}
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
                   placeholder="https://youtube.com/watch?v=..."
                   className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 font-mono text-base-dark focus:outline-none focus:border-accent/50"
                 />
@@ -204,7 +220,8 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
                   <input
                     name="duration"
                     type="text"
-                    defaultValue={piece?.duration ?? ""}
+                    value={duration}
+                    onChange={(e) => setDuration(e.target.value)}
                     placeholder="12:34"
                     pattern="\d+:\d{2}"
                     className="w-32 text-sm border border-black/10 rounded-lg px-3 py-2.5 font-mono text-base-dark focus:outline-none focus:border-accent/50"
@@ -243,11 +260,8 @@ export function WallPieceForm({ piece }: WallPieceFormProps) {
                 <input
                   name="publish_at"
                   type="datetime-local"
-                  defaultValue={
-                    piece?.publish_at
-                      ? new Date(piece.publish_at).toISOString().slice(0, 16)
-                      : ""
-                  }
+                  value={publishAt}
+                  onChange={(e) => setPublishAt(e.target.value)}
                   className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
                 />
               </div>

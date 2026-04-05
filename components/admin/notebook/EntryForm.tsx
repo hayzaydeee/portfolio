@@ -1,12 +1,11 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createEntry, updateEntry, deleteEntry } from "@/app/actions/notebook";
 import type { NotebookEntry, NotebookActionState } from "@/app/actions/notebook";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import { TagInput } from "@/components/admin/TagInput";
-import { useState } from "react";
 
 const JOURNAL_OPTIONS: { value: NotebookEntry["journal"]; label: string; color: string }[] = [
   { value: "reflections",  label: "Reflections",  color: "accent" },
@@ -37,11 +36,14 @@ export function EntryForm({ entry }: EntryFormProps) {
   const [selectedJournal, setSelectedJournal] = useState<NotebookEntry["journal"]>(
     entry?.journal ?? "reflections"
   );
+  const [title, setTitle] = useState(entry?.title ?? "");
   const [showDelete, setShowDelete] = useState(false);
 
-  if (state.success && state.id && !isEdit) {
-    router.push(`/admin/notebook/${state.id}`);
-  }
+  useEffect(() => {
+    if (state.success && state.id && !isEdit) {
+      router.push(`/admin/notebook/${state.id}`);
+    }
+  }, [state.success, state.id, isEdit, router]);
 
   async function handleDelete() {
     if (!entry) return;
@@ -82,7 +84,8 @@ export function EntryForm({ entry }: EntryFormProps) {
             name="title"
             type="text"
             maxLength={200}
-            defaultValue={entry?.title ?? ""}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
             placeholder="untitled"
             className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) focus:outline-none focus:border-accent/50"
           />

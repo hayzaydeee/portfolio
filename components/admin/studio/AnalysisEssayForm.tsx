@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { RichTextEditor } from "@/components/admin/RichTextEditor";
 import {
@@ -37,9 +37,17 @@ export function AnalysisEssayForm({ essay }: AnalysisEssayFormProps) {
   const [deleteInput, setDeleteInput] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  if (state.success && state.id && !isEdit) {
-    router.push(`/admin/studio/essays/${state.id}`);
-  }
+  // Controlled field state (persists through server action error re-renders)
+  const [title, setTitle] = useState(essay?.title ?? "");
+  const [slug, setSlug] = useState(essay?.slug ?? "");
+  const [subject, setSubject] = useState(essay?.subject ?? "");
+  const [status, setStatus] = useState(essay?.status ?? "draft");
+
+  useEffect(() => {
+    if (state.success && state.id && !isEdit) {
+      router.push(`/admin/studio/essays/${state.id}`);
+    }
+  }, [state.success, state.id, isEdit, router]);
 
   async function handleDelete() {
     if (!essay) return;
@@ -68,7 +76,8 @@ export function AnalysisEssayForm({ essay }: AnalysisEssayFormProps) {
                 type="text"
                 required
                 maxLength={200}
-                defaultValue={essay?.title}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
               />
             </div>
@@ -79,7 +88,8 @@ export function AnalysisEssayForm({ essay }: AnalysisEssayFormProps) {
                 type="text"
                 required
                 maxLength={100}
-                defaultValue={essay?.slug}
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
                 placeholder="my-essay-slug"
                 pattern="[a-z0-9-]+"
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 font-mono text-base-dark focus:outline-none focus:border-accent/50"
@@ -97,7 +107,8 @@ export function AnalysisEssayForm({ essay }: AnalysisEssayFormProps) {
               type="text"
               required
               maxLength={200}
-              defaultValue={essay?.subject}
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
               placeholder="e.g. Kendrick Lamar — To Pimp a Butterfly"
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
             />
@@ -107,7 +118,8 @@ export function AnalysisEssayForm({ essay }: AnalysisEssayFormProps) {
             <label className="block text-xs text-text-muted mb-1">Status</label>
             <select
               name="status"
-              defaultValue={essay?.status ?? "draft"}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
               className="w-48 text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50 bg-white"
             >
               {STATUS_OPTIONS.map((opt) => (

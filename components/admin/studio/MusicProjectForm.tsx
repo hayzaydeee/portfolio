@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MediaUpload } from "@/components/admin/MediaUpload";
 import {
@@ -43,6 +43,16 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
   const [artworkUploading, setArtworkUploading] = useState(false);
   const [artworkError, setArtworkError] = useState<string | null>(null);
 
+  // Controlled field state (persists through server action error re-renders)
+  const [title, setTitle] = useState(project?.title ?? "");
+  const [slug, setSlug] = useState(project?.slug ?? "");
+  const [description, setDescription] = useState(project?.description ?? "");
+  const [releaseYear, setReleaseYear] = useState(String(project?.release_year ?? ""));
+  const [status, setStatus] = useState(project?.status ?? "draft");
+  const [sortOrder, setSortOrder] = useState(String(project?.sort_order ?? 0));
+  const [isFeatured, setIsFeatured] = useState(project?.is_featured ?? false);
+  const [isWip, setIsWip] = useState(project?.is_wip ?? false);
+
   // Track management state
   const [tracks, setTracks] = useState<Track[]>(
     [...(project?.tracks ?? [])].sort((a, b) => a.track_number - b.track_number)
@@ -58,9 +68,11 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
   const [deleteInput, setDeleteInput] = useState("");
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  if (state.success && state.id && !isEdit) {
-    router.push(`/admin/studio/${state.id}`);
-  }
+  useEffect(() => {
+    if (state.success && state.id && !isEdit) {
+      router.push(`/admin/studio/${state.id}`);
+    }
+  }, [state.success, state.id, isEdit, router]);
 
   async function handleArtworkFile(file: File) {
     if (!project?.id) {
@@ -171,7 +183,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
                 type="text"
                 required
                 maxLength={100}
-                defaultValue={project?.title}
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
               />
             </div>
@@ -182,7 +195,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
                 type="text"
                 required
                 maxLength={100}
-                defaultValue={project?.slug}
+                value={slug}
+                onChange={(e) => setSlug(e.target.value)}
                 placeholder="my-project"
                 pattern="[a-z0-9-]+"
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 font-mono text-base-dark focus:outline-none focus:border-accent/50"
@@ -199,7 +213,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
                 name="description"
                 type="text"
                 maxLength={150}
-                defaultValue={project?.description ?? ""}
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
               />
             </div>
@@ -210,7 +225,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
                 type="number"
                 min={1900}
                 max={2100}
-                defaultValue={project?.release_year ?? ""}
+                value={releaseYear}
+                onChange={(e) => setReleaseYear(e.target.value)}
                 placeholder={String(new Date().getFullYear())}
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
               />
@@ -227,7 +243,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
               <label className="block text-xs text-text-muted mb-1">Status</label>
               <select
                 name="status"
-                defaultValue={project?.status ?? "draft"}
+              value={status}
+              onChange={(e) => setStatus(e.target.value)}
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50 bg-white"
               >
                 {STATUS_OPTIONS.map((opt) => (
@@ -243,7 +260,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
                 name="sort_order"
                 type="number"
                 min={0}
-                defaultValue={project?.sort_order ?? 0}
+                value={sortOrder}
+                onChange={(e) => setSortOrder(e.target.value)}
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50"
               />
             </div>
@@ -253,7 +271,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
                   type="checkbox"
                   name="is_featured"
                   value="true"
-                  defaultChecked={project?.is_featured}
+                  checked={isFeatured}
+                  onChange={(e) => setIsFeatured(e.target.checked)}
                   className="rounded border-black/20 accent-accent"
                 />
                 Featured
@@ -263,7 +282,8 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
                   type="checkbox"
                   name="is_wip"
                   value="true"
-                  defaultChecked={project?.is_wip}
+                  checked={isWip}
+                  onChange={(e) => setIsWip(e.target.checked)}
                   className="rounded border-black/20 accent-accent"
                 />
                 In the lab (WIP)

@@ -1,137 +1,161 @@
 -- hayzaydee.me — Supabase Schema
--- Run this in: Supabase Dashboard → SQL Editor → New query → Run
--- After running: enable RLS on each table (see policies below)
+-- Source of truth: derived directly from app/actions/*.ts types and insert payloads
+-- To reset: drop all tables, run this file, then re-enable RLS policies below.
+
+-- ─────────────────────────────────────────────────────────────────────
+-- TEARDOWN (safe — only runs if tables exist)
+-- ─────────────────────────────────────────────────────────────────────
+
+drop table if exists tracks             cascade;
+drop table if exists music_projects     cascade;
+drop table if exists analysis_essays    cascade;
+drop table if exists notebook_entries   cascade;
+drop table if exists wall_pieces        cascade;
+drop table if exists projects           cascade;
+drop table if exists currently          cascade;
+drop table if exists site_settings      cascade;
 
 -- ─────────────────────────────────────────────────────────────────────
 -- TABLES
 -- ─────────────────────────────────────────────────────────────────────
 
-create table if not exists projects (
-  id            uuid primary key default gen_random_uuid(),
-  slug          text unique not null,
-  title         text not null,
+-- projects
+-- Columns: exactly what actions/projects.ts inserts/updates
+create table projects (
+  id            uuid        primary key default gen_random_uuid(),
+  slug          text        unique not null,
+  title         text        not null,
   tagline       text,
   problem_notes text,
   build_notes   text,
-  stack         text[],
+  stack         text[]      not null default '{}',
   personal_note text,
   live_url      text,
   repo_url      text,
   thumbnail_url text,
-  is_featured   boolean not null default false,
-  status        text not null default 'draft'
-                  check (status in ('published', 'draft', 'archived', 'in_progress')),
-  order_index   integer not null default 0,
+  is_featured   boolean     not null default false,
+  status        text        not null default 'draft'
+                              check (status in ('published', 'draft', 'archived', 'in_progress')),
+  order_index   integer     not null default 0,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
 );
 
-create table if not exists music_projects (
-  id            uuid primary key default gen_random_uuid(),
-  slug          text unique not null,
-  title         text not null,
-  description   text,
-  artwork_path  text,
-  release_year  integer,
-  is_featured   boolean not null default false,
-  is_wip        boolean not null default false,
-  status        text not null default 'draft'
-                  check (status in ('published', 'draft', 'archived')),
-  sort_order    integer not null default 0,
-  created_at    timestamptz not null default now(),
-  updated_at    timestamptz not null default now()
+-- music_projects
+-- Columns: exactly what actions/studio.ts inserts/updates
+create table music_projects (
+  id           uuid        primary key default gen_random_uuid(),
+  slug         text        unique not null,
+  title        text        not null,
+  description  text,
+  artwork_path text,
+  release_year integer,
+  is_featured  boolean     not null default false,
+  is_wip       boolean     not null default false,
+  status       text        not null default 'draft'
+                             check (status in ('published', 'draft', 'archived')),
+  sort_order   integer     not null default 0,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
 );
 
-create table if not exists tracks (
-  id               uuid primary key default gen_random_uuid(),
-  music_project_id uuid not null references music_projects(id) on delete cascade,
-  title            text not null,
+-- tracks
+-- Columns: exactly what actions/studio.ts inserts/updates
+create table tracks (
+  id               uuid        primary key default gen_random_uuid(),
+  music_project_id uuid        not null references music_projects(id) on delete cascade,
+  title            text        not null,
   audio_path       text,
   duration_seconds integer,
-  track_number     integer not null default 1,
+  track_number     integer     not null default 1,
   created_at       timestamptz not null default now()
 );
 
-create table if not exists analysis_essays (
-  id                 uuid primary key default gen_random_uuid(),
-  slug               text unique not null,
-  title              text not null,
-  subject            text not null default '',
-  content            text,          -- MDX/Markdown
-  body_html          text,          -- Tiptap HTML output
-  read_time_minutes  integer,
-  status             text not null default 'draft'
-                       check (status in ('published', 'draft', 'archived')),
-  created_at         timestamptz not null default now(),
-  updated_at         timestamptz not null default now()
+-- analysis_essays
+-- Columns: exactly what actions/studio.ts inserts/updates
+create table analysis_essays (
+  id                uuid        primary key default gen_random_uuid(),
+  slug              text        unique not null,
+  title             text        not null,
+  subject           text        not null default '',
+  body_html         text,
+  read_time_minutes integer,
+  status            text        not null default 'draft'
+                                  check (status in ('published', 'draft', 'archived')),
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
 );
 
-create table if not exists notebook_entries (
-  id                uuid primary key default gen_random_uuid(),
-  slug              text unique not null,
-  journal           text not null
-                      check (journal in ('reflections', 'fragments', 'annotations', 'responses', 'buildlog')),
+-- notebook_entries
+-- Columns: exactly what actions/notebook.ts inserts/updates
+create table notebook_entries (
+  id                uuid        primary key default gen_random_uuid(),
+  slug              text        unique not null,
+  journal           text        not null
+                                  check (journal in ('reflections', 'fragments', 'annotations', 'responses', 'buildlog', 'cookbook')),
   title             text,
-  content           text,          -- MDX/Markdown
-  body_html         text,          -- Tiptap HTML output
+  body_html         text,
   read_time_minutes integer,
-  source            text not null default 'admin'
-                      check (source in ('admin', 'bito')),
-  status            text not null default 'draft'
-                      check (status in ('published', 'draft', 'staged', 'rejected', 'archived')),
-  tags              text[],
+  source            text        not null default 'admin'
+                                  check (source in ('admin', 'bito')),
+  status            text        not null default 'draft'
+                                  check (status in ('published', 'draft', 'staged', 'rejected', 'archived')),
+  tags              text[]      not null default '{}',
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now(),
   published_at      timestamptz
 );
 
-create table if not exists wall_pieces (
-  id          uuid primary key default gen_random_uuid(),
-  type        text not null
-                check (type in ('art', 'video_short', 'video_long')),
-  caption     text,
-  description text,
-  image_path  text,
-  preview_path text,         -- 30s Supabase video preview
-  youtube_url text,
-  duration    text,          -- e.g. "12:34" for long video
-  alt_text    text,
-  status      text not null default 'draft'
-                check (status in ('published', 'draft', 'scheduled', 'hidden')),
-  publish_at  timestamptz,   -- time capsule field
-  created_at  timestamptz not null default now(),
-  updated_at  timestamptz not null default now()
+-- wall_pieces
+-- Columns: exactly what actions/wall.ts inserts/updates
+create table wall_pieces (
+  id           uuid        primary key default gen_random_uuid(),
+  type         text        not null
+                             check (type in ('art', 'video_short', 'video_long')),
+  caption      text,
+  description  text,
+  image_path   text,
+  preview_path text,
+  youtube_url  text,
+  duration     text,
+  alt_text     text,
+  status       text        not null default 'draft'
+                             check (status in ('published', 'draft', 'scheduled', 'hidden')),
+  publish_at   timestamptz,
+  created_at   timestamptz not null default now(),
+  updated_at   timestamptz not null default now()
 );
 
-create table if not exists currently (
-  id         uuid primary key default gen_random_uuid(),
-  type       text not null
-               check (type in ('project', 'music', 'thought', 'film', 'book')),
-  verb       text not null,  -- e.g. 'building', 'listening', 'reading'
-  content    text not null,
+-- currently
+-- Columns: exactly what actions/currently.ts inserts/updates
+create table currently (
+  id         uuid        primary key default gen_random_uuid(),
+  type       text        not null
+                           check (type in ('project', 'music', 'thought', 'film', 'book')),
+  verb       text        not null,
+  content    text        not null,
   link       text,
-  is_active  boolean not null default true,
+  is_active  boolean     not null default true,
   created_at timestamptz not null default now()
 );
 
-create table if not exists site_settings (
-  id                      uuid primary key default gen_random_uuid(),
-  room_workshop_visible   boolean not null default true,
-  room_studio_visible     boolean not null default true,
-  room_notebook_visible   boolean not null default true,
-  room_wall_visible       boolean not null default true,
-  bito_webhook_secret     text,
-  last_bito_webhook_at    timestamptz,
-  updated_at              timestamptz not null default now()
+-- site_settings
+-- Columns: exactly what actions/settings.ts reads/updates
+create table site_settings (
+  id                    uuid        primary key default gen_random_uuid(),
+  room_workshop_visible boolean     not null default true,
+  room_studio_visible   boolean     not null default true,
+  room_notebook_visible boolean     not null default true,
+  room_wall_visible     boolean     not null default true,
+  bito_webhook_secret   text,
+  last_bito_webhook_at  timestamptz,
+  stack_json            jsonb,
+  updated_at            timestamptz not null default now()
 );
 
--- Insert the single settings row
+-- Seed the single settings row
 insert into site_settings (id) values (gen_random_uuid())
 on conflict do nothing;
-
--- ─── Migration: stack_json ────────────────────────────────────────────────────
--- Run this against your Supabase project to add the stack editor column:
--- ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS stack_json jsonb;
 
 -- ─────────────────────────────────────────────────────────────────────
 -- TRIGGERS — auto-update updated_at
