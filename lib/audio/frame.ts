@@ -47,6 +47,12 @@ type Analysis = {
 
 let analysis: Analysis | null = null;
 
+/** Running counters for the verification suite (window.__fx.audio) */
+const stats = { frames: 0, onsets: 0, binsMax: 0, rmsMax: 0 };
+export function audioStats() {
+  return { ...stats, analyser: getAnalyser() !== null };
+}
+
 function binFor(hz: number, analyser: AnalyserNode) {
   const binHz = analyser.context.sampleRate / analyser.fftSize;
   return Math.min(analyser.frequencyBinCount - 1, Math.max(0, Math.round(hz / binHz)));
@@ -126,6 +132,11 @@ export function readFrame(now: number): AudioFrame | null {
   }
   a.prevFlux = flux;
   a.frame.onset = onset;
+
+  stats.frames += 1;
+  if (onset > 0) stats.onsets += 1;
+  stats.rmsMax = Math.max(stats.rmsMax, a.frame.rms);
+  for (let k = 0; k < a.bins.length; k++) if (a.bins[k] > stats.binsMax) stats.binsMax = a.bins[k];
 
   const el = getEngine()?.el;
   a.frame.playing = !!el && !el.paused && !el.ended;

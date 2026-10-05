@@ -32,3 +32,5 @@ docs/
 .vscode/
 .idea/
 .DS_Store
+# Fx verification output
+fx-report/
