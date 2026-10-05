@@ -189,7 +189,7 @@ export function FxStage({
         const wasVisible = observed ? visible : true;
         observed = true;
         visible = entry?.isIntersecting ?? true;
-        if (visible) lease?.touch();
+        lease?.setVisible(visible);
         // A waiting stage retries when it comes back on screen (a slot may have freed meanwhile)
         if (visible && !wasVisible) retry();
       },
@@ -222,16 +222,17 @@ export function FxStage({
       layer.appendChild(canvas);
 
       if (isGL) {
-        const onLost = (e: Event) => {
-          e.preventDefault();
+        // No preventDefault: a lost context is never restored in place. Recovery always builds a
+        // fresh canvas through the waiter path (teardown releases the lease, which retries us).
+        const lostCanvas = canvas;
+        const onLost = () => {
           if (disposing) return;
           teardown();
           disposing = false;
           wait();
         };
-        const onRestored = () => setGeneration((g) => g + 1);
-        canvas.addEventListener("webglcontextlost", onLost);
-        canvas.addEventListener("webglcontextrestored", onRestored);
+        lostCanvas.addEventListener("webglcontextlost", onLost);
+        cleanups.push(() => lostCanvas.removeEventListener("webglcontextlost", onLost));
       }
 
       const ctx: FxContext = {

@@ -22,11 +22,12 @@ export type LeaseRequest = {
 export type Lease = {
   id: string;
   priority: FxPriority;
-  touch: () => void;
+  /** Report visibility. Going offscreen makes this lease evictable, so waiters get a retry */
+  setVisible: (visible: boolean) => void;
   release: () => void;
 };
 
-type Entry = LeaseRequest & { lastVisible: number };
+type Entry = LeaseRequest & { lastVisible: number; reportedVisible: boolean };
 
 type BudgetState = {
   leases: Map<string, Entry>;
@@ -53,10 +54,12 @@ function live(): Map<string, Entry> {
   return budget().leases;
 }
 
-/** Defer so a waiter's retry never runs inside the release that triggered it */
+/**
+ * Deferred, and the waiter set is read when the microtask runs: a stage that releases its own
+ * lease (context loss) subscribes as a waiter right after, and must still hear about the slot
+ */
 function notifyFreed() {
-  const { waiters } = budget();
-  if (waiters.size) queueMicrotask(() => budget().waiters.forEach((cb) => cb()));
+  queueMicrotask(() => budget().waiters.forEach((cb) => cb()));
 }
 
 /** Debug counter: a stage started building an instance */
@@ -64,7 +67,7 @@ export function noteCreationAttempt() {
   budget().attempts += 1;
 }
 
-/** Called whenever a slot frees (release or eviction). Returns an unsubscribe. */
+/** Called whenever a slot frees or a holder goes offscreen (evictable). Returns an unsubscribe. */
 export function onLeaseFreed(cb: () => void): () => void {
   const { waiters } = budget();
   waiters.add(cb);
@@ -87,14 +90,19 @@ export function acquireLease(req: LeaseRequest): Lease | null {
     victim.evict();
   }
 
-  const entry: Entry = { ...req, lastVisible: performance.now() };
+  const entry: Entry = { ...req, lastVisible: performance.now(), reportedVisible: true };
   leases.set(req.id, entry);
   budget().acquisitions += 1;
   return {
     id: req.id,
     priority: req.priority,
-    touch: () => {
-      entry.lastVisible = performance.now();
+    setVisible: (visible) => {
+      if (visible) entry.lastVisible = performance.now();
+      const wentHidden = entry.reportedVisible && !visible;
+      entry.reportedVisible = visible;
+      // Stages mount with optimistic visibility, so offscreen ones can win slots first;
+      // when they report hidden, on-screen waiters retry and evict them
+      if (wentHidden && leases.get(req.id) === entry) notifyFreed();
     },
     release: () => {
       if (leases.get(req.id) !== entry) return;

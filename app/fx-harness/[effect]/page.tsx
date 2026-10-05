@@ -38,6 +38,7 @@ export default async function FxHarnessPage({ params, searchParams }: Props) {
       withAudio={sp.audio === "1"}
       audioSrc={audioSrc}
       count={count}
+      layout={sp.layout === "below" ? "below" : "grid"}
     />
   );
 }

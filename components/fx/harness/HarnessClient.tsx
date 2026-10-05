@@ -26,6 +26,7 @@ export function HarnessClient({
   withAudio,
   audioSrc,
   count,
+  layout,
 }: {
   effect: FxId;
   room: RoomKey;
@@ -33,6 +34,8 @@ export function HarnessClient({
   withAudio: boolean;
   audioSrc: string;
   count: number;
+  /** "below": the first stages in DOM order (which mount and lease first) sit far below the fold */
+  layout: "grid" | "below";
 }) {
   const handle = useRef<FxHandle>(null);
   const { play } = useAudio();
@@ -42,7 +45,7 @@ export function HarnessClient({
   const track = useMemo(() => fixtureTrack(audioSrc), [audioSrc]);
 
   return (
-    <main className="relative h-screen w-full">
+    <main className={layout === "below" ? "relative min-h-screen w-full" : "relative h-screen w-full"}>
       {count === 1 ? (
         <FxStage
           effect={effect}
@@ -52,6 +55,21 @@ export function HarnessClient({
           className="absolute inset-0"
           posterClassName={ROOM_POSTER_CLASS[room]}
         />
+      ) : layout === "below" ? (
+        <div className="flex flex-col gap-1 p-1 pt-14">
+          {Array.from({ length: count }, (_, i) => (
+            <FxStage
+              key={i}
+              effect={effect}
+              room={room}
+              options={options}
+              priority={1}
+              className={i < count - 2 ? "order-3 h-40" : "order-1 h-40"}
+              posterClassName={ROOM_POSTER_CLASS[room]}
+            />
+          ))}
+          <div className="order-2 h-[300vh]" aria-hidden="true" />
+        </div>
       ) : (
         <div className="grid h-full grid-cols-4 gap-1 p-1">
           {Array.from({ length: count - start }, (_, j) => start + j).map((i) => (
@@ -78,7 +96,7 @@ export function HarnessClient({
             play fixture
           </button>
         )}
-        {count > 1 && (
+        {count > 1 && layout === "grid" && (
           <button
             type="button"
             data-testid="remove-two"

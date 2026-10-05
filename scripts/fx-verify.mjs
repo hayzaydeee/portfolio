@@ -249,6 +249,49 @@ for (const route of ROUTES.filter((r) => !r.name.endsWith("source"))) {
   await context.close();
 }
 
+// ── Budget: on-screen waiters reclaim slots from holders that went offscreen ────
+{
+  const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1440, height: 900 } });
+  await context.addInitScript(COUNT_CONTEXTS);
+  const page = await context.newPage();
+  // The first six stages mount (and lease) first but sit 300vh below; the last two are on screen
+  await page.goto(BASE + "/fx-harness/bell-field?room=studio&count=8&layout=below", { waitUntil: "networkidle" });
+  await page.waitForTimeout(4000);
+  const onScreen = await page.evaluate(() =>
+    [...document.querySelectorAll("[data-fx]")].slice(-2).map((h) => h.dataset.fxState)
+  );
+  const gl = await page.evaluate(() => window.__gl());
+  check("budget-below", "on-screen stages evict offscreen holders and go live", onScreen.every((s) => s === "live"), { onScreen });
+  check("budget-below", "live contexts stay within budget", gl.live <= 6, gl);
+  await context.close();
+}
+
+// ── Context loss: one recovery, no double remount ──────────────────────────────
+{
+  const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1280, height: 800 } });
+  await context.addInitScript(COUNT_CONTEXTS);
+  const page = await context.newPage();
+  await page.goto(BASE + "/fx-harness/bell-field?room=studio", { waitUntil: "networkidle" });
+  await page.waitForSelector('[data-fx-state="live"]', { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  await page.evaluate(() => {
+    const canvas = document.querySelector("[data-fx] canvas");
+    const ext = canvas?.getContext("webgl")?.getExtension("WEBGL_lose_context");
+    ext?.loseContext();
+    setTimeout(() => ext?.restoreContext(), 300);
+  });
+  await page.waitForTimeout(3000);
+  const after = await page.evaluate(() => ({
+    state: document.querySelector("[data-fx]")?.dataset.fxState,
+    attempts: window.__fx.attempts(),
+    leases: window.__fx.live(),
+    gl: window.__gl(),
+  }));
+  check("context-loss", "recovers live with exactly one extra attempt", after.state === "live" && after.attempts === 2, after);
+  check("context-loss", "one live context afterwards", after.gl.live === 1 && after.leases === 1, after.gl);
+  await context.close();
+}
+
 // ── Audio: analyser sees the fixture and detects kicks ─────────────────────────
 {
   const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1280, height: 800 } });
