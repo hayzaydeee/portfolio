@@ -28,16 +28,47 @@ export type Lease = {
 
 type Entry = LeaseRequest & { lastVisible: number };
 
-const GLOBAL_KEY = "__hzyFxBudget";
-type G = typeof globalThis & { [GLOBAL_KEY]?: Map<string, Entry> };
+type BudgetState = {
+  leases: Map<string, Entry>;
+  /** Stages waiting on a poster for a slot to free up */
+  waiters: Set<() => void>;
+  /** Total leases granted and creation attempts; the suite uses them to prove no remount churn */
+  acquisitions: number;
+  attempts: number;
+};
 
-function live(): Map<string, Entry> {
+const GLOBAL_KEY = "__hzyFxBudget";
+type G = typeof globalThis & { [GLOBAL_KEY]?: BudgetState };
+
+function budget(): BudgetState {
   const g = globalThis as G;
   if (!g[GLOBAL_KEY]) {
-    g[GLOBAL_KEY] = new Map();
+    g[GLOBAL_KEY] = { leases: new Map(), waiters: new Set(), acquisitions: 0, attempts: 0 };
     installDebugHandle();
   }
   return g[GLOBAL_KEY]!;
+}
+
+function live(): Map<string, Entry> {
+  return budget().leases;
+}
+
+/** Defer so a waiter's retry never runs inside the release that triggered it */
+function notifyFreed() {
+  const { waiters } = budget();
+  if (waiters.size) queueMicrotask(() => budget().waiters.forEach((cb) => cb()));
+}
+
+/** Debug counter: a stage started building an instance */
+export function noteCreationAttempt() {
+  budget().attempts += 1;
+}
+
+/** Called whenever a slot frees (release or eviction). Returns an unsubscribe. */
+export function onLeaseFreed(cb: () => void): () => void {
+  const { waiters } = budget();
+  waiters.add(cb);
+  return () => waiters.delete(cb);
 }
 
 function pickVictim(entries: Entry[], test: (e: Entry) => boolean): Entry | undefined {
@@ -58,6 +89,7 @@ export function acquireLease(req: LeaseRequest): Lease | null {
 
   const entry: Entry = { ...req, lastVisible: performance.now() };
   leases.set(req.id, entry);
+  budget().acquisitions += 1;
   return {
     id: req.id,
     priority: req.priority,
@@ -65,7 +97,9 @@ export function acquireLease(req: LeaseRequest): Lease | null {
       entry.lastVisible = performance.now();
     },
     release: () => {
-      if (leases.get(req.id) === entry) leases.delete(req.id);
+      if (leases.get(req.id) !== entry) return;
+      leases.delete(req.id);
+      notifyFreed();
     },
   };
 }
@@ -75,6 +109,8 @@ export function installDebugHandle() {
   if (typeof window === "undefined") return;
   (window as typeof window & { __fx?: unknown }).__fx = {
     live: () => live().size,
+    acquisitions: () => budget().acquisitions,
+    attempts: () => budget().attempts,
     leases: () => [...live().values()].map((e) => ({ id: e.id, priority: e.priority, visible: e.isVisible() })),
     stats: () => tickerStats(),
     audio: () => audioStats(),

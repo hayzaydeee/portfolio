@@ -15,7 +15,7 @@ import { FX_SLOTS, type FxSlotId } from "@/lib/fx/slots";
 import { FX_METAS, type FxId } from "./metas";
 import { FX_LOADERS } from "./registry";
 import { useSlotPreset } from "./FxConfig";
-import { acquireLease, installDebugHandle, type Lease } from "./runtime/budget";
+import { acquireLease, installDebugHandle, noteCreationAttempt, onLeaseFreed, type Lease } from "./runtime/budget";
 import { loseContext } from "./runtime/gl";
 import { usePrefersReducedMotion } from "./runtime/motion";
 import { getRoomPalette } from "./runtime/palette";
@@ -141,11 +141,30 @@ export function FxStage({
     let instance: FxInstance | null = null;
     let lease: Lease | null = null;
     let visible = true;
+    let observed = false;
     let disposing = false;
+    // Set only when this stage is sitting on its poster for lack of a slot (denied, evicted,
+    // context lost). Retries happen only from this state, never while creation is pending.
+    let waiting = false;
+    let stopWaiting: (() => void) | null = null;
     const cleanups: (() => void)[] = [];
+
+    const retry = () => {
+      if (!waiting || disposing || !visible) return;
+      waiting = false;
+      setGeneration((g) => g + 1);
+    };
+
+    const wait = () => {
+      waiting = true;
+      setStatus("poster");
+      stopWaiting ??= onLeaseFreed(retry);
+    };
 
     const teardown = () => {
       disposing = true;
+      stopWaiting?.();
+      stopWaiting = null;
       cleanups.splice(0).reverse().forEach((fn) => fn());
       instanceRef.current = null;
       try {
@@ -166,16 +185,20 @@ export function FxStage({
     const target = observeRef?.current ?? host;
     const io = new IntersectionObserver(
       ([entry]) => {
+        // The first observation reports initial state; it never counts as "came back"
+        const wasVisible = observed ? visible : true;
+        observed = true;
         visible = entry?.isIntersecting ?? true;
         if (visible) lease?.touch();
-        // Retry a stage that lost its slot once it's back on screen
-        if (visible && !instance && !disposing) setGeneration((g) => g + 1);
+        // A waiting stage retries when it comes back on screen (a slot may have freed meanwhile)
+        if (visible && !wasVisible) retry();
       },
       { rootMargin: "25% 0px" }
     );
     io.observe(target);
 
     const raf = requestAnimationFrame(() => {
+      noteCreationAttempt();
       if (isGL) {
         lease = acquireLease({
           id,
@@ -184,17 +207,17 @@ export function FxStage({
           evict: () => {
             teardown();
             disposing = false;
-            setStatus("poster");
+            wait();
           },
         });
         if (!lease) {
-          setStatus("poster");
+          wait();
           return;
         }
       }
 
       canvas = document.createElement("canvas");
-      canvas.className = "absolute inset-0 size-full opacity-0 transition-opacity duration-700";
+      canvas.className = "absolute inset-0 size-full";
       canvas.setAttribute("aria-hidden", "true");
       layer.appendChild(canvas);
 
@@ -204,7 +227,7 @@ export function FxStage({
           if (disposing) return;
           teardown();
           disposing = false;
-          setStatus("poster");
+          wait();
         };
         const onRestored = () => setGeneration((g) => g + 1);
         canvas.addEventListener("webglcontextlost", onLost);
@@ -267,9 +290,10 @@ export function FxStage({
         );
       }
 
+      // The layer (not the canvas) fades in, so every canvas a renderer appends is covered and
+      // a renderer's own canvas opacity multiplies with the fade instead of overriding it
       const reveal = () => {
-        if (!canvas) return;
-        canvas.classList.replace("opacity-0", "opacity-100");
+        if (instanceRef.current !== created) return;
         setStatus("live");
       };
 
@@ -320,7 +344,13 @@ export function FxStage({
           <img src={poster} alt="" className="size-full object-cover" />
         )}
       </div>
-      <div ref={layerRef} className="absolute inset-0" />
+      <div
+        ref={layerRef}
+        className={cn(
+          "absolute inset-0 transition-opacity duration-700",
+          status === "live" ? "opacity-100" : "opacity-0"
+        )}
+      />
     </div>
   );
 }

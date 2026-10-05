@@ -25,12 +25,19 @@ export default async function FxHarnessPage({ params, searchParams }: Props) {
     ? (roomParam as RoomKey)
     : FX_METAS[effect].rooms[0];
 
+  const count = Math.min(12, Math.max(1, Number(sp.count) || 1));
+  // Only same-origin paths or https URLs (the CSP media-src decides what actually loads)
+  const audioSrc =
+    typeof sp.audioSrc === "string" && /^(\/|https:\/\/)/.test(sp.audioSrc) ? sp.audioSrc : "/fx-test/kick.mp3";
+
   return (
     <HarnessClient
       effect={effect}
       room={room}
       sourcePalette={sp.source === "1"}
       withAudio={sp.audio === "1"}
+      audioSrc={audioSrc}
+      count={count}
     />
   );
 }

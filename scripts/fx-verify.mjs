@@ -57,6 +57,25 @@ const COUNT_CONTEXTS = () => {
   window.__gl = () => ({ created, live: [...live].filter((g) => !g.isContextLost()).length });
 };
 
+/** Effective canvas opacity before and at the moment a stage goes live (catches fade bypass) */
+const FADE_PROBE = () => {
+  window.__fade = { preLiveMax: 0, firstLive: null };
+  const tick = () => {
+    for (const host of document.querySelectorAll("[data-fx]")) {
+      const layer = host.children[1];
+      if (!layer) continue;
+      const lo = parseFloat(getComputedStyle(layer).opacity);
+      for (const c of layer.querySelectorAll("canvas")) {
+        const eff = lo * parseFloat(getComputedStyle(c).opacity);
+        if (host.dataset.fxState !== "live") window.__fade.preLiveMax = Math.max(window.__fade.preLiveMax, eff);
+        else if (window.__fade.firstLive === null) window.__fade.firstLive = eff;
+      }
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
 const ROUTES = [
   { name: "bell-field-studio", path: "/fx-harness/bell-field?room=studio", maxLive: 1 },
   { name: "bell-field-lobby", path: "/fx-harness/bell-field?room=lobby", maxLive: 1 },
@@ -127,6 +146,7 @@ const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
 for (const route of ROUTES) {
   const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1440, height: 900 } });
   await context.addInitScript(COUNT_CONTEXTS);
+  await context.addInitScript(FADE_PROBE);
   const page = await context.newPage();
   const errors = [];
   const notes = [];
@@ -156,6 +176,11 @@ for (const route of ROUTES) {
   }
 
   await page.waitForTimeout(1500);
+  const fade = await page.evaluate(() => window.__fade);
+  check(route.name, "canvases hidden until live, then fade in", fade.preLiveMax < 0.05 && fade.firstLive !== null && fade.firstLive < 0.9, fade);
+  const churn = await page.evaluate(() => ({ attempts: window.__fx.attempts(), acquisitions: window.__fx.acquisitions() }));
+  check(route.name, "single creation, no remount churn", churn.attempts === 1 && churn.acquisitions === 1, churn);
+
   const timing = await sampleFrames(page, 4000);
   const gl = await page.evaluate(() => window.__gl());
   const fx = await page.evaluate(() => ({ live: window.__fx.live(), stats: window.__fx.stats() }));
@@ -204,6 +229,26 @@ for (const route of ROUTES.filter((r) => !r.name.endsWith("source"))) {
   await context.close();
 }
 
+// ── Budget: stages denied a slot wait, then go live when slots free ─────────────
+{
+  const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1440, height: 900 } });
+  await context.addInitScript(COUNT_CONTEXTS);
+  const page = await context.newPage();
+  await page.goto(BASE + "/fx-harness/bell-field?room=studio&count=8", { waitUntil: "networkidle" });
+  await page.waitForTimeout(4000);
+  const states = () => page.evaluate(() => [...document.querySelectorAll("[data-fx]")].map((h) => h.dataset.fxState));
+  const before = await states();
+  const leasesBefore = await page.evaluate(() => window.__fx.live());
+  check("budget", "6 leases, 2 stages waiting on posters", leasesBefore === 6 && before.filter((s) => s === "poster").length === 2, { leasesBefore, before });
+  await page.click('[data-testid="remove-two"]');
+  await page.waitForTimeout(4000);
+  const after = await states();
+  const gl = await page.evaluate(() => window.__gl());
+  check("budget", "waiting stages go live once slots free", after.length === 6 && after.every((s) => s === "live"), { after });
+  check("budget", "no leaked contexts after removal", gl.live === 6, gl);
+  await context.close();
+}
+
 // ── Audio: analyser sees the fixture and detects kicks ─────────────────────────
 {
   const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1280, height: 800 } });
@@ -218,6 +263,43 @@ for (const route of ROUTES.filter((r) => !r.name.endsWith("source"))) {
   check("audio", "kick onsets detected", audio.onsets >= 3, { onsets: audio.onsets, frames: audio.frames });
   await page.screenshot({ path: path.join(OUT, "audio-bell-field.png") });
   await context.close();
+}
+
+// ── Audio: CORS refusal falls back to a plain element and never shows "playing" while silent ──
+{
+  // No autoplay flag here: the fallback's play() runs outside the click, as in a real browser
+  const strict = await chromium.launch({ headless: true, args: LAUNCH_ARGS.filter((a) => !a.startsWith("--autoplay")) });
+  const mp3 = fs.readFileSync(path.resolve("public/fx-test/kick.mp3"));
+  const SRC = "https://fx-cors-test.supabase.co/kick.mp3"; // allowed by media-src; served by the route below
+  const context = await strict.newContext({ ...CONTEXT_OPTS, viewport: { width: 1280, height: 800 } });
+  // Playwright adds a permissive ACAO to fulfilled responses unless one is set, so name a
+  // different origin: the crossOrigin element must then be refused, like a host without CORS
+  await context.route(SRC, (r) =>
+    r.fulfill({
+      status: 200,
+      contentType: "audio/mpeg",
+      headers: { "access-control-allow-origin": "https://not-this-site.example" },
+      body: mp3,
+    })
+  );
+  const page = await context.newPage();
+  await page.goto(BASE + "/fx-harness/bell-field?room=studio&audio=1&audioSrc=" + encodeURIComponent(SRC), { waitUntil: "networkidle" });
+  await page.click('[data-testid="play-fixture"]');
+  await page.waitForTimeout(2500);
+  let audio = await page.evaluate(() => window.__fx.audio());
+  const label = () => page.getAttribute('button[aria-label="Pause"], button[aria-label="Play"]', "aria-label");
+  let shown = await label();
+  check("audio-cors", "fallback engaged, analyser off", audio.corsBroken && !audio.analyser, audio);
+  check("audio-cors", "player never shows Pause while paused", !(shown === "Pause" && audio.paused), { shown, paused: audio.paused });
+  if (audio.paused) {
+    await page.click('button[aria-label="Play"]');
+    await page.waitForTimeout(1500);
+    audio = await page.evaluate(() => window.__fx.audio());
+    shown = await label();
+  }
+  check("audio-cors", "fallback element plays (after at most one more click)", !audio.paused && audio.currentTime > 0.3 && shown === "Pause", { ...audio, shown });
+  await context.close();
+  await strict.close();
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────

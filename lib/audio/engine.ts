@@ -29,7 +29,8 @@ type EngineState = {
   events: EventTarget;
 };
 
-export const ENGINE_EVENTS = [
+/** Element events re-dispatched on the engine, so listeners survive an element swap */
+const ELEMENT_EVENTS = [
   "timeupdate",
   "loadedmetadata",
   "durationchange",
@@ -41,13 +42,17 @@ export const ENGINE_EVENTS = [
   "error",
 ] as const;
 
-export type EngineEvent = (typeof ENGINE_EVENTS)[number];
+/**
+ * "playblocked": the CORS fallback element's play() was rejected (it runs after the click,
+ * outside the user gesture, so Safari can refuse it). The next click resumes it.
+ */
+export type EngineEvent = (typeof ELEMENT_EVENTS)[number] | "playblocked";
 
 const GLOBAL_KEY = "__hzyAudio";
 type GlobalWithEngine = typeof globalThis & { [GLOBAL_KEY]?: EngineState };
 
 function forward(state: EngineState, el: HTMLAudioElement) {
-  for (const type of ENGINE_EVENTS) {
+  for (const type of ELEMENT_EVENTS) {
     el.addEventListener(type, () => state.events.dispatchEvent(new Event(type)));
   }
   el.addEventListener("canplay", () => {
@@ -92,7 +97,7 @@ function handleError(state: EngineState, el: HTMLAudioElement) {
   );
   state.el = plain;
   plain.src = src;
-  plain.play().catch(() => {});
+  plain.play().catch(() => state.events.dispatchEvent(new Event("playblocked")));
 }
 
 export function getEngine(): EngineState | null {
@@ -160,6 +165,11 @@ export function ensureGraph(): Graph | null {
   return state.graph;
 }
 
+/**
+ * Volume rides the gain node when the graph exists. On the CORS-fallback element it can't:
+ * opaque media through Web Audio outputs silence, so the plain element stays off the graph
+ * and uses el.volume (read-only on iOS, where the hardware buttons still work).
+ */
 export function setEngineVolume(v: number) {
   const state = getEngine();
   if (!state) return;

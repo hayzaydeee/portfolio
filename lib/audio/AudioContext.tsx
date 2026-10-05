@@ -104,7 +104,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
     const engine = getEngine();
     if (!engine) return;
     engine.el.src = track.audio_path ?? "";
-    engine.el.play().catch(() => {});
+    engine.el.play().catch(() => setState((s) => ({ ...s, isPlaying: !getEngine()!.el.paused })));
     setState((s) => ({ ...s, currentTrack: track, playlist, isPlaying: true }));
   }, []);
 
@@ -124,9 +124,11 @@ export function AudioProvider({ children }: { children: ReactNode }) {
       if (nextTrack) load(nextTrack, playlist);
       else setState((s) => ({ ...s, isPlaying: false }));
     });
-    const unsubscribePlayState = subscribeEngine(["play", "pause"], () => {
-      const el = getEngine()!.el;
-      setState((s) => (s.isPlaying === !el.paused ? s : { ...s, isPlaying: !el.paused }));
+    // Reconcile from whichever element is current: play() calls are optimistic, and a CORS
+    // fallback can swap the element or have its play() blocked outside the gesture
+    const unsubscribePlayState = subscribeEngine(["play", "pause", "playblocked", "error"], () => {
+      const playing = !getEngine()!.el.paused;
+      setState((s) => (s.isPlaying === playing ? s : { ...s, isPlaying: playing }));
     });
 
     return () => {
@@ -150,7 +152,7 @@ export function AudioProvider({ children }: { children: ReactNode }) {
 
   const resume = useCallback(() => {
     ensureGraph();
-    getEngine()?.el.play().catch(() => {});
+    getEngine()?.el.play().catch(() => setState((s) => ({ ...s, isPlaying: !getEngine()!.el.paused })));
     setState((s) => ({ ...s, isPlaying: true }));
   }, []);
 

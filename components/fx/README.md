@@ -21,6 +21,7 @@ The WebGL / Canvas effect runtime behind the rooms. Effects are adapted from [Th
    - never call `requestAnimationFrame`; the ticker calls `render(now, dt)`
    - advance time from `dt`, not wall clock, so pausing doesn't jump
    - colours come from `ctx.palette` roles, passed as sRGB `[r, g, b]` with no colour-space conversion; keep the authored colours behind `sourcePalette` for fidelity checks
+   - you may set `style.opacity` on canvases you own, never on `ctx.layer` (the stage fades the layer in)
    - implement `still()` for reduced motion and `dispose()` that frees every GPU object and any extra DOM it appended to `ctx.layer`
    - no CDN scripts, GSAP, Tailwind Play or remote media from the original document
 3. Register it in `metas.ts` and `registry.ts`; give it a slot in `lib/fx/slots.ts` if it renders on the site.

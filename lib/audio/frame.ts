@@ -50,7 +50,14 @@ let analysis: Analysis | null = null;
 /** Running counters for the verification suite (window.__fx.audio) */
 const stats = { frames: 0, onsets: 0, binsMax: 0, rmsMax: 0 };
 export function audioStats() {
-  return { ...stats, analyser: getAnalyser() !== null };
+  const engine = getEngine();
+  return {
+    ...stats,
+    analyser: getAnalyser() !== null,
+    paused: engine?.el.paused ?? true,
+    currentTime: engine?.el.currentTime ?? 0,
+    corsBroken: engine?.corsBroken ?? false,
+  };
 }
 
 function binFor(hz: number, analyser: AnalyserNode) {
