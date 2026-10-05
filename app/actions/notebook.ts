@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidateContent } from "@/lib/revalidate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -59,6 +60,7 @@ const entrySchema = z.object({
 // ─── Read ──────────────────────────────────────────────────────────────────────
 
 export async function getAllEntries(): Promise<NotebookEntry[]> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -75,6 +77,7 @@ export async function getAllEntries(): Promise<NotebookEntry[]> {
 }
 
 export async function getStagedEntries(): Promise<NotebookEntry[]> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -91,6 +94,7 @@ export async function getStagedEntries(): Promise<NotebookEntry[]> {
 }
 
 export async function getEntryById(id: string): Promise<NotebookEntry | null> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -112,6 +116,7 @@ export async function createEntry(
   _prev: NotebookActionState,
   formData: FormData
 ): Promise<NotebookActionState> {
+  await requireAdmin();
   const raw = {
     journal: formData.get("journal"),
     title: formData.get("title") || "",
@@ -165,6 +170,7 @@ export async function updateEntry(
   _prev: NotebookActionState,
   formData: FormData
 ): Promise<NotebookActionState> {
+  await requireAdmin();
   const raw = {
     journal: formData.get("journal"),
     title: formData.get("title") || "",
@@ -223,6 +229,7 @@ export async function updateEntry(
 // ─── Stage approve / reject ────────────────────────────────────────────────────
 
 export async function approveEntry(id: string): Promise<NotebookActionState> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { error } = await supabase
@@ -241,6 +248,7 @@ export async function approveEntry(id: string): Promise<NotebookActionState> {
 }
 
 export async function rejectEntry(id: string): Promise<NotebookActionState> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { error } = await supabase
@@ -260,6 +268,7 @@ export async function rejectEntry(id: string): Promise<NotebookActionState> {
 // ─── Delete ────────────────────────────────────────────────────────────────────
 
 export async function deleteEntry(id: string): Promise<NotebookActionState> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("notebook_entries").delete().eq("id", id);
@@ -279,6 +288,7 @@ export async function autosaveEntry(
   id: string,
   body_html: string
 ): Promise<{ success: boolean }> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const read_time = estimateReadTime(body_html);

@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidateContent } from "@/lib/revalidate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -48,6 +49,7 @@ const wallPieceSchema = z.object({
 // ─── Read ──────────────────────────────────────────────────────────────────────
 
 export async function getWallPieces(): Promise<WallPiece[]> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -63,6 +65,7 @@ export async function getWallPieces(): Promise<WallPiece[]> {
 }
 
 export async function getWallPieceById(id: string): Promise<WallPiece | null> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -84,6 +87,7 @@ export async function createWallPiece(
   _prev: WallActionState,
   formData: FormData
 ): Promise<WallActionState> {
+  await requireAdmin();
   const publishAtRaw = (formData.get("publish_at") as string) || "";
 
   const raw = {
@@ -134,6 +138,7 @@ export async function updateWallPiece(
   _prev: WallActionState,
   formData: FormData
 ): Promise<WallActionState> {
+  await requireAdmin();
   const publishAtRaw = (formData.get("publish_at") as string) || "";
 
   const raw = {
@@ -180,6 +185,7 @@ export async function updateWallPiece(
 // ─── Delete ────────────────────────────────────────────────────────────────────
 
 export async function deleteWallPiece(id: string): Promise<WallActionState> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("wall_pieces").delete().eq("id", id);
@@ -197,6 +203,7 @@ export async function uploadWallImage(
   pieceId: string,
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  await requireAdmin();
   const file = formData.get("file") as File | null;
   if (!file) return { success: false, error: "No file provided" };
 
@@ -246,6 +253,7 @@ export async function uploadWallPreview(
   pieceId: string,
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  await requireAdmin();
   const file = formData.get("file") as File | null;
   if (!file) return { success: false, error: "No file provided" };
 

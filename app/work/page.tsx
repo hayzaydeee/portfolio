@@ -1,13 +1,13 @@
 import { getPublishedProjects } from "@/lib/data/projects";
 import { getCurrently } from "@/lib/data/currently";
-import { getSettings, getHighlightedStackJson } from "@/app/actions/settings";
+import { getSiteConfig, highlightStackJson } from "@/lib/data/settings";
 import { WorkshopClient } from "@/components/workshop/WorkshopClient";
 
 export default async function WorkshopPage() {
-  const [projects, currently, settings] = await Promise.all([
+  const [projects, currently, config] = await Promise.all([
     getPublishedProjects(),
     getCurrently(),
-    getSettings(),
+    getSiteConfig(),
   ]);
 
   const workshopProjects = projects.map((p) => ({
@@ -16,15 +16,10 @@ export default async function WorkshopPage() {
     isNew: p.is_featured,
   }));
 
-  let highlightedStackHtml: string | null = null;
-  const stackJson = settings?.stack_json ?? null;
-  if (stackJson) {
-    try {
-      highlightedStackHtml = await getHighlightedStackJson(stackJson);
-    } catch {
-      // fall through to static fallback in client
-    }
-  }
+  // Falls back to the static stack in WorkshopClient when unset
+  const highlightedStackHtml = config.stackJson
+    ? await highlightStackJson(config.stackJson)
+    : null;
 
   return (
     <WorkshopClient

@@ -36,6 +36,8 @@ create table projects (
   is_featured   boolean     not null default false,
   status        text        not null default 'draft'
                               check (status in ('published', 'draft', 'archived', 'in_progress')),
+  visual_variant text       check (visual_variant is null or visual_variant ~ '^[a-z0-9]+(-[a-z0-9]+)*$'),
+  visual_accent  text       check (visual_accent  is null or visual_accent  ~ '^[a-z]+(-[a-z0-9]+)*$'),
   order_index   integer     not null default 0,
   created_at    timestamptz not null default now(),
   updated_at    timestamptz not null default now()
@@ -150,6 +152,8 @@ create table site_settings (
   bito_webhook_secret   text,
   last_bito_webhook_at  timestamptz,
   stack_json            jsonb,
+  fx_presets            jsonb       not null default '{}'::jsonb
+                                    check (jsonb_typeof(fx_presets) = 'object'),
   updated_at            timestamptz not null default now()
 );
 
@@ -232,9 +236,23 @@ create policy "anon read published notebook_entries"
   on notebook_entries for select to anon
   using (status = 'published');
 
-create policy "anon read published wall_pieces"
+create policy "anon read visible wall_pieces"
   on wall_pieces for select to anon
-  using (status in ('published', 'scheduled'));
+  using (
+    status = 'published'
+    or (status = 'scheduled' and publish_at is not null and publish_at <= now())
+  );
+
+-- Sealed teasers: only id, type and unseal time, never media or captions
+create or replace function sealed_wall_pieces()
+returns table (id uuid, type text, publish_at timestamptz)
+language sql stable security definer set search_path = public as $$
+  select w.id, w.type, w.publish_at from wall_pieces w
+  where w.status = 'scheduled' and w.publish_at > now()
+  order by w.publish_at limit 12;
+$$;
+revoke all on function sealed_wall_pieces() from public;
+grant execute on function sealed_wall_pieces() to anon, authenticated;
 
 create policy "anon read currently"
   on currently for select to anon
@@ -255,8 +273,8 @@ values
   ('projects',       'projects',       true),
   ('music-covers',   'music-covers',   true),
   ('music-audio',    'music-audio',    true),
-  ('wall-art',       'wall-art',       true),
-  ('wall-previews',  'wall-previews',  true)
+  ('wall-images',    'wall-images',    true),
+  ('wall-videos',    'wall-videos',    true)
 on conflict (id) do nothing;
 
 -- Storage policies: public read, no anon write
@@ -272,10 +290,10 @@ create policy "public read music-audio storage"
   on storage.objects for select to anon
   using (bucket_id = 'music-audio');
 
-create policy "public read wall-art storage"
+create policy "public read wall-images storage"
   on storage.objects for select to anon
-  using (bucket_id = 'wall-art');
+  using (bucket_id = 'wall-images');
 
-create policy "public read wall-previews storage"
+create policy "public read wall-videos storage"
   on storage.objects for select to anon
-  using (bucket_id = 'wall-previews');
+  using (bucket_id = 'wall-videos');
