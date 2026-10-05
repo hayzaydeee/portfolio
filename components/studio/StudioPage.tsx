@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { MusicProject, AnalysisEssay } from "@/app/actions/studio";
@@ -22,23 +21,10 @@ export function StudioPage({ projects, wipProjects, essays, featured }: Props) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Studio header */}
-      <header
-        className="sticky top-0 z-30 flex items-center justify-between px-6 py-4"
-        style={{
-          background: "var(--studio-base)",
-          borderBottom: "1px solid var(--studio-border)",
-        }}
-      >
-        <Link
-          href="/"
-          className="text-sm font-mono transition-colors duration-150"
-          style={{ color: "var(--studio-text-muted)" }}
-        >
-          ← hzy
-        </Link>
+      {/* Studio header: the glass dock handles navigation, this bar only switches modes */}
+      <header className="sticky top-16 md:top-0 z-30 flex items-center justify-center px-6 py-4 bg-(--studio-base) border-b border-(--studio-border)">
+        <h1 className="sr-only">studio</h1>
         <ModeToggle mode={mode} onChange={setMode} />
-        <div className="w-16" />
       </header>
 
       {/* Content world */}

@@ -3,13 +3,24 @@
 import { MotionConfig } from "motion/react";
 import type { ReactNode } from "react";
 import { FxConfigProvider } from "@/components/fx/FxConfig";
-import type { FxPresets } from "@/lib/fx/presets";
+import type { FxGlobals, FxPresets } from "@/lib/fx/presets";
+import { SplashProvider } from "@/lib/splash-context";
 
 // Root client providers. Motion honours prefers-reduced-motion for every transform/layout animation.
-export function Providers({ presets, children }: { presets: FxPresets; children: ReactNode }) {
+export function Providers({
+  presets,
+  globals,
+  children,
+}: {
+  presets: FxPresets;
+  globals: FxGlobals;
+  children: ReactNode;
+}) {
   return (
     <MotionConfig reducedMotion="user">
-      <FxConfigProvider presets={presets}>{children}</FxConfigProvider>
+      <FxConfigProvider presets={presets} globals={globals}>
+        <SplashProvider>{children}</SplashProvider>
+      </FxConfigProvider>
     </MotionConfig>
   );
 }

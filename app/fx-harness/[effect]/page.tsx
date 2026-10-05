@@ -39,6 +39,7 @@ export default async function FxHarnessPage({ params, searchParams }: Props) {
       audioSrc={audioSrc}
       count={count}
       layout={sp.layout === "below" ? "below" : "grid"}
+      demo={typeof sp.demo === "string" && (ROOM_KEYS as string[]).includes(sp.demo) ? (sp.demo as RoomKey) : null}
     />
   );
 }

@@ -1,7 +1,5 @@
-import { Nav } from "@/components/nav/Nav";
 import { Footer } from "@/components/Footer";
 import { PageTransition } from "@/components/PageTransition";
-import { SplashProvider } from "@/lib/splash-context";
 
 export default function PublicLayout({
   children,
@@ -9,12 +7,13 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <SplashProvider>
-      <Nav />
+    <>
+      {/* Room for the floating sable dock (RoomChrome, root layout) */}
+      <div className="h-16 shrink-0" aria-hidden="true" />
       <PageTransition>
         <main className="flex-1">{children}</main>
       </PageTransition>
       <Footer />
-    </SplashProvider>
+    </>
   );
 }

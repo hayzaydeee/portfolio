@@ -33,12 +33,14 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
     lobbyVisited ? "resting" : "splash"
   );
   const [tourActive, setTourActive] = useState(false);
+  const [handedOff, setHandedOff] = useState(false);
   const setSplashActive = useSetSplashActive();
 
-  // Sync splash state to context so Nav can react
+  // The dock hides (and goes inert) under the splash; it returns once the logo has landed on it
   useEffect(() => {
-    setSplashActive(phase === "splash");
-  }, [phase, setSplashActive]);
+    setSplashActive(phase === "splash" && !handedOff);
+    return () => setSplashActive(false);
+  }, [phase, handedOff, setSplashActive]);
 
   function handleSplashDismiss() {
     setPhase("sequence");
@@ -59,7 +61,7 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
     <>
       {/* Splash */}
       <AnimatePresence>
-        {phase === "splash" && <Splash onDismiss={handleSplashDismiss} />}
+        {phase === "splash" && <Splash onDismiss={handleSplashDismiss} onHandoff={() => setHandedOff(true)} />}
       </AnimatePresence>
 
       {/* Sequence mode */}

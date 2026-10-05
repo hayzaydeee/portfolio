@@ -129,11 +129,8 @@ export function JournalList({ journal, label, description, entries }: Props) {
   const color = JOURNAL_COLOR[journal];
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--notebook-surface)", color: "var(--notebook-text)" }}
-    >
-      <div className="max-w-2xl mx-auto px-6 py-12">
+    <div className="min-h-screen bg-(--notebook-surface) text-(--notebook-text)">
+      <div className="max-w-2xl mx-auto px-6 pt-32 pb-12">
         {/* Navigation */}
         <div className="flex items-center justify-between mb-12">
           <Link

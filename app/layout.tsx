@@ -5,7 +5,10 @@ import { AudioProvider } from "@/lib/audio/AudioContext";
 import { PlayerBar } from "@/components/studio/PlayerBar";
 import { Providers } from "@/components/providers/Providers";
 import { getSiteConfig } from "@/lib/data/settings";
-import { resolvePresets } from "@/lib/fx/presets";
+import { resolveGlobals, resolvePresets } from "@/lib/fx/presets";
+import { RoomChrome } from "@/components/fx/ui/RoomChrome";
+import { RoomsProvider } from "@/components/fx/ui/RoomsContext";
+import { PortalHost } from "@/components/fx/ui/PortalHost";
 
 const fresca = Fresca({
   weight: "400",
@@ -59,6 +62,7 @@ export default async function RootLayout({
   // Cached across requests (tag: site-config); falls back to defaults without Supabase
   const config = await getSiteConfig();
   const presets = resolvePresets(config.fxPresetsRaw);
+  const globals = resolveGlobals(config.fxPresetsRaw);
 
   return (
     <html
@@ -73,11 +77,15 @@ export default async function RootLayout({
         <link rel="stylesheet" href={GOOGLE_SANS_CODE_URL} />
       </head>
       <body className="min-h-full flex flex-col">
-        <Providers presets={presets}>
-          <AudioProvider>
-            {children}
-            <PlayerBar />
-          </AudioProvider>
+        <Providers presets={presets} globals={globals}>
+          <RoomsProvider rooms={config.rooms}>
+            <AudioProvider>
+              {children}
+              <RoomChrome />
+              <PortalHost />
+              <PlayerBar />
+            </AudioProvider>
+          </RoomsProvider>
         </Providers>
       </body>
     </html>

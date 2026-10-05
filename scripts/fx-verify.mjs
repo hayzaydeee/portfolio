@@ -7,7 +7,10 @@
  *
  * Checks per harness route: WebGL really runs (SwiftShader renderer string), live context
  * count, rAF frame-time percentiles, no console errors, reduced-motion still frame,
- * pause/resume on visibilitychange, and audio analysis on the kick fixture.
+ * pause/resume on visibilitychange, and audio analysis on the kick fixture. Then the
+ * chrome on real routes: the dock in every room, room visibility, magnification, the
+ * portal between rooms (state walk, one push, focus, back/forward, reduced motion), the
+ * context budget over repeated laps, and the splash handing its logo to the dock.
  * Frame times are CPU-rendered baselines for relative comparison, not real-GPU numbers.
  *
  * Playwright isn't a project dependency: set PLAYWRIGHT_PATH or have it resolvable.
@@ -83,7 +86,47 @@ const ROUTES = [
   { name: "emerald-horizon-lobby", path: "/fx-harness/emerald-horizon?room=lobby", maxLive: 1 },
   { name: "emerald-horizon-studio", path: "/fx-harness/emerald-horizon?room=studio", maxLive: 1 },
   { name: "emerald-horizon-source", path: "/fx-harness/emerald-horizon?room=lobby&source=1", maxLive: 1 },
+  { name: "dock-retro-workshop", path: "/fx-harness/dock-retro?room=workshop", maxLive: 1 },
+  { name: "dock-retro-source", path: "/fx-harness/dock-retro?room=workshop&source=1", maxLive: 1 },
+  { name: "dock-glass-studio", path: "/fx-harness/dock-glass?room=studio", maxLive: 1 },
+  { name: "dock-glass-source", path: "/fx-harness/dock-glass?room=studio&source=1", maxLive: 1 },
+  { name: "portal-field-studio", path: "/fx-harness/portal-field?room=studio", maxLive: 1 },
+  { name: "glyph-vortex-studio", path: "/fx-harness/glyph-vortex?room=studio", maxLive: 1 },
 ];
+
+/** Per-route live WebGL budget from the plan, for the real room routes */
+const ROOM_ROUTES = [
+  { path: "/colophon", variant: "sable", current: "/", maxLive: 2 },
+  { path: "/work", variant: "retro", current: "/work", maxLive: 4 },
+  { path: "/music", variant: "glass", current: "/music", maxLive: 4 },
+  { path: "/notebook", variant: "modern", current: "/notebook", maxLive: 2 },
+  { path: "/wall", variant: "modern", current: "/wall", maxLive: 2 },
+];
+const MAX_LIVE = Object.fromEntries(ROOM_ROUTES.map((r) => [r.path, r.maxLive]));
+
+/** Records every portal state the host passes through, whether its effect went live, and pushState calls */
+const PORTAL_LOG = () => {
+  window.__portal = { log: [], live: false, pushes: 0 };
+  const push = history.pushState;
+  history.pushState = function (...args) {
+    window.__portal.pushes++;
+    return push.apply(this, args);
+  };
+  const watch = () => {
+    const el = document.querySelector("[data-portal-state]");
+    if (!el) return requestAnimationFrame(watch);
+    let last = null;
+    const record = () => {
+      const s = el.dataset.portalState;
+      if (el.dataset.portalLive) window.__portal.live = true;
+      if (s !== last) window.__portal.log.push(s);
+      last = s;
+    };
+    record();
+    new MutationObserver(record).observe(el, { attributes: true });
+  };
+  watch();
+};
 
 const results = [];
 let failures = 0;
@@ -343,6 +386,225 @@ for (const route of ROUTES.filter((r) => !r.name.endsWith("source"))) {
   check("audio-cors", "fallback element plays (after at most one more click)", !audio.paused && audio.currentTime > 0.3 && shown === "Pause", { ...audio, shown });
   await context.close();
   await strict.close();
+}
+
+// ── Transition effects mid-trip, for review (cover, hold, reveal) ──────────────────
+for (const effect of ["portal-field", "glyph-vortex"]) {
+  const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1440, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(BASE + `/fx-harness/${effect}?room=lobby&demo=studio`, { waitUntil: "networkidle" });
+  await page.waitForSelector('[data-fx-state="live"]', { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(1000);
+  await page.click('[data-testid="demo"]');
+  for (const [label, at] of [["cover", 300], ["hold", 820], ["reveal", 1330]]) {
+    await page.waitForTimeout(at - (label === "cover" ? 0 : label === "hold" ? 300 : 820));
+    await page.screenshot({ path: path.join(OUT, `${effect}-${label}.png`) });
+  }
+  await context.close();
+}
+
+// ── Chrome: one dock per room, right variant, current room marked, within budget ──
+const chromePage = async (opts = {}) => {
+  const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1440, height: 900 }, ...opts });
+  await context.addInitScript(COUNT_CONTEXTS);
+  await context.addInitScript(PORTAL_LOG);
+  const page = await context.newPage();
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(String(e)));
+  page.on("console", (m) => {
+    if (/too many active webgl contexts/i.test(m.text())) errors.push(m.text());
+  });
+  return { context, page, errors };
+};
+
+const portalIdleAt = (page, pathname, timeout = 12000) =>
+  page
+    .waitForFunction(
+      (p) => location.pathname === p && document.querySelector("[data-portal-state]")?.dataset.portalState === "idle",
+      pathname,
+      { timeout }
+    )
+    .then(() => true)
+    .catch(() => false);
+
+for (const route of ROOM_ROUTES) {
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + route.path, { waitUntil: "networkidle" });
+  await page.waitForTimeout(2500);
+  const dock = await page.evaluate(() => {
+    const docks = [...document.querySelectorAll(".dock")];
+    const current = docks[0]?.querySelector('[aria-current="page"]');
+    return {
+      count: docks.length,
+      variant: docks[0]?.dataset.dockVariant,
+      current: current?.getAttribute("href") ?? null,
+      field: docks[0]?.querySelector("[data-fx]")?.dataset.fxState ?? null,
+    };
+  });
+  const gl = await page.evaluate(() => window.__gl());
+  const tag = `dock ${route.path}`;
+  check(tag, `one ${route.variant} dock, current room marked`, dock.count === 1 && dock.variant === route.variant && dock.current === route.current, dock);
+  if (route.variant === "retro" || route.variant === "glass") check(tag, "dock field live", dock.field === "live", dock);
+  check(tag, `live webgl contexts <= ${route.maxLive}`, gl.live <= route.maxLive, gl);
+  check(tag, "no page errors", errors.length === 0, errors.slice(0, 3));
+  await page.screenshot({ path: path.join(OUT, `room${route.path.replace("/", "-")}-desktop.png`) });
+  await context.close();
+}
+
+for (const route of ROOM_ROUTES) {
+  const { context, page } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await page.goto(BASE + route.path, { waitUntil: "networkidle" });
+  await page.waitForTimeout(2000);
+  const fits = await page.evaluate(() => {
+    const r = document.querySelector(".dock")?.getBoundingClientRect();
+    return { left: r?.left, right: r?.right, width: innerWidth, scrollX: document.documentElement.scrollWidth };
+  });
+  check(`dock ${route.path} 390px`, "dock fits the viewport, no horizontal scroll", fits.left >= 0 && fits.right <= fits.width && fits.scrollX <= fits.width, fits);
+  await page.screenshot({ path: path.join(OUT, `room${route.path.replace("/", "-")}-mobile.png`) });
+  await context.close();
+}
+
+// ── Chrome: rooms switched off in settings leave the dock ─────────────────────────
+{
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/fx-harness/dock?room=lobby&hide=wall", { waitUntil: "networkidle" });
+  const links = await page.evaluate(() => [...document.querySelectorAll(".dock a")].map((a) => a.getAttribute("href")));
+  check("dock-visibility", "hidden room dropped, others kept", !links.includes("/wall") && links.includes("/work") && links.includes("/music"), { links });
+  await context.close();
+}
+
+// ── Chrome: proximity magnification grows the hovered item and settles back ──────
+{
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/colophon", { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  const item = page.locator('.dock a[href="/music"]');
+  const base = await item.boundingBox();
+  await page.mouse.move(base.x + base.width / 2, base.y + base.height / 2, { steps: 4 });
+  await page.waitForTimeout(500);
+  const grown = await item.boundingBox();
+  const state = await page.getAttribute(".dock-sable", "data-dock-state");
+  await page.mouse.move(base.x + base.width / 2, 600, { steps: 4 });
+  await page.waitForTimeout(800);
+  const settled = await item.boundingBox();
+  check("dock-magnify", "hovered item grows", grown.width > base.width + 8 && grown.height > base.height + 8 && state === "active", { base, grown, state });
+  check("dock-magnify", "settles back after the pointer leaves", Math.abs(settled.width - base.width) < 1, { settled });
+  await context.close();
+}
+
+// ── Portal: one trip walks every state, pushes once, focuses the new room ────────
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/colophon", { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  await page.hover('.dock a[href="/work"]');
+  await page.waitForTimeout(300);
+  const t0 = Date.now();
+  await page.click('.dock a[href="/work"]');
+  await page.waitForSelector('[data-portal-state="holding"]', { timeout: 5000 }).catch(() => {});
+  await page.screenshot({ path: path.join(OUT, "portal-field-holding.png") });
+  const arrived = await portalIdleAt(page, "/work");
+  const ms = Date.now() - t0;
+  const portal = await page.evaluate(() => ({
+    ...window.__portal,
+    focused: document.activeElement?.tagName === "H1" ? document.activeElement.textContent : document.activeElement?.tagName,
+  }));
+  const walk = portal.log.join(">");
+  check("portal", "arrives at /work and returns to idle", arrived, { ms });
+  check("portal", "walks covering > holding > revealing > idle", /covering>holding>revealing>idle$/.test(walk), { walk });
+  check("portal", "effect went live during the trip", portal.live, portal);
+  check("portal", "exactly one history push", portal.pushes === 1, { pushes: portal.pushes });
+  check("portal", "new room's heading takes focus", portal.focused === "workshop", { focused: portal.focused });
+  check("portal", "no page errors", errors.length === 0, errors.slice(0, 3));
+
+  const before = portal.log.length;
+  await page.goBack();
+  await page.waitForFunction(() => location.pathname === "/colophon", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  const back = await page.evaluate((n) => window.__portal.log.slice(n), before);
+  check("portal", "back/forward never covers", !back.includes("covering"), { back });
+  await context.close();
+}
+
+// ── Portal: same-room links skip it ───────────────────────────────────────────────
+{
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  await page.click(".dock-retro-path a");
+  await page.waitForTimeout(1200);
+  const log = await page.evaluate(() => window.__portal.log);
+  check("portal-same-room", "workshop crumb link doesn't cover", !log.includes("covering"), { log });
+  await context.close();
+}
+
+// ── Budget: three laps through four rooms via the dock ───────────────────────────
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  const hops = [];
+  for (let lap = 0; lap < 3; lap++) {
+    for (const href of ["/music", "/notebook", "/wall", "/work"]) {
+      await page.click(`.dock a[href="${href}"]`);
+      const ok = await portalIdleAt(page, href);
+      await page.waitForTimeout(600);
+      const gl = await page.evaluate(() => window.__gl());
+      const leases = await page.evaluate(() => window.__fx.live());
+      hops.push({ href, ok, live: gl.live, leases, created: gl.created });
+    }
+  }
+  const over = hops.filter((h) => !h.ok || h.live > MAX_LIVE[h.href] || h.leases !== h.live);
+  check("laps", "12 hops arrive, contexts within each room's budget", over.length === 0, over.length ? over : { last: hops.at(-1) });
+  check("laps", "no context warnings or page errors", errors.length === 0, errors.slice(0, 3));
+  results.push({ route: "laps", hops });
+  await context.close();
+}
+
+// ── Portal: reduced motion navigates instantly, no cover ─────────────────────────
+{
+  const { context, page } = await chromePage({ reducedMotion: "reduce" });
+  await page.goto(BASE + "/colophon", { waitUntil: "networkidle" });
+  await page.click('.dock a[href="/work"]');
+  await page.waitForFunction(() => location.pathname === "/work", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(1000);
+  const portal = await page.evaluate(() => ({ ...window.__portal, stages: document.querySelectorAll("[data-portal-state] [data-fx]").length }));
+  check("portal-reduced", "no cover and no transition effect", !portal.log.includes("covering") && portal.stages === 0, portal);
+  await context.close();
+}
+
+// ── Splash: the logo lands exactly on the dock's mark ────────────────────────────
+{
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/", { waitUntil: "networkidle" });
+  const inertDuring = await page.evaluate(() => document.querySelector(".dock-anchor")?.hasAttribute("inert"));
+  await page.waitForTimeout(2300);
+  await page.getByText("skip").click().catch(() => {});
+  const cta = page.getByRole("button", { name: /let.s go/i });
+  await cta.waitFor({ timeout: 8000 });
+  await page.waitForTimeout(700);
+  await cta.click();
+  await page.waitForTimeout(1100);
+  const rects = await page.evaluate(() => {
+    const r = (sel) => {
+      const b = document.querySelector(sel)?.getBoundingClientRect();
+      return b && { x: b.left + b.width / 2, y: b.top + b.height / 2, size: b.width };
+    };
+    return { logo: r("[data-splash-logo]"), mark: r("[data-hzy-mark-target]") };
+  });
+  const off = rects.logo && rects.mark
+    ? Math.max(Math.abs(rects.logo.x - rects.mark.x), Math.abs(rects.logo.y - rects.mark.y), Math.abs(rects.logo.size - rects.mark.size))
+    : Infinity;
+  check("splash", "dock is inert under the splash", inertDuring === true, { inertDuring });
+  check("splash", "logo lands on the dock mark (within 2px)", off <= 2, { ...rects, off });
+  await page.waitForTimeout(1500);
+  const after = await page.evaluate(() => {
+    const a = document.querySelector(".dock-anchor");
+    return { splash: a?.dataset.splash, inert: a?.hasAttribute("inert"), opacity: a && getComputedStyle(a).opacity };
+  });
+  check("splash", "dock shows and is interactive afterwards", after.splash === "false" && !after.inert && after.opacity === "1", after);
+  await page.screenshot({ path: path.join(OUT, "splash-handoff.png") });
+  await context.close();
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────

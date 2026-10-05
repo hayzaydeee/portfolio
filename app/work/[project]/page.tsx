@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { createPublicClient, createBuildClient } from "@/lib/supabase/server";
 import { ProjectFile } from "@/components/workshop/ProjectFile";
-import { HzyMark } from "@/components/nav/HzyMark";
+import { WorkshopTopBar } from "@/components/workshop/WorkshopTopBar";
 import type { Project } from "@/app/actions/projects";
 
 type Props = {
@@ -53,23 +52,7 @@ export default async function ProjectPage({ params }: Props) {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* IDE-style header */}
-      <header
-        className="flex items-center gap-3 px-4 py-2 border-b shrink-0 bg-(--workshop-panel) border-(--workshop-tree-border)"
-      >
-        <Link href="/work" aria-label="back to workshop" className="flex items-center gap-2">
-          <HzyMark mode="dark" size={20} />
-          <span className="font-mono text-xs text-(--workshop-text-muted)">
-            ~/workshop
-          </span>
-        </Link>
-        <span className="font-mono text-xs text-(--workshop-syntax-dim)">
-          /
-        </span>
-        <span className="font-mono text-xs text-(--workshop-text)">
-          {slug}/
-        </span>
-      </header>
+      <WorkshopTopBar crumbs={[slug]} />
 
       {/* Project content */}
       <div className="flex-1 overflow-auto bg-(--workshop-panel)">

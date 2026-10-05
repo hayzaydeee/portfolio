@@ -2,6 +2,7 @@ import "server-only";
 import { unstable_cache } from "next/cache";
 import { createServiceClient } from "@/lib/supabase/service";
 import { highlight } from "@/lib/shiki";
+import type { RoomVisibility } from "@/lib/rooms";
 
 export type StackJson = {
   languages: string[];
@@ -10,12 +11,7 @@ export type StackJson = {
   tools: string[];
 };
 
-export type RoomVisibility = {
-  workshop: boolean;
-  studio: boolean;
-  notebook: boolean;
-  wall: boolean;
-};
+export type { RoomVisibility } from "@/lib/rooms";
 
 /** Public-safe slice of site_settings. The webhook secret never leaves getSiteConfig. */
 export type PublicSiteConfig = {

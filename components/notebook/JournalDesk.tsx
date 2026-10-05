@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
@@ -179,25 +178,14 @@ export function JournalDesk() {
         }}
       />
 
-      {/* Back link (when navigating from a journal) */}
-      <div className="relative z-10 px-6 pt-6">
-        <Link
-          href="/"
-          className="text-xs font-mono transition-colors duration-150"
-          style={{ color: "var(--notebook-text-muted)" }}
-        >
-          ← hzy
-        </Link>
-      </div>
+      {/* Clears the floating dock */}
+      <div className="h-20" aria-hidden="true" />
 
       {/* Desk area */}
       <div className="relative z-10 flex flex-col items-center justify-center min-h-[80vh] px-6">
-        <p
-          className="text-xs font-mono uppercase tracking-widest mb-16 text-center"
-          style={{ color: "var(--notebook-text-muted)" }}
-        >
+        <h1 className="text-xs font-mono uppercase tracking-widest mb-16 text-center text-(--notebook-text-muted)">
           notebook
-        </p>
+        </h1>
 
         {/* Journals scattered on desk — desktop */}
         <div className="hidden md:flex items-end justify-center gap-6 relative" style={{ height: 280 }}>

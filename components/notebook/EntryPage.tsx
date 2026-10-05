@@ -54,11 +54,8 @@ export function EntryPage({ entry, journal, prevSlug, nextSlug }: Props) {
       : "prose-notebook";
 
   return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--notebook-surface)", color: "var(--notebook-text)" }}
-    >
-      <div className="max-w-2xl mx-auto px-6 py-12">
+    <div className="min-h-screen bg-(--notebook-surface) text-(--notebook-text)">
+      <div className="max-w-2xl mx-auto px-6 pt-32 pb-12">
         {/* Nav row */}
         <div className="flex items-center justify-between mb-10">
           <Link
