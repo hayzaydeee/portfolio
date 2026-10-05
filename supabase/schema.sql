@@ -166,7 +166,7 @@ on conflict do nothing;
 -- ─────────────────────────────────────────────────────────────────────
 
 create or replace function update_updated_at()
-returns trigger language plpgsql as $$
+returns trigger language plpgsql set search_path = '' as $$
 begin
   new.updated_at = now();
   return new;
@@ -258,7 +258,8 @@ create policy "anon read currently"
   on currently for select to anon
   using (true);
 
--- site_settings: no anon read (admin only)
+-- site_settings: no anon read (admin only). It holds the webhook secret, so the API roles get no grants at all.
+revoke all on table site_settings from anon, authenticated;
 
 -- Service role: full access (via SUPABASE_SERVICE_ROLE_KEY — bypasses RLS by default)
 -- No additional policies needed for service role.
@@ -277,23 +278,5 @@ values
   ('wall-videos',    'wall-videos',    true)
 on conflict (id) do nothing;
 
--- Storage policies: public read, no anon write
-create policy "public read projects storage"
-  on storage.objects for select to anon
-  using (bucket_id = 'projects');
-
-create policy "public read music-covers storage"
-  on storage.objects for select to anon
-  using (bucket_id = 'music-covers');
-
-create policy "public read music-audio storage"
-  on storage.objects for select to anon
-  using (bucket_id = 'music-audio');
-
-create policy "public read wall-images storage"
-  on storage.objects for select to anon
-  using (bucket_id = 'wall-images');
-
-create policy "public read wall-videos storage"
-  on storage.objects for select to anon
-  using (bucket_id = 'wall-videos');
+-- No storage.objects policies: public buckets serve /object/public/ URLs without one, uploads use
+-- the service role, and a SELECT policy would only let the anon key list every file.
