@@ -67,7 +67,9 @@ function createElement(withCors: boolean): HTMLAudioElement {
 /**
  * With crossOrigin set, a host without CORS headers makes the element fail to load
  * (better than the silent analyser you'd get otherwise). If that happens before any
- * source has ever loaded, fall back to a plain element so music still plays.
+ * source has ever loaded, retry on a plain element. The CORS verdict only sticks if the
+ * plain element actually plays; if it errors too, the file itself was bad, so the
+ * analyser path is restored for the next track.
  */
 function handleError(state: EngineState, el: HTMLAudioElement) {
   if (el !== state.el || !el.crossOrigin || state.corsProven || state.corsBroken) return;
@@ -78,6 +80,16 @@ function handleError(state: EngineState, el: HTMLAudioElement) {
   plain.volume = state.volume;
   plain.loop = el.loop;
   forward(state, plain);
+  plain.addEventListener(
+    "error",
+    () => {
+      if (state.el !== plain) return;
+      state.corsBroken = false;
+      state.el = el;
+      el.loop = plain.loop;
+    },
+    { once: true }
+  );
   state.el = plain;
   plain.src = src;
   plain.play().catch(() => {});
