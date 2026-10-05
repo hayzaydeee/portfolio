@@ -3,6 +3,7 @@ import { Fresca, EB_Garamond, Texturina } from "next/font/google";
 import "./globals.css";
 import { AudioProvider } from "@/lib/audio/AudioContext";
 import { PlayerBar } from "@/components/studio/PlayerBar";
+import { Providers } from "@/components/providers/Providers";
 
 const fresca = Fresca({
   weight: "400",
@@ -66,10 +67,12 @@ export default function RootLayout({
         <link rel="stylesheet" href={GOOGLE_SANS_CODE_URL} />
       </head>
       <body className="min-h-full flex flex-col">
-        <AudioProvider>
-          {children}
-          <PlayerBar />
-        </AudioProvider>
+        <Providers>
+          <AudioProvider>
+            {children}
+            <PlayerBar />
+          </AudioProvider>
+        </Providers>
       </body>
     </html>
   );

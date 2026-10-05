@@ -272,7 +272,7 @@ export function AskTerminal({
                   className="px-4 pb-3 pt-1 border-t border-(--workshop-tree-border) flex flex-col gap-1"
                 >
                   <span className="font-mono text-[10px] text-(--workshop-text-muted) mb-1 select-none">
-                    // follow-up
+                    {"// follow-up"}
                   </span>
                   {followUps.map((s) => (
                     <button

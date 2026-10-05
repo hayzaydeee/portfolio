@@ -83,11 +83,11 @@ export function Splash({ onDismiss }: SplashProps) {
   const rafRef = useRef<number | null>(null);
   const skipTriggeredRef = useRef(false);
 
-  const initialLogoSize = useRef(
+  const [initialLogoSize] = useState(() =>
     typeof window !== "undefined"
       ? Math.min(window.innerWidth * 0.45, 600)
       : 400
-  ).current;
+  );
 
   /* ── Timeout helpers ──────────────────────────────────────────────── */
 
@@ -127,6 +127,9 @@ export function Splash({ onDismiss }: SplashProps) {
     return () => clearTimeout(t);
   }, []);
 
+  /** Captured logo rect at moment of exit trigger */
+  const [logoFlyFrom, setLogoFlyFrom] = useState<{ x: number; y: number } | null>(null);
+
   /* ── Exit transition ───────────────────────────────────────────── */
 
   const handleExit = useCallback(() => {
@@ -154,7 +157,8 @@ export function Splash({ onDismiss }: SplashProps) {
       "(prefers-reduced-motion: reduce)"
     ).matches;
     if (prefersReduced) {
-      handleSkip();
+      // Jump straight to the CTA on the next frame rather than cascading a render inside this effect
+      rafRef.current = requestAnimationFrame(handleSkip);
       return;
     }
 
@@ -241,9 +245,6 @@ export function Splash({ onDismiss }: SplashProps) {
 
   const isExiting = phase === "exit";
   const colorsActive = exitStage === "colors";
-
-  /** Captured logo rect at moment of exit trigger */
-  const [logoFlyFrom, setLogoFlyFrom] = useState<{ x: number; y: number } | null>(null);
 
   /* Nav logo target: px-6 (24px) + 48/2 = 48px center-x, h-14 (56px) / 2 = 28px center-y */
   const NAV_TARGET = { x: 48, y: 28 };

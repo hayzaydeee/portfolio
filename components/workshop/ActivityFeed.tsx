@@ -14,7 +14,7 @@ export function ActivityFeed({ currently }: ActivityFeedProps) {
     >
       {/* Header */}
       <div className="mb-6 text-(--workshop-syntax-dim)">
-        // hayzaydee — live
+        {"// hayzaydee — live"}
       </div>
 
       <div className="flex flex-col gap-3">

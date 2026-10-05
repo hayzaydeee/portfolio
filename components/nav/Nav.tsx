@@ -85,10 +85,12 @@ export function Nav() {
   const splashActive = useSplashActive();
   const roomStyle = ROOM_NAV[getRoomKey(pathname)];
 
-  // Close mobile menu on route change
-  useEffect(() => {
+  // Close mobile menu on route change (adjust state during render, not in an effect)
+  const [menuPath, setMenuPath] = useState(pathname);
+  if (menuPath !== pathname) {
+    setMenuPath(pathname);
     setMenuOpen(false);
-  }, [pathname]);
+  }
 
   // Prevent body scroll when menu is open
   useEffect(() => {

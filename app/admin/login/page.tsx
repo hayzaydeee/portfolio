@@ -41,7 +41,7 @@ export default async function AdminLoginPage({
               access denied — double-check you signed in with the right Google account.
             </p>
             <p className="text-red-500/70">
-              this area is private. if you stumbled here by accident, there's nothing to see.
+              this area is private. if you stumbled here by accident, there&apos;s nothing to see.
             </p>
           </div>
         )}

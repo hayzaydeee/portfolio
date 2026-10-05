@@ -244,7 +244,7 @@ export function MusicProjectForm({ project }: MusicProjectFormProps) {
               <select
                 name="status"
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => setStatus(e.target.value as typeof status)}
                 className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-base-dark focus:outline-none focus:border-accent/50 bg-white"
               >
                 {STATUS_OPTIONS.map((opt) => (

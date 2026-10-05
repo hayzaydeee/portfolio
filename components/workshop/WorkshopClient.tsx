@@ -102,7 +102,7 @@ function FileContent({ slug, highlightedStackHtml }: { slug: string | null; high
     <div
       className="flex-1 flex items-center justify-center p-6 font-mono text-xs text-(--workshop-text-muted)"
     >
-      // select a file to view
+      {"// select a file to view"}
     </div>
   );
 }

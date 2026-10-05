@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
 import type { WallPiece } from "@/lib/data/wall";
 import { getScatterProps } from "@/lib/wall-utils";
@@ -143,13 +144,13 @@ export function WallPage({ pieces }: Props) {
 
         {/* Back nav */}
         <div className="relative z-10 px-6 pt-6">
-          <a
+          <Link
             href="/"
             className="text-xs font-mono transition-opacity duration-150 opacity-60 hover:opacity-100"
             style={{ color: "var(--wall-caption)" }}
           >
             ← hzy
-          </a>
+          </Link>
         </div>
 
         {/* Scatter canvas — absolute positioned polaroids */}

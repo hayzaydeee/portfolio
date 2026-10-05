@@ -167,7 +167,7 @@ export function ProjectForm({ project }: ProjectFormProps) {
             <select
               name="status"
               value={status}
-              onChange={(e) => setStatus(e.target.value)}
+              onChange={(e) => setStatus(e.target.value as typeof status)}
               className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) bg-white focus:outline-none focus:border-accent/50"
             >
               <option value="draft">Draft</option>

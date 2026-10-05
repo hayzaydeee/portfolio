@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -13,7 +14,7 @@ export default function ColophonPage() {
           colophon
         </h1>
         <p className="text-sm text-text-muted font-mono">
-          // how this place was made
+          {"// how this place was made"}
         </p>
       </header>
 
@@ -21,8 +22,8 @@ export default function ColophonPage() {
         <section>
           <p>
             built with Next.js App Router, Supabase, Tailwind v4, and Framer
-            Motion. deployed on Vercel. the type is Geist — Vercel's open
-            font — because it reads well at small sizes and doesn't try to say
+            Motion. deployed on Vercel. the type is Geist — Vercel&apos;s open
+            font — because it reads well at small sizes and doesn&apos;t try to say
             too much.
           </p>
         </section>
@@ -32,7 +33,7 @@ export default function ColophonPage() {
             the site has five rooms. the lobby is where most people land. the
             workshop is a fake IDE — a format that felt honest for code work.
             the studio is for music. the notebook publishes from bito.works
-            via webhook. the wall is for things that don't fit anywhere else.
+            via webhook. the wall is for things that don&apos;t fit anywhere else.
           </p>
         </section>
 
@@ -41,7 +42,7 @@ export default function ColophonPage() {
             the AI terminal in the workshop is claude-based. it has a narrow
             context window, a hard query limit, and rate limiting — less to
             control cost (the usage is low) and more to keep the interaction
-            intentional. you're not meant to have a conversation with it.
+            intentional. you&apos;re not meant to have a conversation with it.
             ask one thing, get one answer, maybe follow one thread.
           </p>
         </section>
@@ -52,7 +53,7 @@ export default function ColophonPage() {
             authentication flows for anonymous visitors, a full music player
             with visualisers, and a notebook with page-curl transitions. most
             of that got stripped back to what was actually necessary. the
-            hardest design decision was the wall — it's the loosest room and
+            hardest design decision was the wall — it&apos;s the loosest room and
             the most genuinely personal, which made it the most difficult to
             commit to.
           </p>
@@ -60,7 +61,7 @@ export default function ColophonPage() {
 
         <section>
           <p>
-            the life.log file in the workshop is real. it's not clever
+            the life.log file in the workshop is real. it&apos;s not clever
             branding.
           </p>
         </section>
@@ -69,12 +70,12 @@ export default function ColophonPage() {
       <footer className="mt-16 pt-8 border-t border-black/8">
         <p className="text-xs text-text-muted font-mono">
           last updated: 2025 —{" "}
-          <a
+          <Link
             href="/"
             className="underline underline-offset-2 hover:text-text transition-colors"
           >
             back to lobby
-          </a>
+          </Link>
         </p>
       </footer>
     </div>
