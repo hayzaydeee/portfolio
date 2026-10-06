@@ -12,8 +12,12 @@ import type { HzyOrbOptions } from "./meta";
 
 const TAU = Math.PI * 2;
 const RASTER = 400;
-/** Below this CSS size the lattice coarsens and dots grow, as the original's mini mode */
+/** Below this CSS size the crest runs a little faster, as the original's mini mode */
 const MINI_PX = 32;
+/** Closest dot pitch in CSS px; small orbs coarsen the lattice instead of going sub-pixel */
+const MIN_PITCH = 2.2;
+/** The mark's half-extent as a share of the canvas half-width */
+const FIT = 0.86;
 const PULSE_MS = 900;
 
 type Dot = { x: number; y: number; z: number; r: number; v: number };
@@ -92,7 +96,7 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
   let ramp: string[] = [];
 
   const mini = () => size < MINI_PX;
-  const cells = () => (mini() ? Math.max(16, Math.round(opts.density * 0.5)) : Math.round(opts.density));
+  const cells = () => Math.max(10, Math.min(Math.round(opts.density), Math.floor((size * FIT) / MIN_PITCH)));
 
   const points = () => {
     const n = cells();
@@ -123,7 +127,7 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
     g.clearRect(0, 0, w, w);
 
     const t = elapsed;
-    const s = (w / 2) * 0.86;
+    const s = (w / 2) * FIT;
     const project = projector(0.15 * Math.sin(t * 0.4), 0.13 * Math.sin(t * 0.31), w / 2, w / 2, s);
     // Dots scale with the lattice spacing, so any density reads as one continuous mark
     const spacing = (2 * s) / cells();
