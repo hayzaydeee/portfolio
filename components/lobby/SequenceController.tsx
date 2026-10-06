@@ -180,7 +180,7 @@ export function SequenceController({ projects, onComplete, onTourStart }: Sequen
   }
 
   return (
-    <div className="fixed inset-0 z-40 bg-(--lobby-surface)">
+    <div className="fixed inset-0 z-(--z-sequence)">
       {/* Progress indicator */}
       <div className="fixed top-1/2 right-4 -translate-y-1/2 z-50 flex flex-col gap-2">
         {SECTION_KEYS.map((key, i) => (

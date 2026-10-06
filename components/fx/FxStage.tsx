@@ -52,6 +52,8 @@ type FxStageProps = {
   label?: string;
   /** Fade the canvas layer in (default). Off for overlays that must appear on their first frame */
   fade?: boolean;
+  /** Hold the last frame while something opaque covers the stage. The first frame still draws, so the stage goes live */
+  paused?: boolean;
   onStatusChange?: (status: StageStatus | "disabled") => void;
 };
 
@@ -76,6 +78,7 @@ export function FxStage({
   handle,
   label,
   fade = true,
+  paused = false,
   onStatusChange,
 }: FxStageProps) {
   const effect: FxId = slot ? FX_SLOTS[slot].effect : (effectProp ?? "emerald-horizon");
@@ -106,6 +109,11 @@ export function FxStage({
   useEffect(() => {
     optionsRef.current = resolved;
   }, [resolved]);
+
+  const pausedRef = useRef(paused);
+  useEffect(() => {
+    pausedRef.current = paused;
+  }, [paused]);
 
   const onStatusRef = useRef(onStatusChange);
   useEffect(() => {
@@ -340,7 +348,12 @@ export function FxStage({
         created.render(performance.now(), 0);
         void (created.ready ?? Promise.resolve()).then(reveal);
       } else {
-        cleanups.push(addToTicker(id, created.render, () => visible));
+        let rendered = false;
+        const render: FxInstance["render"] = (now, dt) => {
+          created.render(now, dt);
+          rendered = true;
+        };
+        cleanups.push(addToTicker(id, render, () => visible && !(pausedRef.current && rendered)));
         void (created.ready ?? Promise.resolve()).then(() => requestAnimationFrame(reveal));
       }
     });

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { useSetSplashActive } from "@/lib/splash-context";
 import { Splash } from "./Splash";
+import { LobbyBackdropProvider } from "./LobbyBackdrop";
 import { SequenceController } from "./SequenceController";
 import { Hero } from "./Hero";
 import { About } from "./About";
@@ -35,6 +36,8 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
   const [tourActive, setTourActive] = useState(false);
   const [handedOff, setHandedOff] = useState(false);
   const setSplashActive = useSetSplashActive();
+  // A first visit opens under the splash with the horizon below the frame; it rises on the way out
+  const [initialRise] = useState<0 | 1>(() => (lobbyVisited ? 1 : 0));
 
   // The dock hides (and goes inert) under the splash; it returns once the logo has landed on it
   useEffect(() => {
@@ -43,6 +46,8 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
   }, [phase, handedOff, setSplashActive]);
 
   function handleSplashDismiss() {
+    // Seen once is enough: leaving mid-sequence and coming back lands on the resting lobby
+    lobbyVisited = true;
     setPhase("sequence");
   }
 
@@ -58,7 +63,7 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
   }
 
   return (
-    <>
+    <LobbyBackdropProvider initialRise={initialRise} phase={phase}>
       {/* Splash */}
       <AnimatePresence>
         {phase === "splash" && <Splash onDismiss={handleSplashDismiss} onHandoff={() => setHandedOff(true)} />}
@@ -111,6 +116,6 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
       <AnimatePresence>
         {tourActive && <GuidedTour onClose={() => setTourActive(false)} />}
       </AnimatePresence>
-    </>
+    </LobbyBackdropProvider>
   );
 }

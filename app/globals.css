@@ -25,7 +25,8 @@
 /* ── Room palette tokens (raw CSS vars, used with var() in components) */
 :root {
   /* Layering scale, used as z-(--z-dock). The player sits above the portal so music survives room changes */
-  --z-backdrop:  0;
+  /* Negative: a fixed backdrop paints over the body background but under all in-flow content */
+  --z-backdrop:  -1;
   --z-content:   10;
   --z-indicator: 20;
   --z-sequence:  40;
@@ -269,4 +270,13 @@ body {
 .prose-notebook--fragments {
   font-size: 1rem;
   line-height: 1.9;
+}
+
+/* ── Lobby ──────────────────────────────────────────────────────────── */
+@layer components {
+  /* The splash and the sequence fill the screen over a transparent background so the lobby
+     horizon shows through; the in-flow footer would show through with it, so it steps out */
+  html:has([data-lobby-phase="splash"], [data-lobby-phase="sequence"]) [data-site-footer] {
+    visibility: hidden;
+  }
 }
