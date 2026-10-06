@@ -7,7 +7,6 @@ import { TabBar, useTabState } from "@/components/workshop/TabBar";
 import { ActivityFeed } from "@/components/workshop/ActivityFeed";
 import { StatusBar } from "@/components/workshop/StatusBar";
 import { AskTerminal } from "@/components/workshop/AskTerminal";
-import { WorkshopTopBar } from "@/components/workshop/WorkshopTopBar";
 import type { WorkshopProject } from "@/components/workshop/FileTree";
 import type { Currently } from "@/lib/data/currently";
 
@@ -133,8 +132,7 @@ export function WorkshopClient({ projects, currently, highlightedStackHtml }: Wo
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <WorkshopTopBar />
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       <h1 className="sr-only">workshop</h1>
 
       {/* Mobile tab selector */}

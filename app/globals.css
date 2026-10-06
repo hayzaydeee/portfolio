@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "./styles/dock.css";
+@import "./styles/primitives.css";
 
 /* ── Design tokens ─────────────────────────────────────────────────── */
 @theme inline {

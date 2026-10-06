@@ -4,6 +4,7 @@ import { dockGlassMeta } from "./effects/dock-glass/meta";
 import { dockRetroMeta } from "./effects/dock-retro/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
 import { glyphVortexMeta } from "./effects/glyph-vortex/meta";
+import { hzyOrbMeta } from "./effects/hzy-orb/meta";
 import { portalFieldMeta } from "./effects/portal-field/meta";
 
 /**
@@ -17,6 +18,7 @@ export const FX_METAS = {
   "dock-glass": dockGlassMeta,
   "portal-field": portalFieldMeta,
   "glyph-vortex": glyphVortexMeta,
+  "hzy-orb": hzyOrbMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

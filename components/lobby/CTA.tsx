@@ -5,6 +5,7 @@ import { motion } from "motion/react";
 import { sendContact, type ContactState } from "@/app/actions/contact";
 import { SectionHeading } from "./SectionHeading";
 import Link from "next/link";
+import { CV_HREF } from "@/lib/rooms";
 
 const INITIAL: ContactState = { success: false };
 
@@ -124,7 +125,7 @@ export function CTA({ mode = "resting" }: { mode?: "sequence" | "resting" }) {
                   hayzayd33@gmail.com ↗
                 </a>
                 <a
-                  href="/cv.pdf"
+                  href={CV_HREF}
                   download
                   className="self-start text-sm font-sans px-4 py-2 rounded-md border border-white/20 text-(--lobby-text) hover:border-(--lobby-accent) hover:text-(--lobby-accent) transition-colors"
                 >
@@ -166,7 +167,7 @@ export function CTA({ mode = "resting" }: { mode?: "sequence" | "resting" }) {
                   hayzayd33@gmail.com ↗
                 </a>
                 <a
-                  href="/cv.pdf"
+                  href={CV_HREF}
                   download
                   className="self-start text-sm font-sans px-4 py-2 rounded-md border border-white/20 text-(--lobby-text) hover:border-(--lobby-accent) hover:text-(--lobby-accent) transition-colors"
                 >

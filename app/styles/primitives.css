@@ -1,0 +1,1032 @@
+/*
+ * UI primitives: Cta and CircleButton, rebuilt from ThreeUI's RectangleButtons (the Neuform
+ * sliding-text, gradient-beam, spinning-border and dot-border CTAs, and the Meridian keycap)
+ * and CircleButtons (MIT, Meng To). Every colour comes from the room a primitive sits in,
+ * set by data-room; hover states also answer :focus-visible so the keyboard sees them too.
+ */
+@layer components {
+  /* ── Room colour sets ─────────────────────────────────────────────── */
+  .prim {
+    --prim-ease: cubic-bezier(0.15, 0.83, 0.66, 1);
+    --prim-key-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --prim-shadow: rgb(0 0 0 / 0.4);
+    --prim-highlight: rgb(255 255 255 / 0.22);
+  }
+
+  .prim[data-room="lobby"] {
+    --prim-ink: var(--lobby-text);
+    --prim-muted: color-mix(in srgb, var(--lobby-text) 62%, transparent);
+    --prim-surface: var(--lobby-card);
+    --prim-deep: var(--lobby-surface);
+    --prim-edge: color-mix(in srgb, var(--lobby-text) 18%, transparent);
+    --prim-accent: var(--lobby-accent);
+    --prim-on-accent: var(--lobby-surface);
+    --prim-glow: var(--lobby-warm);
+  }
+
+  .prim[data-room="workshop"] {
+    --prim-ink: var(--workshop-text);
+    --prim-muted: var(--workshop-text-muted);
+    --prim-surface: var(--workshop-panel);
+    --prim-deep: var(--workshop-tree);
+    --prim-edge: var(--workshop-tree-border);
+    --prim-accent: var(--workshop-syntax);
+    --prim-on-accent: var(--workshop-base);
+    --prim-glow: var(--workshop-warm);
+  }
+
+  .prim[data-room="studio"] {
+    --prim-ink: var(--studio-text);
+    --prim-muted: var(--studio-text-muted);
+    --prim-surface: var(--studio-raised);
+    --prim-deep: var(--studio-player-bg);
+    --prim-edge: color-mix(in srgb, var(--studio-text) 16%, transparent);
+    --prim-accent: var(--studio-accent-light);
+    --prim-on-accent: var(--studio-text);
+    --prim-glow: var(--studio-ember);
+  }
+
+  .prim[data-room="notebook"] {
+    --prim-ink: var(--notebook-text);
+    --prim-muted: var(--notebook-text-muted);
+    --prim-surface: color-mix(in srgb, var(--notebook-surface) 70%, white);
+    --prim-deep: var(--notebook-shadow);
+    --prim-edge: color-mix(in srgb, var(--notebook-text) 20%, transparent);
+    --prim-accent: var(--notebook-reflections);
+    --prim-on-accent: var(--notebook-surface);
+    --prim-glow: var(--notebook-cookbook);
+    --prim-shadow: rgb(28 26 22 / 0.2);
+    --prim-highlight: rgb(255 255 255 / 0.7);
+  }
+
+  .prim[data-room="wall"] {
+    --prim-ink: var(--wall-caption);
+    --prim-muted: var(--wall-date);
+    --prim-surface: var(--wall-polaroid);
+    --prim-deep: var(--wall-texture);
+    --prim-edge: color-mix(in srgb, var(--wall-caption) 20%, transparent);
+    --prim-accent: var(--wall-pin);
+    --prim-on-accent: var(--wall-polaroid);
+    --prim-glow: var(--wall-pin);
+    --prim-shadow: rgb(28 22 16 / 0.2);
+    --prim-highlight: rgb(255 255 255 / 0.7);
+  }
+
+  /* ── Cta: shared ──────────────────────────────────────────────────── */
+  .cta {
+    --cta-py: 0.75rem;
+    --cta-px: 1.25rem;
+    --cta-font: 0.9375rem;
+    position: relative;
+    isolation: isolate;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    font-size: var(--cta-font);
+    font-weight: 500;
+    line-height: 1.2;
+    white-space: nowrap;
+    text-decoration: none;
+    cursor: pointer;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cta--sm {
+    --cta-py: 0.5rem;
+    --cta-px: 0.875rem;
+    --cta-font: 0.8125rem;
+  }
+
+  .cta:focus-visible {
+    outline: 1px solid var(--prim-accent);
+    outline-offset: 3px;
+  }
+
+  .cta:disabled,
+  .cta[aria-disabled="true"] {
+    cursor: not-allowed;
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  .cta__label {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .cta__icon {
+    position: relative;
+    z-index: 1;
+    width: 1em;
+    height: 1em;
+    flex-shrink: 0;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition: transform 0.3s ease;
+  }
+
+  .cta__layer {
+    position: absolute;
+    pointer-events: none;
+  }
+
+  /* ── slide: the label drops away and its twin falls in from above ── */
+  .cta--slide {
+    min-width: 7.5rem;
+    padding: var(--cta-py) var(--cta-px);
+    overflow: hidden;
+    border: 1px solid var(--prim-edge);
+    border-radius: 9999px;
+    background: var(--prim-surface);
+    color: var(--prim-muted);
+    letter-spacing: -0.01em;
+    box-shadow:
+      0 2.8px 2.2px var(--prim-shadow),
+      0 6.7px 5.3px var(--prim-shadow),
+      0 12.5px 10px var(--prim-shadow);
+    transition:
+      transform 1s var(--prim-ease),
+      color 1s var(--prim-ease);
+  }
+
+  .cta--slide .cta__label {
+    transition:
+      transform 0.5s ease-out,
+      opacity 0.5s ease-out,
+      filter 0.5s ease-out;
+  }
+
+  .cta--slide .cta__twin {
+    position: absolute;
+    inset: 0;
+    justify-content: center;
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(-2rem);
+    transition:
+      transform 0.3s ease-in-out,
+      opacity 0.3s ease-in-out,
+      filter 0.3s ease-in-out;
+  }
+
+  .cta--slide .cta__underline {
+    bottom: 0;
+    left: 15%;
+    width: 70%;
+    height: 1px;
+    border-radius: 9999px;
+    background: linear-gradient(90deg, transparent, var(--prim-ink), transparent);
+    filter: blur(2px);
+    opacity: 0.5;
+    transition: opacity 1s var(--prim-ease);
+  }
+
+  .cta--slide .cta__lift {
+    inset: 0;
+    border-radius: inherit;
+    background: linear-gradient(
+      to top,
+      color-mix(in srgb, var(--prim-ink) 20%, transparent),
+      color-mix(in srgb, var(--prim-ink) 10%, transparent) 50%,
+      transparent
+    );
+    opacity: 0.35;
+    transition: opacity 1s var(--prim-ease);
+  }
+
+  .cta--slide:is(:hover, :focus-visible) {
+    transform: translateY(-3px);
+    color: var(--prim-ink);
+  }
+
+  .cta--slide:is(:hover, :focus-visible) .cta__label:not(.cta__twin) {
+    opacity: 0;
+    filter: blur(12px);
+    transform: translateY(2rem);
+  }
+
+  .cta--slide:is(:hover, :focus-visible) .cta__twin {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+
+  .cta--slide:is(:hover, :focus-visible) .cta__underline {
+    opacity: 0.8;
+  }
+
+  .cta--slide:is(:hover, :focus-visible) .cta__lift {
+    opacity: 0.9;
+  }
+
+  /* ── beam: one accent beam laps the border over a drifting dot field ── */
+  .cta--beam {
+    --cta-py: 1.125rem;
+    --cta-px: 2.75rem;
+    --cta-font: 0.8125rem;
+    padding: var(--cta-py) var(--cta-px);
+    overflow: hidden;
+    border-radius: 9999px;
+    color: color-mix(in srgb, var(--prim-ink) 90%, transparent);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    transition:
+      transform 0.5s ease,
+      box-shadow 0.5s ease,
+      color 0.3s ease;
+  }
+
+  .cta--beam.cta--sm {
+    --cta-py: 0.75rem;
+    --cta-px: 1.75rem;
+    --cta-font: 0.75rem;
+  }
+
+  .cta--beam .cta__beam {
+    inset: -100%;
+    z-index: -3;
+    background: conic-gradient(from 0deg, transparent 0 300deg, var(--prim-accent) 360deg);
+    animation: prim-spin 3s linear infinite;
+  }
+
+  .cta--beam .cta__body {
+    inset: 1px;
+    z-index: -2;
+    overflow: hidden;
+    border-radius: inherit;
+    background:
+      linear-gradient(to bottom, color-mix(in srgb, var(--prim-surface) 60%, transparent), transparent),
+      var(--prim-deep);
+  }
+
+  .cta--beam .cta__dots {
+    inset: 0;
+    background-image: radial-gradient(color-mix(in srgb, var(--prim-ink) 60%, transparent) 1px, transparent 1px);
+    background-size: 12px 12px;
+    mix-blend-mode: overlay;
+    opacity: 0.3;
+    animation: prim-dots 8s linear infinite;
+  }
+
+  .cta--beam .cta__glow {
+    bottom: 0;
+    left: 16.5%;
+    width: 67%;
+    height: 50%;
+    border-radius: 9999px;
+    background: color-mix(in srgb, var(--prim-accent) 10%, transparent);
+    filter: blur(40px);
+    transition: background-color 0.5s ease;
+  }
+
+  .cta--beam:is(:hover, :focus-visible) {
+    transform: scale(1.02);
+    color: var(--prim-ink);
+    box-shadow: 0 0 40px -10px color-mix(in srgb, var(--prim-accent) 50%, transparent);
+  }
+
+  .cta--beam:is(:hover, :focus-visible) .cta__glow {
+    background-color: color-mix(in srgb, var(--prim-accent) 30%, transparent);
+  }
+
+  .cta--beam:is(:hover, :focus-visible) .cta__icon {
+    transform: translateX(4px);
+  }
+
+  /* ── spin: a quiet edge that turns into a spinning beam on hover ─── */
+  .cta--spin {
+    padding: 1px;
+    overflow: hidden;
+    border-radius: 9999px;
+    transition:
+      transform 0.3s ease,
+      box-shadow 0.3s ease;
+  }
+
+  .cta--spin .cta__beam {
+    inset: -100%;
+    z-index: -2;
+    background: conic-gradient(from 90deg at 50% 50%, transparent 0%, transparent 75%, var(--prim-accent) 100%);
+    opacity: 0;
+    animation: prim-spin 3s linear infinite;
+    transition: opacity 0.3s ease;
+  }
+
+  .cta--spin .cta__edge {
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--prim-edge);
+    transition: opacity 0.3s ease;
+  }
+
+  .cta--spin .cta__face {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    width: 100%;
+    height: 100%;
+    padding: calc(var(--cta-py) - 0.125rem) calc(var(--cta-px) + 0.25rem);
+    border-radius: inherit;
+    background: linear-gradient(to bottom, var(--prim-surface), var(--prim-deep));
+    color: var(--prim-muted);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    box-shadow: inset 0 1px 0 var(--prim-highlight);
+    transition: color 0.3s ease;
+  }
+
+  .cta--spin.cta--sm .cta__face {
+    font-size: 0.6875rem;
+  }
+
+  .cta--spin:is(:hover, :focus-visible) {
+    transform: translateY(-2px);
+    box-shadow: 0 0 25px color-mix(in srgb, var(--prim-accent) 18%, transparent);
+  }
+
+  .cta--spin:is(:hover, :focus-visible) .cta__beam {
+    opacity: 1;
+  }
+
+  .cta--spin:is(:hover, :focus-visible) .cta__edge {
+    opacity: 0;
+  }
+
+  .cta--spin:is(:hover, :focus-visible) .cta__face {
+    color: var(--prim-ink);
+  }
+
+  .cta--spin:is(:hover, :focus-visible) .cta__icon {
+    transform: translateX(2px);
+  }
+
+  /* ── trace: corner dots fly out, then dashed edges draw round ────── */
+  .cta--trace {
+    --trace-dot: 8px;
+    --trace-step: 0.35s;
+    --trace-line: color-mix(in srgb, var(--prim-ink) 67%, transparent);
+    --trace-grid: color-mix(in srgb, var(--prim-ink) 20%, transparent);
+    padding: 0.8rem 1rem;
+  }
+
+  .cta--trace.cta--sm {
+    padding: 0.5rem 0.625rem;
+  }
+
+  .cta--trace .cta__face {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: var(--cta-py) var(--cta-px);
+    border: 1px solid var(--trace-grid);
+    border-radius: 6px;
+    color: color-mix(in srgb, var(--prim-ink) 88%, transparent);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    transition:
+      transform 0.2s ease-in-out,
+      letter-spacing 0.2s ease-in-out,
+      background-color 0.2s ease-in-out,
+      color 0.2s ease-in-out;
+  }
+
+  .cta--trace .cta__hatch {
+    inset: 0;
+    z-index: -1;
+    background-image: repeating-linear-gradient(45deg, var(--trace-grid) 0 1px, transparent 2px 5px);
+    opacity: 0;
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  .cta--trace .cta__dot {
+    width: var(--trace-dot);
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: var(--trace-line);
+    opacity: 0;
+    transition:
+      opacity 0.3s ease-in-out,
+      transform var(--trace-step) ease-in-out;
+  }
+
+  .cta--trace .cta__dot--1 {
+    top: calc(var(--trace-dot) * -0.5);
+    left: calc(var(--trace-dot) * -0.5);
+    transform: translate(1.25rem, 0.9rem);
+  }
+
+  .cta--trace .cta__dot--2 {
+    top: calc(var(--trace-dot) * -0.5);
+    right: calc(var(--trace-dot) * -0.5);
+    transform: translate(-1.25rem, 0.9rem);
+  }
+
+  .cta--trace .cta__dot--3 {
+    right: calc(var(--trace-dot) * -0.5);
+    bottom: calc(var(--trace-dot) * -0.5);
+    transform: translate(-1.25rem, -0.9rem);
+  }
+
+  .cta--trace .cta__dot--4 {
+    bottom: calc(var(--trace-dot) * -0.5);
+    left: calc(var(--trace-dot) * -0.5);
+    transform: translate(1.25rem, -0.9rem);
+  }
+
+  .cta--trace .cta__line {
+    opacity: 0;
+    transition:
+      transform var(--trace-step) ease-in-out,
+      opacity 20ms linear;
+  }
+
+  .cta--trace .cta__line--top,
+  .cta--trace .cta__line--bottom {
+    left: 0;
+    width: 100%;
+    height: 1px;
+    background-image: repeating-linear-gradient(90deg, transparent 0 2px, var(--trace-line) 2px 4px);
+    transform: scaleX(0);
+  }
+
+  .cta--trace .cta__line--left,
+  .cta--trace .cta__line--right {
+    top: 0;
+    width: 1px;
+    height: 100%;
+    background-image: repeating-linear-gradient(0deg, transparent 0 2px, var(--trace-line) 2px 4px);
+    transform: scaleY(0);
+  }
+
+  .cta--trace .cta__line--top {
+    top: 0;
+    transform-origin: left;
+  }
+
+  .cta--trace .cta__line--right {
+    right: 0;
+    transform-origin: top;
+  }
+
+  .cta--trace .cta__line--bottom {
+    bottom: 0;
+    transform-origin: right;
+  }
+
+  .cta--trace .cta__line--left {
+    left: 0;
+    transform-origin: bottom;
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__face {
+    background: var(--prim-accent);
+    color: var(--prim-on-accent);
+    transform: scale(1.05);
+    letter-spacing: 0.04em;
+  }
+
+  .cta--trace:active .cta__face {
+    transform: scale(0.98);
+    letter-spacing: 0.02em;
+  }
+
+  .cta--trace:is(:hover, :focus-visible) :is(.cta__dot, .cta__line) {
+    opacity: 1;
+    transform: none;
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__hatch {
+    opacity: 1;
+    transition-delay: calc(var(--trace-step) * 3);
+  }
+
+  /* The draw order of the source: dots in sequence, then top, right, bottom, left */
+  .cta--trace:is(:hover, :focus-visible) .cta__dot--2 {
+    transition-delay: calc(var(--trace-step) * 0.6);
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__dot--3 {
+    transition-delay: calc(var(--trace-step) * 1.2);
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__dot--4 {
+    transition-delay: calc(var(--trace-step) * 1.8);
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__line--top {
+    transition-delay: calc(var(--trace-step) * 0.8);
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__line--right {
+    transition-delay: calc(var(--trace-step) * 1.4);
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__line--bottom {
+    transition-delay: calc(var(--trace-step) * 2);
+  }
+
+  .cta--trace:is(:hover, :focus-visible) .cta__line--left {
+    transition-delay: calc(var(--trace-step) * 2.4);
+  }
+
+  /* ── keycap: a raised key that travels down, with a status LED ───── */
+  .cta--keycap {
+    height: 3.875rem;
+    padding: 0 1.875rem;
+    flex-shrink: 0;
+    border-radius: 15px;
+    background: var(--prim-deep);
+    box-shadow: inset 0 0 0 1px var(--prim-edge);
+  }
+
+  .cta--keycap.cta--sm {
+    height: 3rem;
+    padding: 0 1.375rem;
+    border-radius: 12px;
+  }
+
+  .cta--keycap .cta__cap {
+    inset: 3px 4px 9px;
+    z-index: -1;
+    border-radius: 12px;
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--prim-surface) 82%, var(--prim-ink)),
+      var(--prim-surface)
+    );
+    box-shadow:
+      0 5px 0 var(--prim-deep),
+      0 9px 15px -2px var(--prim-shadow),
+      inset 0 1px var(--prim-highlight);
+    transition:
+      transform 0.13s var(--prim-key-ease),
+      box-shadow 0.13s var(--prim-key-ease);
+  }
+
+  .cta--keycap.cta--sm .cta__cap {
+    border-radius: 9px;
+  }
+
+  .cta--keycap .cta__label {
+    color: var(--prim-ink);
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    transition: transform 0.13s var(--prim-key-ease);
+  }
+
+  .cta--keycap .cta__led {
+    top: 12px;
+    left: calc(50% - 1.5px);
+    z-index: 1;
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--prim-ink) 18%, transparent);
+    transition:
+      transform 0.13s var(--prim-key-ease),
+      background-color 0.22s ease,
+      box-shadow 0.22s ease;
+  }
+
+  .cta--keycap:is(:hover, :focus-visible) :is(.cta__cap, .cta__label, .cta__led) {
+    transform: translateY(4px);
+  }
+
+  .cta--keycap:is(:hover, :focus-visible) .cta__cap {
+    box-shadow:
+      0 1px 0 var(--prim-deep),
+      0 3px 8px -2px var(--prim-shadow),
+      inset 0 1px var(--prim-highlight);
+  }
+
+  .cta--keycap:is(:hover, :focus-visible) .cta__led {
+    background: var(--prim-accent);
+    box-shadow: 0 0 7px var(--prim-accent);
+  }
+
+  .cta--keycap[data-emphasis="primary"] {
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--prim-accent) 30%, transparent);
+  }
+
+  .cta--keycap[data-emphasis="primary"] .cta__cap {
+    background: linear-gradient(180deg, color-mix(in srgb, var(--prim-accent) 75%, white), var(--prim-accent));
+    box-shadow:
+      0 5px 0 color-mix(in srgb, var(--prim-accent) 55%, black),
+      0 9px 18px -2px color-mix(in srgb, var(--prim-accent) 45%, transparent),
+      inset 0 1px rgb(255 255 255 / 0.5);
+  }
+
+  .cta--keycap[data-emphasis="primary"] .cta__label {
+    color: var(--prim-on-accent);
+  }
+
+  .cta--keycap[data-emphasis="primary"] .cta__led {
+    background: color-mix(in srgb, var(--prim-on-accent) 30%, transparent);
+  }
+
+  .cta--keycap[data-emphasis="primary"]:is(:hover, :focus-visible) .cta__cap {
+    box-shadow:
+      0 1px 0 color-mix(in srgb, var(--prim-accent) 55%, black),
+      0 3px 10px -2px color-mix(in srgb, var(--prim-accent) 40%, transparent),
+      inset 0 1px rgb(255 255 255 / 0.5);
+  }
+
+  .cta--keycap[data-emphasis="primary"]:is(:hover, :focus-visible) .cta__led {
+    background: var(--prim-on-accent);
+    box-shadow: 0 0 6px color-mix(in srgb, var(--prim-on-accent) 55%, transparent);
+  }
+
+  /* ── CircleButton ─────────────────────────────────────────────────── */
+  .cbtn {
+    --cbtn-size: 3.5rem;
+    position: relative;
+    display: inline-grid;
+    flex-shrink: 0;
+    width: var(--cbtn-size);
+    aspect-ratio: 1;
+    place-items: center;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--prim-muted);
+    cursor: pointer;
+    transition:
+      transform 0.2s ease-in-out,
+      color 0.2s ease-in-out,
+      filter 0.2s ease-in-out;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .cbtn--sm {
+    --cbtn-size: 2.25rem;
+  }
+
+  .cbtn:focus-visible {
+    outline: 1px solid var(--prim-accent);
+    outline-offset: 5px;
+  }
+
+  .cbtn:disabled {
+    cursor: not-allowed;
+    filter: grayscale(0.7);
+    opacity: 0.48;
+  }
+
+  .cbtn__layer {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .cbtn__face {
+    z-index: 1;
+  }
+
+  .cbtn__rim {
+    z-index: 2;
+  }
+
+  .cbtn__aura {
+    z-index: 3;
+  }
+
+  .cbtn__details {
+    z-index: 4;
+  }
+
+  .cbtn__icon {
+    position: relative;
+    z-index: 5;
+    display: grid;
+    width: 40%;
+    height: 40%;
+    place-items: center;
+  }
+
+  .cbtn__icon svg {
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+  }
+
+  .cbtn[aria-pressed="true"] {
+    color: var(--prim-accent);
+  }
+
+  /* glass, from the play variant: a frosted face with an orbiting aura */
+  .cbtn--glass {
+    overflow: hidden;
+  }
+
+  .cbtn--glass .cbtn__face {
+    background: color-mix(in srgb, var(--prim-surface) 70%, transparent);
+    box-shadow: inset 2px 4px 16px color-mix(in srgb, var(--prim-ink) 6%, transparent);
+    backdrop-filter: blur(50px);
+  }
+
+  .cbtn--glass .cbtn__face::after {
+    position: absolute;
+    inset: -38%;
+    border-radius: 50%;
+    background: color-mix(in srgb, var(--prim-ink) 12%, transparent);
+    content: "";
+    opacity: 0;
+    filter: blur(5px);
+    transform: scale(0.5);
+    transition:
+      opacity 0.5s,
+      transform 0.7s;
+    mask-image: radial-gradient(50% 50%, black, transparent);
+  }
+
+  .cbtn--glass .cbtn__rim {
+    border: 1px solid color-mix(in srgb, var(--prim-ink) 25%, transparent);
+    mask-image: linear-gradient(170deg, black, transparent 50%);
+  }
+
+  .cbtn--glass .cbtn__aura {
+    inset: auto;
+    top: 50%;
+    left: 50%;
+    width: calc(var(--cbtn-size) * 3);
+    height: calc(var(--cbtn-size) * 3);
+    background: conic-gradient(
+      from 180deg,
+      color-mix(in srgb, var(--prim-ink) 1%, transparent) 180deg,
+      color-mix(in srgb, var(--prim-accent) 22%, transparent) 360deg
+    );
+    filter: blur(15px);
+    animation: prim-orbit 3.6s linear infinite;
+    transition: opacity 0.5s;
+  }
+
+  .cbtn--glass:not(:disabled):is(:hover, :focus-visible) {
+    color: var(--prim-ink);
+  }
+
+  .cbtn--glass:not(:disabled):is(:hover, :focus-visible) .cbtn__aura {
+    opacity: 0;
+  }
+
+  .cbtn--glass:not(:disabled):is(:hover, :focus-visible) .cbtn__face::after {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  .cbtn--glass:not(:disabled):active {
+    transform: scale(0.98);
+  }
+
+  /* key, from the plus variant: a raised accent key that presses down */
+  .cbtn--key {
+    color: var(--prim-on-accent);
+  }
+
+  .cbtn--key .cbtn__aura {
+    inset: -4px;
+    background: color-mix(in srgb, var(--prim-accent) 40%, transparent);
+    opacity: 0.4;
+    filter: blur(8px);
+    transition: opacity 0.5s;
+  }
+
+  .cbtn--key .cbtn__face {
+    background: linear-gradient(
+      to bottom,
+      color-mix(in srgb, var(--prim-accent) 55%, white),
+      color-mix(in srgb, var(--prim-accent) 80%, white),
+      var(--prim-accent)
+    );
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--prim-accent) 50%, transparent),
+      0 4px 0 color-mix(in srgb, var(--prim-accent) 55%, black),
+      0 10px 15px -3px var(--prim-shadow);
+    transition:
+      transform 0.15s,
+      box-shadow 0.15s;
+  }
+
+  .cbtn--key[aria-pressed="true"] {
+    color: var(--prim-on-accent);
+  }
+
+  .cbtn--key:not(:disabled):is(:hover, :focus-visible) .cbtn__aura {
+    opacity: 0.75;
+  }
+
+  .cbtn--key:not(:disabled):is(:active, [aria-pressed="true"]) {
+    transform: translateY(2px);
+  }
+
+  .cbtn--key:not(:disabled):is(:active, [aria-pressed="true"]) .cbtn__face {
+    box-shadow:
+      0 0 0 1px color-mix(in srgb, var(--prim-accent) 50%, transparent),
+      0 2px 0 color-mix(in srgb, var(--prim-accent) 55%, black);
+  }
+
+  /* trace, from the mail variant: corner dots and dashed edges close in */
+  .cbtn--trace .cbtn__face {
+    border: 1px solid var(--prim-edge);
+    transition: background-color 0.2s ease-in-out;
+  }
+
+  .cbtn--trace .cbtn__details {
+    --cbtn-travel: calc(var(--cbtn-size) * 0.47);
+    inset: -10px;
+    border-radius: 0;
+  }
+
+  .cbtn--trace .cbtn__dot {
+    position: absolute;
+    width: 8px;
+    aspect-ratio: 1;
+    border-radius: 2px;
+    background: color-mix(in srgb, var(--prim-ink) 67%, transparent);
+    opacity: 0;
+    transition:
+      opacity 0.3s ease-in-out,
+      transform 0.35s ease-in-out;
+  }
+
+  .cbtn--trace .cbtn__dot--1 {
+    top: -4px;
+    left: -4px;
+    transform: translate(var(--cbtn-travel), var(--cbtn-travel));
+  }
+
+  .cbtn--trace .cbtn__dot--2 {
+    top: -4px;
+    right: -4px;
+    transform: translate(calc(var(--cbtn-travel) * -1), var(--cbtn-travel));
+    transition-delay: 0.21s;
+  }
+
+  .cbtn--trace .cbtn__dot--3 {
+    right: -4px;
+    bottom: -4px;
+    transform: translate(calc(var(--cbtn-travel) * -1), calc(var(--cbtn-travel) * -1));
+    transition-delay: 0.42s;
+  }
+
+  .cbtn--trace .cbtn__dot--4 {
+    bottom: -4px;
+    left: -4px;
+    transform: translate(var(--cbtn-travel), calc(var(--cbtn-travel) * -1));
+    transition-delay: 0.63s;
+  }
+
+  .cbtn--trace .cbtn__edge {
+    position: absolute;
+    display: block;
+    opacity: 0;
+  }
+
+  .cbtn--trace .cbtn__edge--h {
+    right: 0;
+    left: 0;
+    height: 1px;
+    background-image: repeating-linear-gradient(
+      90deg,
+      transparent 0 2px,
+      color-mix(in srgb, var(--prim-ink) 67%, transparent) 2px 4px
+    );
+    transform: scaleX(0);
+  }
+
+  .cbtn--trace .cbtn__edge--v {
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background-image: repeating-linear-gradient(
+      0deg,
+      transparent 0 2px,
+      color-mix(in srgb, var(--prim-ink) 67%, transparent) 2px 4px
+    );
+    transform: scaleY(0);
+  }
+
+  .cbtn--trace .cbtn__edge--1 {
+    top: 0;
+    transform-origin: top left;
+    transition:
+      transform 0.35s ease-in-out 0.28s,
+      opacity 20ms linear 0.28s;
+  }
+
+  .cbtn--trace .cbtn__edge--2 {
+    right: 0;
+    transform-origin: top right;
+    transition:
+      transform 0.35s ease-in-out 0.49s,
+      opacity 20ms linear 0.49s;
+  }
+
+  .cbtn--trace .cbtn__edge--3 {
+    bottom: 0;
+    transform-origin: bottom right;
+    transition:
+      transform 0.35s ease-in-out 0.7s,
+      opacity 20ms linear 0.7s;
+  }
+
+  .cbtn--trace .cbtn__edge--4 {
+    left: 0;
+    transform-origin: bottom left;
+    transition:
+      transform 0.35s ease-in-out 0.84s,
+      opacity 20ms linear 0.84s;
+  }
+
+  .cbtn--trace:not(:disabled):is(:hover, :focus-visible) {
+    color: var(--prim-on-accent);
+    transform: scale(1.05);
+  }
+
+  .cbtn--trace:not(:disabled):is(:hover, :focus-visible, :active) .cbtn__face {
+    background: var(--prim-accent);
+  }
+
+  .cbtn--trace:not(:disabled):is(:hover, :focus-visible) :is(.cbtn__dot, .cbtn__edge) {
+    opacity: 1;
+    transform: none;
+  }
+
+  .cbtn--trace:not(:disabled):active {
+    transform: scale(0.98);
+  }
+
+  /* ── Decode ───────────────────────────────────────────────────────── */
+  .decode {
+    display: inline-grid;
+  }
+
+  .decode__ghost,
+  .decode__live {
+    grid-area: 1 / 1;
+  }
+
+  .decode__ghost {
+    visibility: hidden;
+  }
+
+  /* ── Motion ───────────────────────────────────────────────────────── */
+  @keyframes prim-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  @keyframes prim-dots {
+    to {
+      background-position: 24px 24px;
+    }
+  }
+
+  @keyframes prim-orbit {
+    0% {
+      transform: translate(-50%, -50%) rotate(0);
+    }
+    25% {
+      transform: translate(-50%, -50%) translateX(-30%) rotate(90deg);
+    }
+    50% {
+      transform: translate(-50%, -50%) rotate(180deg);
+    }
+    75% {
+      transform: translate(-50%, -50%) translateX(30%) rotate(270deg);
+    }
+    100% {
+      transform: translate(-50%, -50%) rotate(360deg);
+    }
+  }
+
+  /* Reduced motion: nothing loops or travels; hover and focus states swap in place */
+  @media (prefers-reduced-motion: reduce) {
+    .prim,
+    .prim *,
+    .prim *::after {
+      animation: none !important;
+      transition-duration: 0s !important;
+      transition-delay: 0s !important;
+    }
+
+    .cbtn--glass .cbtn__aura {
+      transform: translate(-50%, -50%);
+    }
+  }
+}
