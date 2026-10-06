@@ -46,7 +46,9 @@ function prefersReducedMotion() {
 
 /** Runs one decode into `el`, ending on `text`; returns a cancel that restores the final text */
 export function runDecode(el: HTMLElement, text: string, options: DecodeOptions = {}): () => void {
-  const o = { ...DEFAULTS, ...options };
+  // An option passed as undefined (e.g. pool={cond ? x : undefined}) keeps its default
+  const given = Object.fromEntries(Object.entries(options).filter(([, v]) => v !== undefined));
+  const o = { ...DEFAULTS, ...given };
   if (prefersReducedMotion() || !text) {
     write(el, text);
     return () => {};
