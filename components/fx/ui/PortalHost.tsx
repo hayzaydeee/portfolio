@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
 import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 import { useFxGlobals } from "@/components/fx/FxConfig";
@@ -74,20 +74,42 @@ export function PortalHost() {
     return () => window.removeEventListener("popstate", portalAbort);
   }, [router]);
 
-  // Re-applied per phase and pathname, so the incoming route's nodes are covered too
-  useEffect(() => {
+  // One pass per trip, before paint: everything already on the page goes inert in the layout
+  // phase, and nodes the incoming route adds are caught by the observer's microtask, which
+  // also runs before the frame paints. Focus that lands outside the portal is pulled back.
+  useLayoutEffect(() => {
     if (!active) return;
-    const marked: HTMLElement[] = [];
-    for (const el of Array.from(document.body.children)) {
-      if (!(el instanceof HTMLElement) || el.matches(KEEP) || el.inert) continue;
-      el.inert = true;
-      marked.push(el);
-    }
-    return () => marked.forEach((el) => (el.inert = false));
-  }, [active, state.phase, pathname]);
+    const marked = new Set<HTMLElement>();
+    const host = statusRef.current?.parentElement ?? null;
+    const reclaim = () => {
+      const focused = document.activeElement;
+      if (focused && host?.contains(focused)) return;
+      if (focused?.closest("[data-portal-keep]")) return;
+      statusRef.current?.focus({ preventScroll: true });
+    };
+    const mark = (nodes: Iterable<Node>) => {
+      for (const el of nodes) {
+        if (!(el instanceof HTMLElement) || el.matches(KEEP) || el.inert) continue;
+        el.inert = true;
+        marked.add(el);
+      }
+    };
+    mark(document.body.children);
+    const observer = new MutationObserver((records) => {
+      for (const record of records) mark(record.addedNodes);
+      reclaim();
+    });
+    observer.observe(document.body, { childList: true });
+    document.addEventListener("focusin", reclaim);
+    return () => {
+      observer.disconnect();
+      document.removeEventListener("focusin", reclaim);
+      marked.forEach((el) => (el.inert = false));
+    };
+  }, [active]);
 
-  // Focus leaves the page with the cover, then lands on the new room's heading. Declared
-  // after the inert effect, so on the idle commit inert is already lifted when this runs.
+  // Focus leaves the page with the cover, then lands on the new room's heading. The inert
+  // pass is a layout effect, so on the idle commit it has been lifted before this runs.
   const prevPhase = useRef(state.phase);
   useEffect(() => {
     const from = prevPhase.current;

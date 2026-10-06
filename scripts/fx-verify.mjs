@@ -106,7 +106,7 @@ const MAX_LIVE = Object.fromEntries(ROOM_ROUTES.map((r) => [r.path, r.maxLive]))
 
 /** Records every portal state the host passes through, whether its effect went live, and pushState calls */
 const PORTAL_LOG = () => {
-  window.__portal = { log: [], live: false, pushes: 0 };
+  window.__portal = { log: [], live: false, pushes: 0, added: [], strayFocus: 0 };
   const push = history.pushState;
   history.pushState = function (...args) {
     window.__portal.pushes++;
@@ -137,6 +137,20 @@ const PORTAL_LOG = () => {
       states.forEach((r, i) => record(i + 1 < states.length ? states[i + 1].oldValue : el.dataset.portalState));
       if (!states.length) record(el.dataset.portalState);
     }).observe(el, { attributes: true, attributeOldValue: true });
+    // Nodes the incoming route adds under the cover must be inert by the next frame (before
+    // it paints), and focus must stay in the portal or the player throughout the trip
+    const keep = "[data-portal-state], [data-portal-keep], next-route-announcer, script";
+    new MutationObserver((records) => {
+      if (el.dataset.portalState === "idle") return;
+      const added = records.flatMap((r) => [...r.addedNodes]).filter((n) => n instanceof HTMLElement && !n.matches(keep));
+      if (!added.length) return;
+      requestAnimationFrame(() => {
+        if (el.dataset.portalState === "idle") return;
+        added.forEach((n) => window.__portal.added.push(n.isConnected ? n.inert : true));
+        const f = document.activeElement;
+        if (!(f && (el.contains(f) || f.closest("[data-portal-keep]")))) window.__portal.strayFocus++;
+      });
+    }).observe(document.body, { childList: true });
   };
   watch();
 };
@@ -526,6 +540,7 @@ for (const route of ROOM_ROUTES) {
   check("portal", "arrives at /work and returns to idle", arrived, { ms });
   check("portal", "walks covering > holding > revealing > idle", /covering>holding>revealing@\/work>idle$/.test(walk), { walk });
   check("portal", "page is inert under the cover and focus sits in the portal", portal.holding?.allInert && portal.holding?.focusInHost, portal.holding);
+  check("portal", "incoming route is inert before it paints, focus never strays", portal.added.length > 0 && portal.added.every(Boolean) && portal.strayFocus === 0, { added: portal.added, strayFocus: portal.strayFocus });
   const inertAfter = await page.evaluate(() => [...document.body.children].some((k) => k.inert));
   check("portal", "nothing left inert after the trip", !inertAfter);
   check("portal", "effect went live during the trip", portal.live, portal);
