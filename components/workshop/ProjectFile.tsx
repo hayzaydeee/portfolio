@@ -96,7 +96,7 @@ export function ProjectFile({ project }: ProjectFileProps) {
           <div
             className="text-xs mb-2 font-mono text-(--workshop-syntax-dim)"
           >
-            // stack
+            {"// stack"}
           </div>
           <div className="flex flex-wrap gap-2">
             {project.stack.map((tech) => (
@@ -121,7 +121,7 @@ export function ProjectFile({ project }: ProjectFileProps) {
           <div
             className="text-xs mb-3 font-mono text-(--workshop-syntax-dim)"
           >
-            // the problem
+            {"// the problem"}
           </div>
           <HtmlBlock html={project.problem_notes} />
         </section>
@@ -133,7 +133,7 @@ export function ProjectFile({ project }: ProjectFileProps) {
           <div
             className="text-xs mb-3 font-mono text-(--workshop-syntax-dim)"
           >
-            // the build
+            {"// the build"}
           </div>
           <HtmlBlock html={project.build_notes} />
         </section>

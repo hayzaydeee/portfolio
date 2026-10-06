@@ -14,6 +14,7 @@ const VALID_JOURNALS = new Set<string>([
   "annotations",
   "responses",
   "buildlog",
+  "cookbook",
 ]);
 
 type Props = { params: Promise<{ journal: string; entry: string }> };

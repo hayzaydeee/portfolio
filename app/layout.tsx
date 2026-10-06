@@ -3,6 +3,9 @@ import { Fresca, EB_Garamond, Texturina } from "next/font/google";
 import "./globals.css";
 import { AudioProvider } from "@/lib/audio/AudioContext";
 import { PlayerBar } from "@/components/studio/PlayerBar";
+import { Providers } from "@/components/providers/Providers";
+import { getSiteConfig } from "@/lib/data/settings";
+import { resolvePresets } from "@/lib/fx/presets";
 
 const fresca = Fresca({
   weight: "400",
@@ -48,11 +51,15 @@ export const metadata: Metadata = {
 const GOOGLE_SANS_CODE_URL =
   "https://fonts.googleapis.com/css2?family=Google+Sans+Code:wght@400;500&display=swap";
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Cached across requests (tag: site-config); falls back to defaults without Supabase
+  const config = await getSiteConfig();
+  const presets = resolvePresets(config.fxPresetsRaw);
+
   return (
     <html
       lang="en"
@@ -66,10 +73,12 @@ export default function RootLayout({
         <link rel="stylesheet" href={GOOGLE_SANS_CODE_URL} />
       </head>
       <body className="min-h-full flex flex-col">
-        <AudioProvider>
-          {children}
-          <PlayerBar />
-        </AudioProvider>
+        <Providers presets={presets}>
+          <AudioProvider>
+            {children}
+            <PlayerBar />
+          </AudioProvider>
+        </Providers>
       </body>
     </html>
   );

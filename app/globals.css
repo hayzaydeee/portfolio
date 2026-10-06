@@ -22,12 +22,24 @@
 
 /* ── Room palette tokens (raw CSS vars, used with var() in components) */
 :root {
+  /* Layering scale, used as z-(--z-dock). The player sits above the portal so music survives room changes */
+  --z-backdrop:  0;
+  --z-content:   10;
+  --z-indicator: 20;
+  --z-sequence:  40;
+  --z-dock:      45;
+  --z-splash:    60;
+  --z-modal:     70;
+  --z-portal:    80;
+  --z-player:    85;
+
   /* Lobby — dark mode */
   --lobby-surface:      #0C110A;
   --lobby-surface-deep: #131910;
   --lobby-text:         #DCE8D8;
   --lobby-card:         #1B2218;
   --lobby-accent:       #52A873;
+  --lobby-warm:         #C9A25A;
 
   /* Workshop */
   --workshop-base:        #0A120D;
@@ -40,6 +52,7 @@
   --workshop-syntax-dim:  #2D6B42;
   --workshop-tab:         #0C1610;
   --workshop-accent:      #1E6B3C;
+  --workshop-warm:        #9BC46A;
 
   /* Studio */
   --studio-base:          #1A0A0E;
@@ -52,6 +65,7 @@
   --studio-border:        rgba(240, 230, 232, 0.08);
   --studio-player-bg:     #120709;
   --studio-player-accent: #2D6B42;
+  --studio-ember:         #D9A35B;
 
   /* Notebook */
   --notebook-surface:      #E8E0D0;
@@ -83,6 +97,7 @@
   --admin-accent-notebook:  #7A4F1E;
   --admin-accent-wall:      #C4855A;
   --admin-accent-settings:  #1E6B3C;
+  --admin-accent-lab:       #C9A25A;
 
   /* Admin status colors */
   --admin-status-scheduled: #1E4A6B;

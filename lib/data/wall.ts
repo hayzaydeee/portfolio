@@ -38,22 +38,23 @@ export async function getWallPieces(): Promise<WallPiece[]> {
   }
 }
 
-export async function getScheduledPieces(): Promise<WallPiece[]> {
+export type SealedPiece = {
+  id: string;
+  type: WallPieceType;
+  publish_at: string;
+};
+
+/**
+ * Pieces scheduled for the future. Served by a security-definer RPC that returns no media
+ * or captions, so a seal can be drawn without leaking what's under it.
+ */
+export async function getSealedPieces(): Promise<SealedPiece[]> {
   try {
     const supabase = await createPublicClient();
-    const now = new Date().toISOString();
-
-    const { data, error } = await supabase
-      .from("wall_pieces")
-      .select("id, publish_at")
-      .eq("status", "scheduled")
-      .gt("publish_at", now);
-
+    const { data, error } = await supabase.rpc("sealed_wall_pieces");
     if (error || !data) return [];
-    return data as WallPiece[];
+    return data as SealedPiece[];
   } catch {
     return [];
   }
 }
-
-

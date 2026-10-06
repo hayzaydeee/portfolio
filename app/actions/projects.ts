@@ -2,7 +2,9 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidateContent } from "@/lib/revalidate";
+import { PROJECT_VISUALS, ACCENT_TOKENS, type ProjectVisual, type AccentToken } from "@/lib/fx/projectVisuals";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -21,6 +23,8 @@ export type Project = {
   is_featured: boolean;
   status: "published" | "draft" | "archived" | "in_progress";
   order_index: number;
+  visual_variant: ProjectVisual | null;
+  visual_accent: AccentToken | null;
   created_at: string;
   updated_at: string;
 };
@@ -51,11 +55,32 @@ const projectSchema = z.object({
   is_featured: z.boolean().optional(),
   status: z.enum(["published", "draft", "archived", "in_progress"]).optional(),
   order_index: z.coerce.number().int().min(0).optional(),
+  visual_variant: z.enum(PROJECT_VISUALS).optional().or(z.literal("")),
+  visual_accent: z.enum(ACCENT_TOKENS).optional().or(z.literal("")),
 });
+
+/**
+ * Visual fields are only written when the form sends them, so saving still works on a
+ * database where the fx_overhaul migration hasn't been applied yet.
+ */
+function readVisualFields(formData: FormData) {
+  const fields: { visual_variant?: string; visual_accent?: string } = {};
+  if (formData.has("visual_variant")) fields.visual_variant = (formData.get("visual_variant") as string) ?? "";
+  if (formData.has("visual_accent")) fields.visual_accent = (formData.get("visual_accent") as string) ?? "";
+  return fields;
+}
+
+function visualColumns(data: { visual_variant?: string; visual_accent?: string }) {
+  const cols: { visual_variant?: string | null; visual_accent?: string | null } = {};
+  if (data.visual_variant !== undefined) cols.visual_variant = data.visual_variant || null;
+  if (data.visual_accent !== undefined) cols.visual_accent = data.visual_accent || null;
+  return cols;
+}
 
 // ─── Read ──────────────────────────────────────────────────────────────────────
 
 export async function getAllProjects(): Promise<Project[]> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -71,6 +96,7 @@ export async function getAllProjects(): Promise<Project[]> {
 }
 
 export async function getProjectById(id: string): Promise<Project | null> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -92,6 +118,7 @@ export async function createProject(
   _prev: ProjectActionState,
   formData: FormData
 ): Promise<ProjectActionState> {
+  await requireAdmin();
   const raw = {
     slug: formData.get("slug"),
     title: formData.get("title"),
@@ -106,6 +133,7 @@ export async function createProject(
     is_featured: formData.get("is_featured") === "true",
     status: formData.get("status") || "draft",
     order_index: formData.get("order_index") || 0,
+    ...readVisualFields(formData),
   };
 
   const parsed = projectSchema.safeParse(raw);
@@ -124,6 +152,7 @@ export async function createProject(
         live_url: parsed.data.live_url || null,
         repo_url: parsed.data.repo_url || null,
         thumbnail_url: parsed.data.thumbnail_url || null,
+        ...visualColumns(parsed.data),
       })
       .select("id")
       .single();
@@ -144,6 +173,7 @@ export async function updateProject(
   _prev: ProjectActionState,
   formData: FormData
 ): Promise<ProjectActionState> {
+  await requireAdmin();
   const raw = {
     slug: formData.get("slug"),
     title: formData.get("title"),
@@ -158,6 +188,7 @@ export async function updateProject(
     is_featured: formData.get("is_featured") === "true",
     status: formData.get("status") || "draft",
     order_index: formData.get("order_index") || 0,
+    ...readVisualFields(formData),
   };
 
   const parsed = projectSchema.safeParse(raw);
@@ -176,6 +207,7 @@ export async function updateProject(
         live_url: parsed.data.live_url || null,
         repo_url: parsed.data.repo_url || null,
         thumbnail_url: parsed.data.thumbnail_url || null,
+        ...visualColumns(parsed.data),
       })
       .eq("id", id);
 
@@ -191,6 +223,7 @@ export async function updateProject(
 // ─── Archive / Delete ──────────────────────────────────────────────────────────
 
 export async function archiveProject(id: string): Promise<ProjectActionState> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { error } = await supabase
@@ -211,6 +244,7 @@ export async function deleteProject(
   id: string,
   confirmTitle: string
 ): Promise<ProjectActionState> {
+  await requireAdmin();
   // Verify the project exists and the title matches
   const project = await getProjectById(id);
   if (!project) return { success: false, error: "Project not found" };
@@ -236,6 +270,7 @@ export async function deleteProject(
 export async function reorderProjects(
   orderedIds: string[]
 ): Promise<ProjectActionState> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
 
@@ -260,6 +295,7 @@ export async function uploadProjectThumbnail(
   projectId: string,
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  await requireAdmin();
   const file = formData.get("file") as File | null;
   if (!file) return { success: false, error: "No file provided" };
 

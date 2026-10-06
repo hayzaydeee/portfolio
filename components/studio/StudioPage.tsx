@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import type { MusicProject, AnalysisEssay } from "@/app/actions/studio";
@@ -29,13 +30,13 @@ export function StudioPage({ projects, wipProjects, essays, featured }: Props) {
           borderBottom: "1px solid var(--studio-border)",
         }}
       >
-        <a
+        <Link
           href="/"
           className="text-sm font-mono transition-colors duration-150"
           style={{ color: "var(--studio-text-muted)" }}
         >
           ← hzy
-        </a>
+        </Link>
         <ModeToggle mode={mode} onChange={setMode} />
         <div className="w-16" />
       </header>

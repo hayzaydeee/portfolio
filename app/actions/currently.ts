@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidateContent } from "@/lib/revalidate";
 import type { Currently } from "@/lib/data/currently";
 
@@ -21,6 +22,7 @@ export async function upsertCurrently(
   _prev: CurrentlyActionState,
   formData: FormData
 ): Promise<CurrentlyActionState> {
+  await requireAdmin();
   const raw = {
     type: formData.get("type"),
     verb: formData.get("verb"),
@@ -60,6 +62,7 @@ export async function upsertCurrently(
 }
 
 export async function getCurrentlyHistory(): Promise<Currently[]> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase

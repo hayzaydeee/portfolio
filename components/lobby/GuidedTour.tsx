@@ -85,7 +85,7 @@ function WorkshopDecoration() {
         className="absolute font-mono text-[10px] animate-pulse"
         style={{ bottom: "20%", left: "12%", color: "var(--workshop-syntax)" }}
       >
-        $ ask("what's the most interesting part?")▋
+        {`$ ask("what's the most interesting part?")▋`}
       </div>
     </div>
   );

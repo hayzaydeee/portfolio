@@ -10,6 +10,7 @@ const SECTIONS = [
   { href: "/admin/studio", label: "studio", accent: "var(--admin-accent-studio)" },
   { href: "/admin/notebook", label: "notebook", accent: "var(--admin-accent-notebook)" },
   { href: "/admin/wall", label: "wall", accent: "var(--admin-accent-wall)" },
+  { href: "/admin/lab", label: "lab", accent: "var(--admin-accent-lab)" },
   { href: "/admin/settings", label: "settings", accent: "#555" },
 ] as const;
 

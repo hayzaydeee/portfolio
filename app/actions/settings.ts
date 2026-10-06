@@ -1,19 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, updateTag } from "next/cache";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { revalidateContent } from "@/lib/revalidate";
-import { highlight } from "@/lib/shiki";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
+import { highlightStackJson, SITE_CONFIG_TAG, type StackJson } from "@/lib/data/settings";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-export type StackJson = {
-  languages: string[];
-  frontend: string[];
-  backend: string[];
-  tools: string[];
-};
+export type { StackJson } from "@/lib/data/settings";
 
 export type SiteSettings = {
   id: string;
@@ -36,6 +32,7 @@ export type SettingsActionState = {
 // ─── Read ──────────────────────────────────────────────────────────────────────
 
 export async function getSettings(): Promise<SiteSettings | null> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -64,6 +61,7 @@ export async function updateRoomVisibility(
   _prev: SettingsActionState,
   formData: FormData
 ): Promise<SettingsActionState> {
+  await requireAdmin();
   const raw = {
     room_workshop_visible: formData.get("room_workshop_visible") === "true",
     room_studio_visible: formData.get("room_studio_visible") === "true",
@@ -85,6 +83,7 @@ export async function updateRoomVisibility(
 
     if (error) return { success: false, error: error.message };
 
+    updateTag(SITE_CONFIG_TAG);
     revalidateContent("settings");
     return { success: true, message: "Visibility updated" };
   } catch {
@@ -97,6 +96,7 @@ export async function updateRoomVisibility(
 export async function regenerateBitoSecret(): Promise<
   SettingsActionState & { secret?: string }
 > {
+  await requireAdmin();
   // Generate a cryptographically random 32-byte hex secret
   const array = new Uint8Array(32);
   crypto.getRandomValues(array);
@@ -122,6 +122,7 @@ export async function regenerateBitoSecret(): Promise<
 // ─── Deploy hook ───────────────────────────────────────────────────────────────
 
 export async function triggerRedeploy(): Promise<SettingsActionState> {
+  await requireAdmin();
   const deployHookUrl = process.env.VERCEL_DEPLOY_HOOK_URL;
   if (!deployHookUrl) {
     return { success: false, error: "Deploy hook URL not configured" };
@@ -148,33 +149,16 @@ const stackJsonSchema = z.object({
   tools: stackItemSchema,
 });
 
-function formatStackAsJsonc(stack: StackJson): string {
-  const base = JSON.stringify(
-    {
-      languages: stack.languages,
-      frontend: stack.frontend,
-      backend: stack.backend,
-      tools: stack.tools,
-    },
-    null,
-    2
-  );
-  return base.replace(/\n}$/, "\n  // yes this file has comments. yes i know.\n}");
-}
-
 export async function getHighlightedStackJson(stack: StackJson): Promise<string> {
-  const jsonc = formatStackAsJsonc(stack);
-  try {
-    return await highlight(jsonc, "jsonc");
-  } catch {
-    return `<pre style="color:#A8C5A0">${jsonc.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</pre>`;
-  }
+  await requireAdmin();
+  return highlightStackJson(stack);
 }
 
 export async function updateStackJson(
   _prev: SettingsActionState,
   formData: FormData
 ): Promise<SettingsActionState> {
+  await requireAdmin();
   let raw: { languages: string[]; frontend: string[]; backend: string[]; tools: string[] };
   try {
     raw = {
@@ -201,6 +185,7 @@ export async function updateStackJson(
 
     if (error) return { success: false, error: error.message };
 
+    updateTag(SITE_CONFIG_TAG);
     revalidateContent("settings");
     revalidatePath("/work");
     return { success: true, message: "Stack saved" };

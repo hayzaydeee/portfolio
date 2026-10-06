@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Link } from "lucide-react";
-import { useAudio } from "@/lib/audio/AudioContext";
+import { useAudio, useAudioTime } from "@/lib/audio/AudioContext";
 import { useCallback } from "react";
 
 function formatTime(s: number): string {
@@ -19,10 +19,6 @@ export function PlayerBar() {
     isPlaying,
     volume,
     loop,
-    progress,
-    duration,
-    currentTime,
-    play,
     pause,
     resume,
     seek,
@@ -31,6 +27,7 @@ export function PlayerBar() {
     setVolume,
     toggleLoop,
   } = useAudio();
+  const { progress, duration, currentTime } = useAudioTime();
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {

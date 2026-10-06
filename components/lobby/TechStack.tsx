@@ -79,6 +79,7 @@ function Word({
 
   // Icon visibility tied to settle phase
   const iconOpacity = useTransform(progress, [0.55, 0.75], [0, 1]);
+  const textOpacity = useTransform(iconOpacity, (v) => 1 - v);
 
   return (
     <motion.span
@@ -90,7 +91,7 @@ function Word({
           {/* Text form visible pre-settle */}
           <motion.span
             className="text-base font-sans text-(--lobby-text)"
-            style={{ opacity: useTransform(iconOpacity, (v) => 1 - v) }}
+            style={{ opacity: textOpacity }}
           >
             {item.word}
           </motion.span>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { useRouter } from "next/navigation";
@@ -180,13 +181,13 @@ export function JournalDesk() {
 
       {/* Back link (when navigating from a journal) */}
       <div className="relative z-10 px-6 pt-6">
-        <a
+        <Link
           href="/"
           className="text-xs font-mono transition-colors duration-150"
           style={{ color: "var(--notebook-text-muted)" }}
         >
           ← hzy
-        </a>
+        </Link>
       </div>
 
       {/* Desk area */}

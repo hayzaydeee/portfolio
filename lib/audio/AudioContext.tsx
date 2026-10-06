@@ -2,29 +2,29 @@
 
 import {
   createContext,
+  useCallback,
   useContext,
+  useEffect,
+  useMemo,
   useRef,
   useState,
-  useCallback,
-  useEffect,
-  ReactNode,
+  useSyncExternalStore,
+  type ReactNode,
 } from "react";
 import type { Track, MusicProject } from "@/app/actions/studio";
+import { ensureGraph, getEngine, setEngineVolume, subscribeEngine } from "./engine";
 
 export type PlayableTrack = Track & {
   artworkPath?: string | null;
   projectTitle?: string;
 };
 
-type AudioState = {
+type AudioControlState = {
   currentTrack: PlayableTrack | null;
   playlist: PlayableTrack[];
   isPlaying: boolean;
   volume: number;
   loop: boolean;
-  progress: number;
-  duration: number;
-  currentTime: number;
 };
 
 type AudioActions = {
@@ -38,164 +38,180 @@ type AudioActions = {
   toggleLoop: () => void;
 };
 
-type AudioContextValue = AudioState & AudioActions;
+type AudioControlValue = AudioControlState & AudioActions;
 
-const AudioContext = createContext<AudioContextValue | null>(null);
+export type AudioTime = {
+  currentTime: number;
+  duration: number;
+  progress: number;
+};
+
+const AudioControlContext = createContext<AudioControlValue | null>(null);
+
+// ── Time store: high-frequency state lives outside React context ──────────────
+
+const ZERO_TIME: AudioTime = { currentTime: 0, duration: 0, progress: 0 };
+let timeSnapshot: AudioTime = ZERO_TIME;
+
+// The snapshot only changes when the element reports time, so getSnapshot stays stable
+// between events (reading el.currentTime directly would differ on every call)
+function captureTime() {
+  const el = getEngine()?.el;
+  if (!el) return;
+  const duration = Number.isFinite(el.duration) ? el.duration : 0;
+  const currentTime = el.currentTime;
+  if (currentTime === timeSnapshot.currentTime && duration === timeSnapshot.duration) return;
+  timeSnapshot = { currentTime, duration, progress: duration > 0 ? currentTime / duration : 0 };
+}
+
+const TIME_EVENTS = ["timeupdate", "loadedmetadata", "durationchange", "seeked", "emptied"] as const;
+
+function subscribeTime(cb: () => void) {
+  return subscribeEngine(TIME_EVENTS, () => {
+    captureTime();
+    cb();
+  });
+}
+
+function getTimeSnapshot() {
+  return timeSnapshot;
+}
+
+/** Playback position, re-rendering only its own subscribers (about 4 times a second). */
+export function useAudioTime(): AudioTime {
+  return useSyncExternalStore(subscribeTime, getTimeSnapshot, () => ZERO_TIME);
+}
+
+// ── Provider ──────────────────────────────────────────────────────────────────
 
 export function AudioProvider({ children }: { children: ReactNode }) {
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const [state, setState] = useState<AudioState>({
+  const [state, setState] = useState<AudioControlState>({
     currentTrack: null,
     playlist: [],
     isPlaying: false,
     volume: 0.8,
     loop: false,
-    progress: 0,
-    duration: 0,
-    currentTime: 0,
   });
 
-  // Create audio element once
+  // Side effects read the latest playlist from refs, never from inside setState updaters
+  // (StrictMode double-invokes updaters, which used to double-play the next track)
+  const stateRef = useRef(state);
   useEffect(() => {
-    const audio = new Audio();
-    audio.volume = 0.8;
-    audioRef.current = audio;
+    stateRef.current = state;
+  }, [state]);
 
-    const onTimeUpdate = () => {
-      const dur = audio.duration || 0;
-      setState((s) => ({
-        ...s,
-        currentTime: audio.currentTime,
-        progress: dur > 0 ? audio.currentTime / dur : 0,
-        duration: dur,
-      }));
-    };
+  const load = useCallback((track: PlayableTrack, playlist: PlayableTrack[]) => {
+    const engine = getEngine();
+    if (!engine) return;
+    engine.el.src = track.audio_path ?? "";
+    engine.el.play().catch(() => setState((s) => ({ ...s, isPlaying: !getEngine()!.el.paused })));
+    setState((s) => ({ ...s, currentTrack: track, playlist, isPlaying: true }));
+  }, []);
 
-    const onLoadedMetadata = () => {
-      setState((s) => ({ ...s, duration: audio.duration || 0 }));
-    };
+  useEffect(() => {
+    const engine = getEngine();
+    if (!engine) return;
 
-    const onEnded = () => {
-      setState((s) => {
-        if (s.loop) {
-          audio.play().catch(() => {});
-          return { ...s, isPlaying: true };
-        }
-        const idx = s.playlist.findIndex((t) => t.id === s.currentTrack?.id);
-        const next = s.playlist[idx + 1];
-        if (next) {
-          audio.src = next.audio_path ?? "";
-          audio.play().catch(() => {});
-          return { ...s, currentTrack: next, isPlaying: true, progress: 0, currentTime: 0 };
-        }
-        return { ...s, isPlaying: false, progress: 0, currentTime: 0 };
-      });
-    };
-
-    audio.addEventListener("timeupdate", onTimeUpdate);
-    audio.addEventListener("loadedmetadata", onLoadedMetadata);
-    audio.addEventListener("ended", onEnded);
+    const unsubscribeEnded = subscribeEngine(["ended"], () => {
+      const { playlist, currentTrack, loop } = stateRef.current;
+      const el = getEngine()!.el;
+      if (loop) {
+        el.play().catch(() => {});
+        return;
+      }
+      const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
+      const nextTrack = playlist[idx + 1];
+      if (nextTrack) load(nextTrack, playlist);
+      else setState((s) => ({ ...s, isPlaying: false }));
+    });
+    // Reconcile from whichever element is current: play() calls are optimistic, and a CORS
+    // fallback can swap the element or have its play() blocked outside the gesture
+    const unsubscribePlayState = subscribeEngine(["play", "pause", "playblocked", "error"], () => {
+      const playing = !getEngine()!.el.paused;
+      setState((s) => (s.isPlaying === playing ? s : { ...s, isPlaying: playing }));
+    });
 
     return () => {
-      audio.removeEventListener("timeupdate", onTimeUpdate);
-      audio.removeEventListener("loadedmetadata", onLoadedMetadata);
-      audio.removeEventListener("ended", onEnded);
-      audio.pause();
-      audio.src = "";
+      unsubscribeEnded();
+      unsubscribePlayState();
     };
-  }, []);
+  }, [load]);
 
-  const play = useCallback((track: PlayableTrack, playlist?: PlayableTrack[]) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.src = track.audio_path ?? "";
-    audio.play().catch(() => {});
-    setState((s) => ({
-      ...s,
-      currentTrack: track,
-      playlist: playlist ?? s.playlist,
-      isPlaying: true,
-      progress: 0,
-      currentTime: 0,
-    }));
-  }, []);
+  const play = useCallback(
+    (track: PlayableTrack, playlist?: PlayableTrack[]) => {
+      ensureGraph(); // inside the click gesture, before any await
+      load(track, playlist ?? stateRef.current.playlist);
+    },
+    [load]
+  );
 
   const pause = useCallback(() => {
-    audioRef.current?.pause();
+    getEngine()?.el.pause();
     setState((s) => ({ ...s, isPlaying: false }));
   }, []);
 
   const resume = useCallback(() => {
-    audioRef.current?.play().catch(() => {});
+    ensureGraph();
+    getEngine()?.el.play().catch(() => setState((s) => ({ ...s, isPlaying: !getEngine()!.el.paused })));
     setState((s) => ({ ...s, isPlaying: true }));
   }, []);
 
   const seek = useCallback((seconds: number) => {
-    const audio = audioRef.current;
-    if (!audio) return;
-    audio.currentTime = seconds;
+    const el = getEngine()?.el;
+    if (el && Number.isFinite(seconds)) el.currentTime = seconds;
   }, []);
 
   const next = useCallback(() => {
-    setState((s) => {
-      const idx = s.playlist.findIndex((t) => t.id === s.currentTrack?.id);
-      const nextTrack = s.playlist[idx + 1];
-      if (!nextTrack) return s;
-      const audio = audioRef.current;
-      if (audio) {
-        audio.src = nextTrack.audio_path ?? "";
-        audio.play().catch(() => {});
-      }
-      return { ...s, currentTrack: nextTrack, isPlaying: true, progress: 0, currentTime: 0 };
-    });
-  }, []);
+    const { playlist, currentTrack } = stateRef.current;
+    const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
+    const nextTrack = playlist[idx + 1];
+    if (!nextTrack) return;
+    ensureGraph();
+    load(nextTrack, playlist);
+  }, [load]);
 
   const prev = useCallback(() => {
-    setState((s) => {
-      const audio = audioRef.current;
-      // If past 3 seconds, restart; otherwise go to previous
-      if (audio && audio.currentTime > 3) {
-        audio.currentTime = 0;
-        return s;
-      }
-      const idx = s.playlist.findIndex((t) => t.id === s.currentTrack?.id);
-      const prevTrack = s.playlist[idx - 1];
-      if (!prevTrack) {
-        if (audio) audio.currentTime = 0;
-        return s;
-      }
-      if (audio) {
-        audio.src = prevTrack.audio_path ?? "";
-        audio.play().catch(() => {});
-      }
-      return { ...s, currentTrack: prevTrack, isPlaying: true, progress: 0, currentTime: 0 };
-    });
-  }, []);
+    const el = getEngine()?.el;
+    if (!el) return;
+    // Past three seconds, restart the current track; otherwise step back
+    if (el.currentTime > 3) {
+      el.currentTime = 0;
+      return;
+    }
+    const { playlist, currentTrack } = stateRef.current;
+    const idx = playlist.findIndex((t) => t.id === currentTrack?.id);
+    const prevTrack = playlist[idx - 1];
+    if (!prevTrack) {
+      el.currentTime = 0;
+      return;
+    }
+    ensureGraph();
+    load(prevTrack, playlist);
+  }, [load]);
 
   const setVolume = useCallback((v: number) => {
-    const audio = audioRef.current;
-    if (audio) audio.volume = v;
+    setEngineVolume(v);
     setState((s) => ({ ...s, volume: v }));
   }, []);
 
   const toggleLoop = useCallback(() => {
-    setState((s) => {
-      if (audioRef.current) audioRef.current.loop = !s.loop;
-      return { ...s, loop: !s.loop };
-    });
+    const loop = !stateRef.current.loop;
+    const el = getEngine()?.el;
+    if (el) el.loop = loop;
+    setState((s) => ({ ...s, loop }));
   }, []);
 
-  return (
-    <AudioContext.Provider
-      value={{ ...state, play, pause, resume, seek, next, prev, setVolume, toggleLoop }}
-    >
-      {children}
-    </AudioContext.Provider>
+  const value = useMemo<AudioControlValue>(
+    () => ({ ...state, play, pause, resume, seek, next, prev, setVolume, toggleLoop }),
+    [state, play, pause, resume, seek, next, prev, setVolume, toggleLoop]
   );
+
+  return <AudioControlContext.Provider value={value}>{children}</AudioControlContext.Provider>;
 }
 
-export function useAudio(): AudioContextValue {
-  const ctx = useContext(AudioContext);
+/** Track, playlist, play state and actions. Position lives in useAudioTime(). */
+export function useAudio(): AudioControlValue {
+  const ctx = useContext(AudioControlContext);
   if (!ctx) throw new Error("useAudio must be used within AudioProvider");
   return ctx;
 }

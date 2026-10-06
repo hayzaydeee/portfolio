@@ -2,6 +2,7 @@
 
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { requireAdmin } from "@/lib/auth/requireAdmin";
 import { revalidateContent } from "@/lib/revalidate";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -104,6 +105,7 @@ const essaySchema = z.object({
 // ─── Read — Music Projects ─────────────────────────────────────────────────────
 
 export async function getMusicProjects(): Promise<MusicProject[]> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -119,6 +121,7 @@ export async function getMusicProjects(): Promise<MusicProject[]> {
 }
 
 export async function getMusicProjectById(id: string): Promise<MusicProject | null> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -137,6 +140,7 @@ export async function getMusicProjectById(id: string): Promise<MusicProject | nu
 // ─── Read — Analysis Essays ────────────────────────────────────────────────────
 
 export async function getAnalysisEssays(): Promise<AnalysisEssay[]> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -152,6 +156,7 @@ export async function getAnalysisEssays(): Promise<AnalysisEssay[]> {
 }
 
 export async function getAnalysisEssayById(id: string): Promise<AnalysisEssay | null> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { data, error } = await supabase
@@ -173,6 +178,7 @@ export async function createMusicProject(
   _prev: StudioActionState,
   formData: FormData
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const raw = {
     slug: formData.get("slug"),
     title: formData.get("title"),
@@ -217,6 +223,7 @@ export async function updateMusicProject(
   _prev: StudioActionState,
   formData: FormData
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const raw = {
     slug: formData.get("slug"),
     title: formData.get("title"),
@@ -260,6 +267,7 @@ export async function deleteMusicProject(
   id: string,
   confirmTitle: string
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const project = await getMusicProjectById(id);
   if (!project) return { success: false, error: "Project not found" };
   if (project.title !== confirmTitle) {
@@ -285,6 +293,7 @@ export async function uploadMusicCover(
   projectId: string,
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  await requireAdmin();
   const file = formData.get("file") as File | null;
   if (!file) return { success: false, error: "No file provided" };
 
@@ -335,6 +344,7 @@ export async function addTrack(
   _prev: StudioActionState,
   formData: FormData
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const raw = {
     title: formData.get("title"),
     track_number: formData.get("track_number") || 1,
@@ -372,6 +382,7 @@ export async function updateTrack(
   _prev: StudioActionState,
   formData: FormData
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const raw = {
     title: formData.get("title"),
     track_number: formData.get("track_number") || 1,
@@ -403,6 +414,7 @@ export async function updateTrack(
 }
 
 export async function deleteTrack(trackId: string): Promise<StudioActionState> {
+  await requireAdmin();
   try {
     const supabase = await createClient();
     const { error } = await supabase.from("tracks").delete().eq("id", trackId);
@@ -418,6 +430,7 @@ export async function uploadTrackAudio(
   trackId: string,
   formData: FormData
 ): Promise<{ success: boolean; url?: string; error?: string }> {
+  await requireAdmin();
   const file = formData.get("file") as File | null;
   if (!file) return { success: false, error: "No file provided" };
 
@@ -470,6 +483,7 @@ export async function createAnalysisEssay(
   _prev: StudioActionState,
   formData: FormData
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const bodyHtml = (formData.get("body_html") as string) || "";
 
   const rawTitle = formData.get("title") as string | null;
@@ -523,6 +537,7 @@ export async function updateAnalysisEssay(
   _prev: StudioActionState,
   formData: FormData
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const bodyHtml = (formData.get("body_html") as string) || "";
 
   const raw = {
@@ -567,6 +582,7 @@ export async function deleteAnalysisEssay(
   id: string,
   confirmTitle: string
 ): Promise<StudioActionState> {
+  await requireAdmin();
   const essay = await getAnalysisEssayById(id);
   if (!essay) return { success: false, error: "Essay not found" };
   if (essay.title !== confirmTitle) {
