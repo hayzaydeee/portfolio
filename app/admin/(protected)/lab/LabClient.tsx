@@ -7,8 +7,8 @@ import { FX_METAS } from "@/components/fx/metas";
 import { ROOM_POSTER_CLASS } from "@/components/fx/posters";
 import { ROOM_KEYS } from "@/components/fx/runtime/palette";
 import type { FxControl, FxOptions, FxOptionValue, RoomKey } from "@/components/fx/runtime/types";
-import { saveFxPreset } from "@/app/actions/fx";
-import type { FxPresets, SlotPreset } from "@/lib/fx/presets";
+import { saveFxPreset, saveTransitionStyle } from "@/app/actions/fx";
+import { TRANSITION_STYLES, type FxGlobals, type FxPresets, type SlotPreset, type TransitionStyle } from "@/lib/fx/presets";
 import { FX_SLOTS, FX_SLOT_IDS, type FxSlotId } from "@/lib/fx/slots";
 import { cn } from "@/lib/utils";
 
@@ -71,7 +71,56 @@ function ControlRow({
   );
 }
 
-export function LabClient({ saved }: { saved: FxPresets }) {
+/** Site-wide room transition: which effect PortalHost plays between rooms */
+function TransitionPicker({ saved }: { saved: FxGlobals }) {
+  const router = useRouter();
+  const [style, setStyle] = useState<TransitionStyle>(saved.transition);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saving, startSaving] = useTransition();
+
+  const save = () =>
+    startSaving(async () => {
+      const result = await saveTransitionStyle(style);
+      setMessage(result.success ? { ok: true, text: "saved" } : { ok: false, text: result.error ?? "failed" });
+      if (result.success) router.refresh();
+    });
+
+  return (
+    <div className="space-y-2 rounded-xl bg-white p-4">
+      <p className="text-sm text-base-dark">room transition</p>
+      <p className="text-[11px] leading-snug text-text-muted">
+        tune the two effects in their slots below, then pick the one that plays between rooms.
+      </p>
+      <select
+        value={style}
+        onChange={(e) => setStyle(e.target.value as TransitionStyle)}
+        className="w-full rounded-md border border-black/10 px-2 py-1.5 text-xs text-base-dark"
+        aria-label="room transition"
+      >
+        {TRANSITION_STYLES.map((s) => (
+          <option key={s.value} value={s.value}>
+            {s.label}
+          </option>
+        ))}
+      </select>
+      <button
+        type="button"
+        onClick={save}
+        disabled={saving || style === saved.transition}
+        className="rounded-md bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-40"
+      >
+        {saving ? "saving…" : "save"}
+      </button>
+      {message && (
+        <p className={cn("text-xs", message.ok ? "text-accent" : "text-red-600")} role="status">
+          {message.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
+export function LabClient({ saved, savedGlobals }: { saved: FxPresets; savedGlobals: FxGlobals }) {
   const router = useRouter();
   const [slot, setSlot] = useState<FxSlotId>(FX_SLOT_IDS[0]);
   const def = FX_SLOTS[slot];
@@ -116,28 +165,31 @@ export function LabClient({ saved }: { saved: FxPresets }) {
 
       <div className="grid gap-6 lg:grid-cols-[220px_1fr_300px]">
         {/* Slots */}
-        <nav className="flex flex-col gap-1" aria-label="effect slots">
-          {FX_SLOT_IDS.map((id) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setSlot(id);
-                setPreviewRoom(null);
-                setMessage(null);
-              }}
-              className={cn(
-                "rounded-md px-3 py-2 text-left text-sm transition-colors",
-                id === slot ? "bg-white text-base-dark shadow-sm" : "text-text-muted hover:bg-white/60 hover:text-base-dark"
-              )}
-            >
-              <span className="block">{FX_SLOTS[id].label}</span>
-              <span className="block font-mono text-[10px] opacity-70">
-                {id} · {saved[id].enabled ? "on" : "off"}
-              </span>
-            </button>
-          ))}
-        </nav>
+        <div className="space-y-4">
+          <TransitionPicker saved={savedGlobals} />
+          <nav className="flex flex-col gap-1" aria-label="effect slots">
+            {FX_SLOT_IDS.map((id) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => {
+                  setSlot(id);
+                  setPreviewRoom(null);
+                  setMessage(null);
+                }}
+                className={cn(
+                  "rounded-md px-3 py-2 text-left text-sm transition-colors",
+                  id === slot ? "bg-white text-base-dark shadow-sm" : "text-text-muted hover:bg-white/60 hover:text-base-dark"
+                )}
+              >
+                <span className="block">{FX_SLOTS[id].label}</span>
+                <span className="block font-mono text-[10px] opacity-70">
+                  {id} · {saved[id].enabled ? "on" : "off"}
+                </span>
+              </button>
+            ))}
+          </nav>
+        </div>
 
         {/* Preview */}
         <section className="space-y-3">

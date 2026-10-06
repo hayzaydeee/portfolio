@@ -27,6 +27,7 @@ export function HarnessClient({
   audioSrc,
   count,
   layout,
+  demo,
 }: {
   effect: FxId;
   room: RoomKey;
@@ -36,6 +37,8 @@ export function HarnessClient({
   count: number;
   /** "below": the first stages in DOM order (which mount and lease first) sit far below the fold */
   layout: "grid" | "below";
+  /** Transition effects: a button that plays one full trip toward this room */
+  demo: RoomKey | null;
 }) {
   const handle = useRef<FxHandle>(null);
   const { play } = useAudio();
@@ -94,6 +97,16 @@ export function HarnessClient({
             className="rounded-md bg-black/60 px-3 py-1.5 font-mono text-xs text-white"
           >
             play fixture
+          </button>
+        )}
+        {demo && (
+          <button
+            type="button"
+            data-testid="demo"
+            onClick={() => handle.current?.command("demo", demo)}
+            className="rounded-md bg-black/60 px-3 py-1.5 font-mono text-xs text-white"
+          >
+            trip → {demo}
           </button>
         )}
         {count > 1 && layout === "grid" && (

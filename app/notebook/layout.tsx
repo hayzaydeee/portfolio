@@ -6,12 +6,6 @@ export const metadata: Metadata = {
 };
 
 export default function NotebookLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--notebook-surface)", color: "var(--notebook-text)" }}
-    >
-      {children}
-    </div>
-  );
+  // Pages clear the floating modern dock themselves, so their textures run under it
+  return <div className="min-h-screen bg-(--notebook-surface) text-(--notebook-text)">{children}</div>;
 }

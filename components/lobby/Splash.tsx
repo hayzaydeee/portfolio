@@ -64,9 +64,21 @@ const GLAD_START = TYPEWRITER_TEXT.indexOf("i'm glad you're here.");
 
 interface SplashProps {
   onDismiss: () => void;
+  /** The logo has landed: chrome behind the splash can show itself before the splash lifts */
+  onHandoff?: () => void;
 }
 
-export function Splash({ onDismiss }: SplashProps) {
+/** Where the logo lands: the dock's HZY mark, measured at exit. Old nav position as fallback. */
+const FALLBACK_TARGET = { x: 48, y: 28, size: 48 };
+
+function measureMarkTarget() {
+  const el = document.querySelector<HTMLElement>("[data-hzy-mark-target]");
+  const rect = el?.getBoundingClientRect();
+  if (!rect || rect.width === 0) return FALLBACK_TARGET;
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, size: Math.min(rect.width, rect.height) };
+}
+
+export function Splash({ onDismiss, onHandoff }: SplashProps) {
   const [phase, setPhase] = useState<Phase>("loading");
   const [typedCount, setTypedCount] = useState(0);
   const [borderProgress, setBorderProgress] = useState(0);
@@ -129,6 +141,7 @@ export function Splash({ onDismiss }: SplashProps) {
 
   /** Captured logo rect at moment of exit trigger */
   const [logoFlyFrom, setLogoFlyFrom] = useState<{ x: number; y: number } | null>(null);
+  const [flyTo, setFlyTo] = useState(FALLBACK_TARGET);
 
   /* ── Exit transition ───────────────────────────────────────────── */
 
@@ -139,16 +152,18 @@ export function Splash({ onDismiss }: SplashProps) {
       const rect = logoContainerRef.current.getBoundingClientRect();
       setLogoFlyFrom({ x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 });
     }
+    setFlyTo(measureMarkTarget());
     setPhase("exit");
     setExitStage("fly");
     // After logo finishes flying, start simultaneous color transitions
     addTimeout(() => {
       setExitStage("colors");
       setLogoMode("dark");
+      onHandoff?.();
     }, LOGO_FLY_DUR * 1000);
     // onDismiss after fly + color transition
     addTimeout(() => onDismiss(), (LOGO_FLY_DUR + EXIT_DUR) * 1000);
-  }, [clearAllTimeouts, addTimeout, onDismiss]);
+  }, [clearAllTimeouts, addTimeout, onDismiss, onHandoff]);
 
   /* ── Phase 1: Loading counter (rAF + direct DOM) ──────────────── */
 
@@ -245,9 +260,6 @@ export function Splash({ onDismiss }: SplashProps) {
 
   const isExiting = phase === "exit";
   const colorsActive = exitStage === "colors";
-
-  /* Nav logo target: px-6 (24px) + 48/2 = 48px center-x, h-14 (56px) / 2 = 28px center-y */
-  const NAV_TARGET = { x: 48, y: 28 };
 
   /* ── Render ───────────────────────────────────────────────────────── */
 
@@ -398,6 +410,7 @@ export function Splash({ onDismiss }: SplashProps) {
       {isExiting && logoFlyFrom && (
         <motion.div
           layoutId="hzy-mark"
+          data-splash-logo
           className="fixed z-10"
           initial={{
             width: 72,
@@ -406,10 +419,10 @@ export function Splash({ onDismiss }: SplashProps) {
             top: logoFlyFrom.y - 36,
           }}
           animate={{
-            width: 48,
-            height: 48,
-            left: NAV_TARGET.x - 24,
-            top: NAV_TARGET.y - 24,
+            width: flyTo.size,
+            height: flyTo.size,
+            left: flyTo.x - flyTo.size / 2,
+            top: flyTo.y - flyTo.size / 2,
           }}
           transition={{
             duration: LOGO_FLY_DUR,

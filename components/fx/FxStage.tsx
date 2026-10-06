@@ -11,7 +11,8 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 import { readFrame } from "@/lib/audio/frame";
-import { FX_SLOTS, type FxSlotId } from "@/lib/fx/slots";
+import { FX_SLOTS, isBackdropSlot, type FxSlotId } from "@/lib/fx/slots";
+import { holdRoomReveal } from "@/lib/fx/portalStore";
 import { FX_METAS, type FxId } from "./metas";
 import { FX_LOADERS } from "./registry";
 import { useSlotPreset } from "./FxConfig";
@@ -29,13 +30,14 @@ export type FxHandle = {
   command: (name: string, arg?: unknown) => void;
 };
 
-type StageStatus = "poster" | "live" | "error";
+export type StageStatus = "poster" | "live" | "error";
 
 type FxStageProps = {
   /** A tuned slot (preferred): effect, room and lab presets come from it */
   slot?: FxSlotId;
-  /** Or an effect + room directly (lab, harness) */
+  /** Or an effect directly (lab, harness) */
   effect?: FxId;
+  /** Palette room; overrides the slot's (the portal draws in the destination room) */
   room?: RoomKey;
   options?: Partial<FxOptions>;
   priority?: FxPriority;
@@ -48,6 +50,9 @@ type FxStageProps = {
   observeRef?: React.RefObject<HTMLElement | null>;
   handle?: Ref<FxHandle>;
   label?: string;
+  /** Fade the canvas layer in (default). Off for overlays that must appear on their first frame */
+  fade?: boolean;
+  onStatusChange?: (status: StageStatus | "disabled") => void;
 };
 
 const DEFAULT_ROOM: RoomKey = "lobby";
@@ -70,9 +75,11 @@ export function FxStage({
   observeRef,
   handle,
   label,
+  fade = true,
+  onStatusChange,
 }: FxStageProps) {
   const effect: FxId = slot ? FX_SLOTS[slot].effect : (effectProp ?? "emerald-horizon");
-  const room: RoomKey = slot ? FX_SLOTS[slot].room : (roomProp ?? DEFAULT_ROOM);
+  const room: RoomKey = roomProp ?? (slot ? FX_SLOTS[slot].room : DEFAULT_ROOM);
   const meta = FX_METAS[effect];
   const preset = useSlotPreset(slot);
   const enabled = preset?.enabled ?? true;
@@ -99,6 +106,34 @@ export function FxStage({
   useEffect(() => {
     optionsRef.current = resolved;
   }, [resolved]);
+
+  const onStatusRef = useRef(onStatusChange);
+  useEffect(() => {
+    onStatusRef.current = onStatusChange;
+  }, [onStatusChange]);
+  useEffect(() => {
+    onStatusRef.current?.(enabled ? status : "disabled");
+  }, [enabled, status]);
+
+  // A room's backdrop holds the portal closed until it paints (or settles on its poster)
+  const releaseHoldRef = useRef<(() => void) | null>(null);
+  const statusRef = useRef(status);
+  const holdsReveal = !!slot && isBackdropSlot(slot) && enabled;
+  useEffect(() => {
+    if (!holdsReveal) return;
+    const release = holdRoomReveal(room);
+    releaseHoldRef.current = release;
+    // Already painted (the hold re-registered for a new room): nothing to wait for
+    if (statusRef.current !== "poster") release();
+    return () => {
+      release();
+      releaseHoldRef.current = null;
+    };
+  }, [holdsReveal, room]);
+  useEffect(() => {
+    statusRef.current = status;
+    if (status !== "poster") releaseHoldRef.current?.();
+  }, [status]);
 
   useImperativeHandle(
     handle,
@@ -158,6 +193,8 @@ export function FxStage({
     const wait = () => {
       waiting = true;
       setStatus("poster");
+      // No slot for now: the poster is what this room shows, so stop holding the portal
+      releaseHoldRef.current?.();
       stopWaiting ??= onLeaseFreed(retry);
     };
 
@@ -348,7 +385,8 @@ export function FxStage({
       <div
         ref={layerRef}
         className={cn(
-          "absolute inset-0 transition-opacity duration-700",
+          "absolute inset-0",
+          fade && "transition-opacity duration-700",
           status === "live" ? "opacity-100" : "opacity-0"
         )}
       />

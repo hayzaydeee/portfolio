@@ -2,13 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { FileTree } from "@/components/workshop/FileTree";
 import { TabBar, useTabState } from "@/components/workshop/TabBar";
 import { ActivityFeed } from "@/components/workshop/ActivityFeed";
 import { StatusBar } from "@/components/workshop/StatusBar";
 import { AskTerminal } from "@/components/workshop/AskTerminal";
-import { HzyMark } from "@/components/nav/HzyMark";
+import { WorkshopTopBar } from "@/components/workshop/WorkshopTopBar";
 import type { WorkshopProject } from "@/components/workshop/FileTree";
 import type { Currently } from "@/lib/data/currently";
 
@@ -135,28 +134,8 @@ export function WorkshopClient({ projects, currently, highlightedStackHtml }: Wo
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
-      {/* IDE top bar */}
-      <header
-        className="flex items-center justify-between px-4 py-2 border-b shrink-0 bg-(--workshop-panel) border-(--workshop-tree-border)"
-      >
-        <Link href="/" aria-label="back to lobby" className="flex items-center gap-2">
-          <HzyMark mode="dark" size={20} />
-          <span className="font-mono text-xs text-(--workshop-text-muted)">
-            ~/workshop
-          </span>
-        </Link>
-        <nav className="flex items-center gap-4">
-          {(["work", "music", "notebook", "wall"] as const).map((r) => (
-            <Link
-              key={r}
-              href={r === "work" ? "/work" : `/${r}`}
-              className="font-mono text-xs transition-colors text-(--workshop-text-muted)"
-            >
-              {r}
-            </Link>
-          ))}
-        </nav>
-      </header>
+      <WorkshopTopBar />
+      <h1 className="sr-only">workshop</h1>
 
       {/* Mobile tab selector */}
       <div

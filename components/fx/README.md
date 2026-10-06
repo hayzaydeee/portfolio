@@ -12,7 +12,11 @@ The WebGL / Canvas effect runtime behind the rooms. Effects are adapted from [Th
 | `runtime/palette.ts` | Maps colour roles (`base`, `glow`, `warm`...) to each room's `:root` tokens. The only place effects get colour from |
 | `runtime/pointer.ts` | One window pointer store; canvases stay `pointer-events: none` |
 | `metas.ts` / `registry.ts` | Server-safe metadata vs. lazily imported renderer code |
-| `lib/fx/slots.ts`, `lib/fx/presets.ts` | Named placements on the site and the lab-tuned values for each |
+| `lib/fx/slots.ts`, `lib/fx/presets.ts` | Named placements on the site and the lab-tuned values for each; `__global` holds site-wide choices (the room transition) |
+| `ui/Dock.tsx` | The house navigation in four AnimatedTopDock variants: sable (lobby, edges), modern (notebook, wall), retro (embedded in the workshop IDE bar), glass (studio rail). Styles in `app/styles/dock.css`; magnification in `ui/useDockMagnify.ts` |
+| `ui/RoomChrome.tsx` | Root-layout mount that picks the dock for the current room (`lib/rooms.ts` maps URLs to rooms) |
+| `ui/TransitionLink.tsx` | A `Link` whose `onNavigate` sends cross-room clicks through the portal; same-room, modified clicks and reduced motion navigate normally |
+| `ui/PortalHost.tsx`, `lib/fx/portalStore.ts` | The room transition: cover → push → hold until the new room's backdrop paints (capped) → reveal. Back/forward never covers |
 
 ## Adding an effect
 
@@ -34,4 +38,6 @@ npm run build && FX_HARNESS=1 npx next start -p 3100
 FX_BASE=http://localhost:3100 node scripts/fx-verify.mjs
 ```
 
-Effects render at `/fx-harness/<id>?room=<room>` (add `&source=1` for original colours, `&audio=1` for the kick fixture). The harness 404s in production unless `FX_HARNESS=1`.
+Effects render at `/fx-harness/<id>?room=<room>` (add `&source=1` for original colours, `&audio=1` for the kick fixture, `&demo=<room>` on the transition effects for a trip button). `/fx-harness/dock?room=<room>&hide=wall,studio` renders one dock with rooms switched off. The harness 404s in production unless `FX_HARNESS=1`.
+
+A backdrop slot (`*.backdrop`) holds the portal's reveal until its first frame, so a room never opens on a blank poster; rooms without one reveal as soon as their route renders.

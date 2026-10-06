@@ -51,3 +51,28 @@ export function resolvePresets(raw: unknown): FxPresets {
   }
   return presets;
 }
+
+/** Site-wide choices the lab makes outside any one slot, stored under fx_presets.__global */
+export const TRANSITION_STYLES = [
+  { value: "field", label: "portal field (WebGL ring)" },
+  { value: "vortex", label: "glyph vortex (canvas)" },
+  { value: "fade", label: "plain fade" },
+  { value: "none", label: "none (instant)" },
+] as const;
+
+export type TransitionStyle = (typeof TRANSITION_STYLES)[number]["value"];
+
+export type FxGlobals = { transition: TransitionStyle };
+
+export const GLOBALS_KEY = "__global";
+export const DEFAULT_GLOBALS: FxGlobals = { transition: "field" };
+
+export function isTransitionStyle(v: unknown): v is TransitionStyle {
+  return TRANSITION_STYLES.some((s) => s.value === v);
+}
+
+export function resolveGlobals(raw: unknown): FxGlobals {
+  const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>)[GLOBALS_KEY] : null;
+  const obj = source && typeof source === "object" ? (source as Record<string, unknown>) : {};
+  return { transition: isTransitionStyle(obj.transition) ? obj.transition : DEFAULT_GLOBALS.transition };
+}

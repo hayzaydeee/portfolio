@@ -6,12 +6,6 @@ export const metadata: Metadata = {
 };
 
 export default function WallLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="min-h-screen"
-      style={{ background: "var(--wall-surface)", color: "var(--wall-caption)" }}
-    >
-      {children}
-    </div>
-  );
+  // The page clears the floating modern dock itself, so its texture runs under it
+  return <div className="min-h-screen bg-(--wall-surface) text-(--wall-caption)">{children}</div>;
 }
