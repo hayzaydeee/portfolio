@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 import type { FxId } from "@/components/fx/metas";
 import { ROOM_POSTER_CLASS } from "@/components/fx/posters";
@@ -28,6 +28,7 @@ export function HarnessClient({
   count,
   layout,
   demo,
+  pulse,
 }: {
   effect: FxId;
   room: RoomKey;
@@ -39,8 +40,13 @@ export function HarnessClient({
   layout: "grid" | "below";
   /** Transition effects: a button that plays one full trip toward this room */
   demo: RoomKey | null;
+  /** Send "pulse" on mount, before the stage is live, so it queues like an early caller's would */
+  pulse: boolean;
 }) {
   const handle = useRef<FxHandle>(null);
+  useEffect(() => {
+    if (pulse) handle.current?.command("pulse");
+  }, [pulse]);
   const { play } = useAudio();
   const options = useMemo(() => ({ sourcePalette }), [sourcePalette]);
   // Grid mode exercises the context budget: more stages than slots, then free some up

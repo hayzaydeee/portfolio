@@ -89,6 +89,8 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
   let elapsed = 1.3;
   let still = false;
   let pulseAt = -Infinity;
+  /** A pulse waiting for its first frame; commands can arrive before the first render */
+  let pulsePending = false;
   let clock = 0;
   const lattice = new Map<number, [number, number][]>();
   const dots: Dot[] = [];
@@ -134,6 +136,11 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
     const wave = ((((t * 0.4) % 1) + 1) % 1) * 2.4 - 1.2;
     const pulse = clamp01((clock - pulseAt) / PULSE_MS);
     const pulsing = pulse < 1;
+    // Marked for the verification suite: one attribute write as a ring starts and ends
+    if (pulsing !== (canvas.dataset.pulsing === "true")) {
+      if (pulsing) canvas.dataset.pulsing = "true";
+      else delete canvas.dataset.pulsing;
+    }
 
     dots.length = 0;
     for (const [gx, gy] of points()) {
@@ -186,6 +193,10 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
 
     render(now, dt) {
       clock = now;
+      if (pulsePending) {
+        pulsePending = false;
+        pulseAt = now;
+      }
       elapsed += Math.min(96, dt) * 0.001 * opts.speed * (mini() ? 1.25 : 1);
       draw();
     },
@@ -210,7 +221,7 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
     },
 
     command(name) {
-      if (name === "pulse") pulseAt = clock;
+      if (name === "pulse") pulsePending = true;
     },
 
     dispose() {

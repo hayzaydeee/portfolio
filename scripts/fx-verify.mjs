@@ -670,6 +670,26 @@ const sampleDecode = (page, selector, ms) =>
   await context.close();
 }
 
+// ── HzyOrb: a pulse sent before the orb is live still plays once it is ───────────
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/hzy-orb?room=lobby&pulse=1", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-fx="hzy-orb"][data-fx-state="live"]', { timeout: 20000 }).catch(() => {});
+  const started = await page
+    .waitForSelector('[data-fx="hzy-orb"] canvas[data-pulsing]', { timeout: 3000 })
+    .then(() => true)
+    .catch(() => false);
+  const ended = started
+    ? await page
+        .waitForSelector('[data-fx="hzy-orb"] canvas[data-pulsing]', { state: "detached", timeout: 4000 })
+        .then(() => true)
+        .catch(() => false)
+    : false;
+  check("hzy-orb-pulse", "a pulse queued before live plays, then ends", started && ended, { started, ended });
+  check("hzy-orb-pulse", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
 // ── Workshop: the IDE bar lives in the layout, crumbs follow the URL, field persists ─
 {
   const { context, page } = await chromePage();
@@ -691,6 +711,20 @@ const sampleDecode = (page, selector, ms) =>
   }));
   check("workshop-bar", "one bar with crumbs from the URL", deep.docks === 1 && deep.crumbs.join() === "/no-such-project" && top.docks === 1 && top.crumbs === 0, { deep, top });
   check("workshop-bar", "dock field survives moving between workshop pages", top.acquisitions === deep.acquisitions && top.field === "live", { deep, top });
+  await context.close();
+}
+
+{
+  // An encoded slug shows decoded in the crumbs and never takes the layout (and its dock) down.
+  // (A lone %, as in /work/100%25, fails in Next's own param decoding before any app code runs.)
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/work/a%20b", { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  const bar = await page.evaluate(() => ({
+    docks: document.querySelectorAll(".dock-retro").length,
+    crumbs: [...document.querySelectorAll(".dock-retro-crumb")].map((c) => c.textContent),
+  }));
+  check("workshop-bar", "encoded slug crumbs decode, no errors", bar.docks === 1 && bar.crumbs.join() === "/a b" && errors.length === 0, { bar, errors: errors.slice(0, 2) });
   await context.close();
 }
 
