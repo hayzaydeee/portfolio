@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useEffect, useId } from "react";
-import { HZY_MARK_PATH, HZY_MARK_VIEWBOX } from "./hzyMarkPath";
+import { HZY_MARK_PATH, HZY_MARK_VIEWBOX, hzyRevealEase } from "./hzyMarkPath";
 
 const FILL_MAP = {
   light: "#141414",
@@ -47,15 +47,12 @@ export function HzyMark({
     let start: number | null = null;
     const dur = duration;
 
-    function ease(t: number) {
-      return t < 0.5 ? 2 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    }
 
     let raf: number;
     function step(now: number) {
       if (start === null) start = now;
       const t = Math.min((now - start) / dur, 1);
-      el.setAttribute("width", String(ease(t) * 1024));
+      el.setAttribute("width", String(hzyRevealEase(t) * HZY_MARK_VIEWBOX));
       if (t < 1) raf = requestAnimationFrame(step);
     }
 

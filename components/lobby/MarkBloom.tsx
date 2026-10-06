@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { HZY_MARK_PATH, HZY_MARK_VIEWBOX } from "@/components/nav/hzyMarkPath";
+import { HZY_MARK_PATH, HZY_MARK_VIEWBOX, hzyRevealAt } from "@/components/nav/hzyMarkPath";
 
 /**
  * The splash's mark formation, after ThreeUI's SemanticBloom (MIT, Meng To): the HZY outline
@@ -17,8 +17,6 @@ const MAX_POINTS = 2600;
 
 type Particle = { sx: number; sy: number; tx: number; ty: number; arrive: number; drift: number };
 
-/** Inverse of HzyMark's reveal easing (cubic in-out): when the clip edge reaches x */
-const easeInverse = (y: number) => (y < 0.5 ? Math.cbrt(y / 4) : 1 - Math.cbrt(2 * (1 - y)) / 2);
 const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 
@@ -68,7 +66,7 @@ export function MarkBloom({ size, duration, colorVar = "--color-base-dark" }: { 
         tx: u * size,
         ty: v * size,
         // The clip edge reaches this column at eased progress u
-        arrive: easeInverse(u) * duration,
+        arrive: hzyRevealAt(u) * duration,
         drift: Math.random() * Math.PI * 2,
       };
     });

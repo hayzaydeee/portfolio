@@ -203,6 +203,22 @@ const setHidden = (page, hidden) =>
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
 
+// ── HZY reveal easing: one shared curve, continuous, and the bloom's inverse matches it ──
+{
+  const mod = await import(new URL("../components/nav/hzyMarkPath.ts", import.meta.url).href).catch(() => ({}));
+  const { hzyRevealEase: ease, hzyRevealAt: at } = mod;
+  const shared = typeof ease === "function" && typeof at === "function";
+  let jump = Infinity;
+  let monotonic = false;
+  let roundTrip = Infinity;
+  if (shared) {
+    jump = Math.abs(ease(0.5 - 1e-6) - ease(0.5 + 1e-6));
+    monotonic = Array.from({ length: 200 }, (_, i) => ease((i + 1) / 200) >= ease(i / 200)).every(Boolean);
+    roundTrip = Math.max(...Array.from({ length: 101 }, (_, i) => Math.abs(at(ease(i / 100)) - i / 100)));
+  }
+  check("hzy-ease", "mark and bloom share one continuous, invertible reveal curve", shared && jump < 1e-3 && monotonic && roundTrip < 1e-6, { shared, jump, monotonic, roundTrip });
+}
+
 // ── GL sanity ──────────────────────────────────────────────────────────────────
 {
   const page = await browser.newPage(CONTEXT_OPTS);
@@ -971,6 +987,40 @@ const backdropFrames = (page) =>
     footer: getComputedStyle(document.querySelector("[data-site-footer]")).visibility,
   }));
   check("lobby-return", "returning visitor: no splash, horizon at rest, footer back", !back.splash && back.phase === "resting" && back.rise === "1" && back.state === "live" && back.footer === "visible", back);
+  await context.close();
+}
+
+// The horizon's rise must survive a context loss: a recreated instance starts where it was
+{
+  const sharp = (await import("sharp")).default;
+  const bottomLuma = async (page) => {
+    const png = await page.screenshot({ clip: { x: 0, y: 700, width: 1440, height: 200 } });
+    const { data } = await sharp(png).greyscale().raw().toBuffer({ resolveWithObject: true });
+    return data.reduce((n, v) => n + v, 0) / data.length;
+  };
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2300);
+  await page.getByText("skip").click().catch(() => {});
+  const cta = page.getByRole("button", { name: /let.s go/i });
+  await cta.waitFor({ timeout: 40000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  await cta.click();
+  await page.waitForFunction(() => document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase === "sequence", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(3000);
+  const before = await bottomLuma(page);
+  const attemptsBefore = await page.evaluate(() => window.__fx.attempts());
+  await page.evaluate(() => {
+    const canvas = document.querySelector("[data-lobby-backdrop] [data-fx] canvas");
+    const ext = canvas?.getContext("webgl")?.getExtension("WEBGL_lose_context");
+    ext?.loseContext();
+    setTimeout(() => ext?.restoreContext(), 300);
+  });
+  await page.waitForFunction((n) => window.__fx.attempts() > n && document.querySelector("[data-lobby-backdrop] [data-fx]")?.dataset.fxState === "live", attemptsBefore, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+  const after = await bottomLuma(page);
+  check("lobby-recreate", "a recreated horizon stays risen (bottom of the frame keeps its glow)", after > before * 0.6 && before > 25, { before: +before.toFixed(1), after: +after.toFixed(1) });
+  check("lobby-recreate", "no page errors", errors.length === 0, errors.slice(0, 3));
   await context.close();
 }
 

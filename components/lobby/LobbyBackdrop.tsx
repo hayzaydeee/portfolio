@@ -10,7 +10,7 @@ import { FxStage, type FxHandle, type StageStatus } from "@/components/fx/FxStag
  */
 
 type LobbyBackdropValue = {
-  /** Send a command to the horizon: "rise", "tint" or "slide" (queued until it's live) */
+  /** Drive the horizon: "rise" (kept as state, so it survives recreation), "tint" or "slide" */
   command: (name: string, arg?: unknown) => void;
   /** The first frame is in (or the stage settled on its poster): the splash may finish counting */
   ready: boolean;
@@ -35,7 +35,9 @@ export function LobbyBackdropProvider({ initialRise, phase, children }: Props) {
   const [ready, setReady] = useState(false);
   // The commanded rise target, mirrored for tests (the shader eases toward it)
   const [rise, setRise] = useState<number>(initialRise);
-  const [options] = useState(() => ({ rise: initialRise }));
+  // Rise travels as an option, not a one-off command, so an instance recreated after a context
+  // loss or eviction starts where the horizon was
+  const options = useMemo(() => ({ rise }), [rise]);
   // Under the opaque splash the horizon draws its first frame, then holds until it rises
   const [covered, setCovered] = useState(initialRise === 0);
 
@@ -43,6 +45,7 @@ export function LobbyBackdropProvider({ initialRise, phase, children }: Props) {
     if (name === "rise") {
       setRise((arg as { to?: number } | undefined)?.to ?? 1);
       setCovered(false);
+      return;
     }
     handle.current?.command(name, arg);
   }, []);
