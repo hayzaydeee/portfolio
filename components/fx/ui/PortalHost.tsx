@@ -1,6 +1,6 @@
 "use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { motion } from "motion/react";
 import { FxStage, type FxHandle } from "@/components/fx/FxStage";
@@ -10,17 +10,33 @@ import type { PortalPhaseCommand } from "@/components/fx/effects/portal-timeline
 import {
   COVER_MS,
   REVEAL_MS,
+  crossesRooms,
+  focusArrival,
   getPortal,
   getServerPortal,
   portalAbort,
   portalArrived,
+  portalGo,
   subscribePortal,
+  takeQueued,
   type PortalPhase,
 } from "@/lib/fx/portalStore";
 import type { FxSlotId } from "@/lib/fx/slots";
+import type { RoomKey } from "@/components/fx/runtime/types";
 import { cn } from "@/lib/utils";
 
 const SLOT_FOR = { field: "portal.field", vortex: "portal.vortex" } as const satisfies Record<string, FxSlotId>;
+
+const ROOM_NAME: Record<RoomKey, string> = {
+  lobby: "the lobby",
+  workshop: "the workshop",
+  studio: "the studio",
+  notebook: "the notebook",
+  wall: "the wall",
+};
+
+/** Body children that must stay usable under the cover: the host itself, the player, Next's route announcer */
+const KEEP = "[data-portal-state], [data-portal-keep], next-route-announcer, script";
 
 const EFFECT_PHASE: Record<Exclude<PortalPhase, "idle">, PortalPhaseCommand["name"]> = {
   covering: "cover",
@@ -32,15 +48,19 @@ const EFFECT_PHASE: Record<Exclude<PortalPhase, "idle">, PortalPhaseCommand["nam
  * Renders the room transition above everything except the player. A flat cover in the
  * destination room's base colour always runs underneath, so the screen is covered even
  * before the effect's first frame (or when the lab picks "fade"); once the effect is live
- * it draws its own cover and the flat one steps aside.
+ * it draws its own cover and the flat one steps aside. While a trip runs, everything else
+ * on the page is inert, so keyboard and assistive tech can't reach what the cover hides.
  */
 export function PortalHost() {
   const state = useSyncExternalStore(subscribePortal, getPortal, getServerPortal);
   const pathname = usePathname();
   const { transition } = useFxGlobals();
+  const router = useRouter();
   const handle = useRef<FxHandle>(null);
+  const statusRef = useRef<HTMLParagraphElement>(null);
   const [liveTrip, setLiveTrip] = useState(-1);
   const live = liveTrip === state.trip;
+  const active = state.phase !== "idle";
 
   useEffect(() => {
     portalArrived(pathname);
@@ -48,8 +68,37 @@ export function PortalHost() {
 
   useEffect(() => {
     window.addEventListener("popstate", portalAbort);
+    // Debug handle for the verification suite (same surface as clicking a dock link)
+    const g = window as typeof window & { __fxPortal?: { go: (href: string) => void } };
+    g.__fxPortal = { go: (href) => portalGo(href, router) };
     return () => window.removeEventListener("popstate", portalAbort);
-  }, []);
+  }, [router]);
+
+  // Re-applied per phase and pathname, so the incoming route's nodes are covered too
+  useEffect(() => {
+    if (!active) return;
+    const marked: HTMLElement[] = [];
+    for (const el of Array.from(document.body.children)) {
+      if (!(el instanceof HTMLElement) || el.matches(KEEP) || el.inert) continue;
+      el.inert = true;
+      marked.push(el);
+    }
+    return () => marked.forEach((el) => (el.inert = false));
+  }, [active, state.phase, pathname]);
+
+  // Focus leaves the page with the cover, then lands on the new room's heading. Declared
+  // after the inert effect, so on the idle commit inert is already lifted when this runs.
+  const prevPhase = useRef(state.phase);
+  useEffect(() => {
+    const from = prevPhase.current;
+    prevPhase.current = state.phase;
+    if (state.phase === "covering") statusRef.current?.focus({ preventScroll: true });
+    if (state.phase !== "idle" || from !== "revealing") return;
+    focusArrival();
+    const next = takeQueued();
+    if (next && crossesRooms(window.location.pathname, next)) portalGo(next, router);
+    else if (next) router.push(next);
+  }, [state.phase, state.trip, router]);
 
   useEffect(() => {
     if (state.phase === "idle") return;
@@ -62,7 +111,6 @@ export function PortalHost() {
     } satisfies PortalPhaseCommand);
   }, [state]);
 
-  const active = state.phase !== "idle";
   const slot = transition === "field" || transition === "vortex" ? SLOT_FOR[transition] : null;
   const to = state.to ?? "lobby";
 
@@ -82,10 +130,12 @@ export function PortalHost() {
       className={cn("fixed inset-0 z-(--z-portal)", active ? "pointer-events-auto" : "pointer-events-none")}
       data-portal-state={state.phase}
       data-portal-live={live || undefined}
-      aria-hidden="true"
     >
+      <p ref={statusRef} role="status" tabIndex={-1} className="sr-only">
+        {active ? `entering ${ROOM_NAME[to]}` : ""}
+      </p>
       {active && (
-        <>
+        <div aria-hidden="true">
           <motion.div
             key={`cover-${state.trip}`}
             className={cn("absolute inset-0", ROOM_POSTER_CLASS[to])}
@@ -107,7 +157,7 @@ export function PortalHost() {
               }}
             />
           )}
-        </>
+        </div>
       )}
     </div>
   );

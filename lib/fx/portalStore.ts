@@ -37,18 +37,31 @@ type Store = {
   state: PortalState;
   listeners: Set<() => void>;
   router: Router | null;
-  timers: number[];
+  timers: Map<TimerName, number>;
   /** Backdrops still painting their first frame, per room */
   pending: Map<RoomKey, number>;
   arrived: boolean;
+  /** A click that landed while revealing; it starts once this trip has handed off */
+  queued: string | null;
 };
+
+/** One slot each, so re-arming a timer always replaces the old one instead of stacking */
+type TimerName = "phase" | "cap" | "safety";
 
 const GLOBAL_KEY = "__hzyPortal";
 type G = typeof globalThis & { [GLOBAL_KEY]?: Store };
 
 function store(): Store {
   const g = globalThis as G;
-  g[GLOBAL_KEY] ??= { state: IDLE, listeners: new Set(), router: null, timers: [], pending: new Map(), arrived: false };
+  g[GLOBAL_KEY] ??= {
+    state: IDLE,
+    listeners: new Set(),
+    router: null,
+    timers: new Map(),
+    pending: new Map(),
+    arrived: false,
+    queued: null,
+  };
   return g[GLOBAL_KEY]!;
 }
 
@@ -58,13 +71,20 @@ function set(patch: Partial<PortalState>) {
   s.listeners.forEach((l) => l());
 }
 
-function later(fn: () => void, ms: number) {
-  store().timers.push(window.setTimeout(fn, ms));
+function clear(name: TimerName) {
+  const { timers } = store();
+  const id = timers.get(name);
+  if (id !== undefined) clearTimeout(id);
+  timers.delete(name);
+}
+
+function later(name: TimerName, fn: () => void, ms: number) {
+  clear(name);
+  store().timers.set(name, window.setTimeout(fn, ms));
 }
 
 function clearTimers() {
-  const s = store();
-  s.timers.splice(0).forEach((id) => clearTimeout(id));
+  (["phase", "cap", "safety"] as const).forEach(clear);
 }
 
 export function getPortal(): PortalState {
@@ -95,7 +115,8 @@ export function portalGo(href: string, router: Router) {
   const { phase } = s.state;
 
   // Last href wins. While covering, the push at the end of the cover picks it up;
-  // once covered, push straight away and keep holding.
+  // once covered, push straight away and keep holding. The old target's readiness cap
+  // must not reveal the new one, so it goes too.
   if (phase === "covering") {
     set({ href, to: roomForPath(href) });
     return;
@@ -103,21 +124,32 @@ export function portalGo(href: string, router: Router) {
   if (phase === "holding") {
     set({ href, to: roomForPath(href) });
     s.arrived = false;
+    clear("cap");
     router.push(href);
+    return;
+  }
+  // Mid-reveal: let this trip finish (idle + focus), then start the new one from there
+  if (phase === "revealing") {
+    s.queued = href;
     return;
   }
 
   clearTimers();
   s.arrived = false;
+  s.queued = null;
   const from = roomForPath(window.location.pathname);
   set({ phase: "covering", from, to: roomForPath(href), href, at: performance.now(), trip: s.state.trip + 1 });
 
-  later(() => {
-    const { href: target } = store().state;
-    set({ phase: "holding", at: performance.now() });
-    if (target) store().router?.push(target);
-  }, COVER_MS);
-  later(reveal, SAFETY_MS);
+  later(
+    "phase",
+    () => {
+      const { href: target } = store().state;
+      set({ phase: "holding", at: performance.now() });
+      if (target) store().router?.push(target);
+    },
+    COVER_MS
+  );
+  later("safety", reveal, SAFETY_MS);
 }
 
 function reveal() {
@@ -125,16 +157,24 @@ function reveal() {
   if (phase !== "covering" && phase !== "holding") return;
   clearTimers();
   set({ phase: "revealing", at: performance.now() });
-  later(() => {
-    set({ phase: "idle", at: performance.now() });
-    focusArrival();
-  }, REVEAL_MS);
+  // Focus and any queued click are handled by PortalHost once idle has rendered and the
+  // page is no longer inert (an inert heading can't take focus)
+  later("phase", () => set({ phase: "idle", at: performance.now() }), REVEAL_MS);
 }
 
-/** Back/forward: never leave the screen covered */
+/** The click that landed mid-reveal, if any; clears it */
+export function takeQueued(): string | null {
+  const s = store();
+  const next = s.queued;
+  s.queued = null;
+  return next;
+}
+
+/** Back/forward: never leave the screen covered, and drop any click queued behind the reveal */
 export function portalAbort() {
-  const { phase } = store().state;
-  if (phase === "covering" || phase === "holding") reveal();
+  const s = store();
+  s.queued = null;
+  if (s.state.phase === "covering" || s.state.phase === "holding") reveal();
 }
 
 function check() {
@@ -154,7 +194,7 @@ export function portalArrived(pathname: string) {
   if (phase !== "holding" || roomForPath(pathname) !== to) return;
   s.arrived = true;
   requestAnimationFrame(() => requestAnimationFrame(check));
-  later(reveal, READY_CAP_MS);
+  later("cap", reveal, READY_CAP_MS);
 }
 
 /**
@@ -173,7 +213,7 @@ export function holdRoomReveal(room: RoomKey): () => void {
   };
 }
 
-function focusArrival() {
+export function focusArrival() {
   const heading = document.querySelector<HTMLElement>("main h1") ?? document.querySelector<HTMLElement>("h1");
   if (!heading) return;
   if (!heading.hasAttribute("tabindex")) heading.setAttribute("tabindex", "-1");

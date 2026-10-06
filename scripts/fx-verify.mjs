@@ -116,14 +116,27 @@ const PORTAL_LOG = () => {
     const el = document.querySelector("[data-portal-state]");
     if (!el) return requestAnimationFrame(watch);
     let last = null;
-    const record = () => {
-      const s = el.dataset.portalState;
+    const record = (s) => {
       if (el.dataset.portalLive) window.__portal.live = true;
-      if (s !== last) window.__portal.log.push(s);
+      if (s !== last) window.__portal.log.push(s === "revealing" ? `revealing@${location.pathname}` : s);
+      if (s !== last && s === "holding") {
+        // Snapshot what the cover hides: everything but the host (and the player) should be inert
+        const kids = [...document.body.children].filter((k) => k instanceof HTMLElement && !k.matches("[data-portal-state], [data-portal-keep], next-route-announcer, script"));
+        window.__portal.holding = {
+          allInert: kids.length > 0 && kids.every((k) => k.inert),
+          focusInHost: el.contains(document.activeElement),
+        };
+      }
       last = s;
     };
-    record();
-    new MutationObserver(record).observe(el, { attributes: true });
+    record(el.dataset.portalState);
+    // States can change twice before the observer runs (idle, then a queued trip's covering),
+    // so rebuild each one from the records: a record's new value is the next one's old value
+    new MutationObserver((records) => {
+      const states = records.filter((r) => r.attributeName === "data-portal-state");
+      states.forEach((r, i) => record(i + 1 < states.length ? states[i + 1].oldValue : el.dataset.portalState));
+      if (!states.length) record(el.dataset.portalState);
+    }).observe(el, { attributes: true, attributeOldValue: true });
   };
   watch();
 };
@@ -511,7 +524,10 @@ for (const route of ROOM_ROUTES) {
   }));
   const walk = portal.log.join(">");
   check("portal", "arrives at /work and returns to idle", arrived, { ms });
-  check("portal", "walks covering > holding > revealing > idle", /covering>holding>revealing>idle$/.test(walk), { walk });
+  check("portal", "walks covering > holding > revealing > idle", /covering>holding>revealing@\/work>idle$/.test(walk), { walk });
+  check("portal", "page is inert under the cover and focus sits in the portal", portal.holding?.allInert && portal.holding?.focusInHost, portal.holding);
+  const inertAfter = await page.evaluate(() => [...document.body.children].some((k) => k.inert));
+  check("portal", "nothing left inert after the trip", !inertAfter);
   check("portal", "effect went live during the trip", portal.live, portal);
   check("portal", "exactly one history push", portal.pushes === 1, { pushes: portal.pushes });
   check("portal", "new room's heading takes focus", portal.focused === "workshop", { focused: portal.focused });
@@ -523,6 +539,33 @@ for (const route of ROOM_ROUTES) {
   await page.waitForTimeout(1200);
   const back = await page.evaluate((n) => window.__portal.log.slice(n), before);
   check("portal", "back/forward never covers", !back.includes("covering"), { back });
+  await context.close();
+}
+
+// ── Portal: re-targeting mid-trip (fired from a mutation observer, so timing is exact) ─────
+for (const [when, expect] of [
+  ["holding", /covering>holding>revealing@\/music>idle$/],
+  ["revealing", /covering>holding>revealing@\/work>idle>covering>holding>revealing@\/music>idle$/],
+]) {
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/colophon", { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  await page.evaluate((phase) => {
+    const el = document.querySelector("[data-portal-state]");
+    const mo = new MutationObserver(() => {
+      if (el.dataset.portalState !== phase) return;
+      mo.disconnect();
+      window.__fxPortal.go("/music");
+    });
+    mo.observe(el, { attributes: true, attributeFilter: ["data-portal-state"] });
+  }, when);
+  await page.click('.dock a[href="/work"]');
+  const arrived = await portalIdleAt(page, "/music", 20000);
+  await page.waitForTimeout(400);
+  const portal = await page.evaluate(() => ({ ...window.__portal, path: location.pathname }));
+  const walk = portal.log.join(">");
+  check(`portal-retarget-${when}`, "lands on the second room, revealing only there", arrived && expect.test(walk), { walk, path: portal.path });
+  check(`portal-retarget-${when}`, "no page errors", errors.length === 0, errors.slice(0, 3));
   await context.close();
 }
 
