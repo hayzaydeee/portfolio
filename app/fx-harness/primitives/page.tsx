@@ -37,7 +37,8 @@ const LOOP = (
 
 /**
  * Every UI primitive in every room, for Playwright and screenshots. ?room=studio narrows
- * to one room; ?decodeDelay=ms holds the first decode back so a test can catch it mid-run.
+ * to one room; ?decodeDelay=ms holds the first decode back so a test can catch it mid-run;
+ * ?orbs=0 leaves the orbs out (a software renderer can't keep fifteen of them at frame rate).
  */
 export default async function PrimitivesHarnessPage({ searchParams }: Props) {
   // Render per request: FX_HARNESS is read at runtime, never baked in at build
@@ -48,6 +49,7 @@ export default async function PrimitivesHarnessPage({ searchParams }: Props) {
   const roomParam = typeof sp.room === "string" ? sp.room : "";
   const rooms = (ROOM_KEYS as string[]).includes(roomParam) ? [roomParam as RoomKey] : ROOM_KEYS;
   const decodeDelay = Math.max(0, Number(sp.decodeDelay) || 0);
+  const orbs = sp.orbs !== "0";
 
   return (
     <main className="flex flex-col">
@@ -91,11 +93,13 @@ export default async function PrimitivesHarnessPage({ searchParams }: Props) {
             <CircleButton room={room} variant="glass" label="small play" icon={PLAY} size="sm" />
           </div>
 
-          <div className="flex flex-wrap items-end gap-8">
-            <HzyOrb room={room} size="sm" />
-            <HzyOrb room={room} size="md" label={`hzy orb, ${room}`} />
-            <HzyOrb room={room} size="lg" motion="sweep" />
-          </div>
+          {orbs && (
+            <div className="flex flex-wrap items-end gap-8">
+              <HzyOrb room={room} size="sm" />
+              <HzyOrb room={room} size="md" label={`hzy orb, ${room}`} />
+              <HzyOrb room={room} size="lg" motion="sweep" />
+            </div>
+          )}
 
           <Decode
             as="p"

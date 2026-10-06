@@ -16,7 +16,7 @@ const RASTER = 400;
 const MINI_PX = 32;
 const PULSE_MS = 900;
 
-type Dot = { x: number; y: number; z: number; r: number; v: number; c: number };
+type Dot = { x: number; y: number; z: number; r: number; v: number };
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const luma = ([r, g, b]: RGB) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
@@ -88,6 +88,7 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
   let clock = 0;
   const lattice = new Map<number, [number, number][]>();
   const dots: Dot[] = [];
+  const buckets: Dot[][] = Array.from({ length: 64 }, () => []);
   let ramp: string[] = [];
 
   const mini = () => size < MINI_PX;
@@ -149,17 +150,23 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
         z,
         r: Math.max(0.35, spacing * (0.26 + 0.14 * depth + 0.16 * crest)),
         v: clamp01(0.42 + 0.15 * depth + 0.43 * crest),
-        c: crest,
       });
     }
 
+    // One path per colour step, back to front: at most 64 fills a frame however dense the lattice
     dots.sort((a, b) => a.z - b.z);
-    for (const d of dots) {
-      g.fillStyle = ramp[Math.round(d.v * 63)];
+    for (const d of dots) buckets[Math.round(d.v * 63)].push(d);
+    buckets.forEach((bucket, i) => {
+      if (!bucket.length) return;
+      g.fillStyle = ramp[i];
       g.beginPath();
-      g.arc(d.x, d.y, d.r, 0, TAU);
+      for (const d of bucket) {
+        g.moveTo(d.x + d.r, d.y);
+        g.arc(d.x, d.y, d.r, 0, TAU);
+      }
       g.fill();
-    }
+      bucket.length = 0;
+    });
   };
 
   buildRamp();

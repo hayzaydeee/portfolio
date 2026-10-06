@@ -103,7 +103,8 @@ function useTrigger(ref: RefObject<HTMLElement | null>, trigger: Trigger, run: (
         io.disconnect();
         cancel = runRef.current();
       },
-      { rootMargin: "0px 0px -10% 0px" }
+      // Half in view rather than a margin, so text at the very end of a page still qualifies
+      { threshold: 0.5 }
     );
     io.observe(el);
     return () => {

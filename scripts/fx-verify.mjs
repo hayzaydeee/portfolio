@@ -547,10 +547,15 @@ for (const route of ROOM_ROUTES) {
   const lineLeft = () => page.evaluate(() => getComputedStyle(document.querySelector(".cta--trace .cta__line--left")).transform);
   const beforeFocus = await lineLeft();
   await page.getByRole("link", { name: "say hello", exact: true }).focus();
-  await page.waitForTimeout(1600);
+  // The left edge draws last (about 1.2s in); a CPU renderer can run behind that
+  await page
+    .waitForFunction(() => /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(getComputedStyle(document.querySelector(".cta--trace .cta__line--left")).transform), null, { timeout: 5000 })
+    .catch(() => {});
   const afterFocus = await lineLeft();
   await page.getByRole("button", { name: "request a demo", exact: true }).focus();
-  await page.waitForTimeout(500);
+  await page
+    .waitForFunction(() => getComputedStyle(document.querySelector(".cta--spin .cta__beam")).opacity === "1", null, { timeout: 3000 })
+    .catch(() => {});
   const spinBeam = await page.evaluate(() => getComputedStyle(document.querySelector(".cta--spin .cta__beam")).opacity);
   check("primitives", "focus draws the trace edges like hover", beforeFocus !== afterFocus && /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(afterFocus), { beforeFocus, afterFocus });
   check("primitives", "focus lights the spin beam like hover", spinBeam === "1", { spinBeam });
@@ -603,8 +608,10 @@ const sampleDecode = (page, selector, ms) =>
 
 {
   const { context, page } = await chromePage();
-  await page.goto(BASE + "/fx-harness/primitives?room=lobby&decodeDelay=2500", { waitUntil: "load" });
-  const run = await sampleDecode(page, "#decode-lobby", 4500);
+  // No orbs: a CPU renderer drawing fifteen of them would land the 560ms decode in a frame or two
+  await page.goto(BASE + "/fx-harness/primitives?room=lobby&orbs=0&decodeDelay=1500", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#decode-lobby [data-decode-live]");
+  const run = await sampleDecode(page, "#decode-lobby", 6000);
   const heading = await page.getByRole("heading", { name: "the lobby", exact: true }).count();
   check("decode", "scrambles, then settles on the exact text", run.differed && run.settled, run);
   check("decode", "assistive copy never scrambles; box never shifts", run.srAlways && run.boxSteady, run);
@@ -614,10 +621,11 @@ const sampleDecode = (page, selector, ms) =>
 
 {
   const { context, page } = await chromePage();
-  await page.goto(BASE + "/fx-harness/primitives", { waitUntil: "networkidle" });
+  await page.goto(BASE + "/fx-harness/primitives?orbs=0", { waitUntil: "networkidle" });
   const sel = '[data-testid="prim-wall"] p.decode';
   const untouched = await sampleDecode(page, sel, 600);
-  await page.locator(sel).scrollIntoViewIfNeeded();
+  // It sits at the very end of the page, which can't scroll it past the bottom edge
+  await page.evaluate((s) => document.querySelector(s).scrollIntoView({ block: "center" }), sel);
   const scrolled = await sampleDecode(page, sel, 1500);
   check("decode-visible", "waits offscreen, decodes once scrolled into view", !untouched.differed && scrolled.differed && scrolled.settled, { untouched, scrolled });
   await context.close();
@@ -625,8 +633,9 @@ const sampleDecode = (page, selector, ms) =>
 
 {
   const { context, page } = await chromePage({ reducedMotion: "reduce" });
-  await page.goto(BASE + "/fx-harness/primitives?room=lobby&decodeDelay=1500", { waitUntil: "load" });
-  const run = await sampleDecode(page, "#decode-lobby", 3000);
+  await page.goto(BASE + "/fx-harness/primitives?room=lobby&orbs=0&decodeDelay=1000", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#decode-lobby [data-decode-live]");
+  const run = await sampleDecode(page, "#decode-lobby", 4000);
   check("decode-reduced", "reduced motion shows the final text throughout", !run.differed && run.settled, run);
   await context.close();
 }

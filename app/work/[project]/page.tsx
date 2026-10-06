@@ -1,7 +1,8 @@
+import { cache } from "react";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 
-import { createPublicClient, createBuildClient } from "@/lib/supabase/server";
+import { createBuildClient } from "@/lib/supabase/server";
 import { ProjectFile } from "@/components/workshop/ProjectFile";
 import type { Project } from "@/app/actions/projects";
 
@@ -23,38 +24,44 @@ export async function generateStaticParams() {
   }
 }
 
+/**
+ * One read per request for metadata and page. Cookie-less anon client: calling cookies() in
+ * this prerendered route would 500 any slug not built at deploy time (new or mistyped).
+ * Unpublished, missing and unreachable all read as "no such project".
+ */
+const getProject = cache(async (slug: string): Promise<Project | null> => {
+  try {
+    const { data, error } = await createBuildClient()
+      .from("projects")
+      .select("*")
+      .eq("slug", slug)
+      .eq("status", "published")
+      .single();
+    return error || !data ? null : (data as Project);
+  } catch {
+    return null;
+  }
+});
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { project: slug } = await params;
-  const supabase = await createPublicClient();
-  const { data } = await supabase
-    .from("projects")
-    .select("title, tagline")
-    .eq("slug", slug)
-    .single();
+  const project = await getProject(slug);
   return {
-    title: data ? `${data.title} — hayzaydee` : "Project — hayzaydee",
-    description: data?.tagline ?? undefined,
+    title: project ? `${project.title} — hayzaydee` : "Project — hayzaydee",
+    description: project?.tagline ?? undefined,
   };
 }
 
 export default async function ProjectPage({ params }: Props) {
   const { project: slug } = await params;
-  const supabase = await createPublicClient();
-  const { data, error } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("slug", slug)
-    .eq("status", "published")
-    .single();
-
-  if (error || !data) notFound();
+  const project = await getProject(slug);
+  if (!project) notFound();
 
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
-
       {/* Project content */}
       <div className="flex-1 overflow-auto bg-(--workshop-panel)">
-        <ProjectFile project={data as Project} />
+        <ProjectFile project={project} />
       </div>
     </div>
   );
