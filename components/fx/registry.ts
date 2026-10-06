@@ -11,4 +11,5 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "dock-glass": () => import("./effects/dock-glass/renderer") as unknown as ReturnType<Loader>,
   "portal-field": () => import("./effects/portal-field/renderer") as unknown as ReturnType<Loader>,
   "glyph-vortex": () => import("./effects/glyph-vortex/renderer") as unknown as ReturnType<Loader>,
+  "hzy-orb": () => import("./effects/hzy-orb/renderer") as unknown as ReturnType<Loader>,
 };

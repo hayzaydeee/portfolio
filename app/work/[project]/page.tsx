@@ -3,7 +3,6 @@ import type { Metadata } from "next";
 
 import { createPublicClient, createBuildClient } from "@/lib/supabase/server";
 import { ProjectFile } from "@/components/workshop/ProjectFile";
-import { WorkshopTopBar } from "@/components/workshop/WorkshopTopBar";
 import type { Project } from "@/app/actions/projects";
 
 type Props = {
@@ -51,8 +50,7 @@ export default async function ProjectPage({ params }: Props) {
   if (error || !data) notFound();
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <WorkshopTopBar crumbs={[slug]} />
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
 
       {/* Project content */}
       <div className="flex-1 overflow-auto bg-(--workshop-panel)">

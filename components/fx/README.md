@@ -17,6 +17,18 @@ The WebGL / Canvas effect runtime behind the rooms. Effects are adapted from [Th
 | `ui/RoomChrome.tsx` | Root-layout mount that picks the dock for the current room (`lib/rooms.ts` maps URLs to rooms) |
 | `ui/TransitionLink.tsx` | A `Link` whose `onNavigate` sends cross-room clicks through the portal; same-room, modified clicks and reduced motion navigate normally |
 | `ui/PortalHost.tsx`, `lib/fx/portalStore.ts` | The room transition: cover → push → hold until the new room's backdrop paints (capped) → reveal. Back/forward never covers |
+| `ui/RoomLoading.tsx` | Each room's `loading.tsx`: an orb and a decoded line. It holds the portal's reveal while shown, so quick rooms open straight onto content and slow ones onto this; focus moves to the room's `h1` once it gives way |
+
+## UI primitives
+
+Rebuilt from ThreeUI's RectangleButtons, CircleButtons, ArticleHeadings and Brand Orbs (MIT, Meng To). Each takes an optional `room` and otherwise colours itself from the room the URL is in (`ui/usePrimRoom.ts`); the room sets `--prim-*` variables in `app/styles/primitives.css`, so nothing carries a hex value or an inline style. Every hover state also answers `:focus-visible`, and under reduced motion nothing loops or travels.
+
+| Piece | Use |
+|---|---|
+| `ui/Cta.tsx` | `variant`: `slide`, `beam`, `spin`, `trace`, `keycap` (`emphasis="primary"` for the filled key). With `href` it renders a `TransitionLink` for in-site rooms and a plain `<a>` for mail, files and other origins; without, a `<button>`. Decorative layers are `aria-hidden`, so the label is the name, once |
+| `ui/CircleButton.tsx` | `variant`: `glass`, `key`, `trace`. `label` is required (the accessible name); `pressed` sets `aria-pressed` for toggles |
+| `ui/Decode.tsx` | `<Decode as="h2" text=… trigger="visible" />` (`trigger` is `mount` by default, or `visible` to wait until it scrolls into view). An sr-only copy is what assistive tech reads, a hidden copy reserves the final box, and the loop writes into an `aria-hidden` layer. `useDecodeGroup(ref)` staggers every `[data-decode]` inside a container |
+| `ui/HzyOrb.tsx` | The HZY mark as a 2D dot lattice (`effects/hzy-orb`, no WebGL slot). `size`: `sm` 20px, `md` 56px, `lg` 120px; `handle.command("pulse")` sends a ring out from the centre |
 
 ## Adding an effect
 
@@ -38,6 +50,6 @@ npm run build && FX_HARNESS=1 npx next start -p 3100
 FX_BASE=http://localhost:3100 node scripts/fx-verify.mjs
 ```
 
-Effects render at `/fx-harness/<id>?room=<room>` (add `&source=1` for original colours, `&audio=1` for the kick fixture, `&demo=<room>` on the transition effects for a trip button). `/fx-harness/dock?room=<room>&hide=wall,studio` renders one dock with rooms switched off. The harness 404s in production unless `FX_HARNESS=1`.
+Effects render at `/fx-harness/<id>?room=<room>` (add `&source=1` for original colours, `&audio=1` for the kick fixture, `&demo=<room>` on the transition effects for a trip button). `/fx-harness/dock?room=<room>&hide=wall,studio` renders one dock with rooms switched off. `/fx-harness/primitives?room=<room>` lays out every primitive (all rooms without `room`). The harness 404s in production unless `FX_HARNESS=1`.
 
 A backdrop slot (`*.backdrop`) holds the portal's reveal until its first frame, so a room never opens on a blank poster; rooms without one reveal as soon as their route renders.

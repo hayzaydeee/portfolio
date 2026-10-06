@@ -92,6 +92,9 @@ const ROUTES = [
   { name: "dock-glass-source", path: "/fx-harness/dock-glass?room=studio&source=1", maxLive: 1 },
   { name: "portal-field-studio", path: "/fx-harness/portal-field?room=studio", maxLive: 1 },
   { name: "glyph-vortex-studio", path: "/fx-harness/glyph-vortex?room=studio", maxLive: 1 },
+  { name: "hzy-orb-lobby", path: "/fx-harness/hzy-orb?room=lobby", maxLive: 0, canvas2d: true },
+  { name: "hzy-orb-notebook", path: "/fx-harness/hzy-orb?room=notebook", maxLive: 0, canvas2d: true },
+  { name: "hzy-orb-source", path: "/fx-harness/hzy-orb?room=lobby&source=1", maxLive: 0, canvas2d: true },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -119,6 +122,7 @@ const PORTAL_LOG = () => {
     const record = (s) => {
       if (el.dataset.portalLive) window.__portal.live = true;
       if (s !== last) window.__portal.log.push(s === "revealing" ? `revealing@${location.pathname}` : s);
+      if (s !== last && s === "revealing") window.__portal.loadingAtReveal = !!document.querySelector("[data-room-loading]");
       if (s !== last && s === "holding") {
         // Snapshot what the cover hides: everything but the host (and the player) should be inert
         const kids = [...document.body.children].filter((k) => k instanceof HTMLElement && !k.matches("[data-portal-state], [data-portal-keep], next-route-announcer, script"));
@@ -249,7 +253,8 @@ for (const route of ROUTES) {
   const fade = await page.evaluate(() => window.__fade);
   check(route.name, "canvases hidden until live, then fade in", fade.preLiveMax < 0.05 && fade.firstLive !== null && fade.firstLive < 0.9, fade);
   const churn = await page.evaluate(() => ({ attempts: window.__fx.attempts(), acquisitions: window.__fx.acquisitions() }));
-  check(route.name, "single creation, no remount churn", churn.attempts === 1 && churn.acquisitions === 1, churn);
+  // 2D effects never take a WebGL lease
+  check(route.name, "single creation, no remount churn", churn.attempts === 1 && churn.acquisitions === (route.canvas2d ? 0 : 1), churn);
 
   const timing = await sampleFrames(page, 4000);
   const gl = await page.evaluate(() => window.__gl());
@@ -519,6 +524,209 @@ for (const route of ROOM_ROUTES) {
   await context.close();
 }
 
+// ── Primitives: names, keyboard parity, reduced motion ──────────────────────────
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/primitives?room=lobby", { waitUntil: "networkidle" });
+  const names = await page.evaluate(() => {
+    const ctas = [...document.querySelectorAll(".cta")].map((el) => ({ tag: el.tagName, name: el.textContent.trim() }));
+    return { ctas };
+  });
+  const byName = async (role, name) => page.getByRole(role, { name, exact: true }).count();
+  const slideOnce = await byName("button", "see the work");
+  const beamOnce = await byName("button", "start here");
+  const mail = await page.getByRole("link", { name: "say hello", exact: true }).evaluate((a) => a.tagName === "A" && a.getAttribute("href").startsWith("mailto:"));
+  const play = await byName("button", "play");
+  const pressed = await page.getByRole("button", { name: "loop on", exact: true }).getAttribute("aria-pressed");
+  const disabled = await page.getByRole("button", { name: "disabled", exact: true }).isDisabled();
+  check("primitives", "each control is named once by its label", slideOnce === 1 && beamOnce === 1 && play === 1, { slideOnce, beamOnce, play });
+  check("primitives", "links are anchors, actions are buttons", mail && names.ctas.filter((c) => c.tag === "A").length === 1, { mail });
+  check("primitives", "toggle and disabled state exposed", pressed === "true" && disabled, { pressed, disabled });
+
+  // Keyboard focus shows the same state hover does (fresh page: programmatic focus is :focus-visible)
+  const lineLeft = () => page.evaluate(() => getComputedStyle(document.querySelector(".cta--trace .cta__line--left")).transform);
+  const beforeFocus = await lineLeft();
+  await page.getByRole("link", { name: "say hello", exact: true }).focus();
+  await page.waitForTimeout(1600);
+  const afterFocus = await lineLeft();
+  await page.getByRole("button", { name: "request a demo", exact: true }).focus();
+  await page.waitForTimeout(500);
+  const spinBeam = await page.evaluate(() => getComputedStyle(document.querySelector(".cta--spin .cta__beam")).opacity);
+  check("primitives", "focus draws the trace edges like hover", beforeFocus !== afterFocus && /^(none|matrix\(1, 0, 0, 1, 0, 0\))$/.test(afterFocus), { beforeFocus, afterFocus });
+  check("primitives", "focus lights the spin beam like hover", spinBeam === "1", { spinBeam });
+  check("primitives", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await page.screenshot({ path: path.join(OUT, "primitives-lobby.png"), fullPage: true });
+  await context.close();
+}
+
+{
+  const { context, page } = await chromePage({ reducedMotion: "reduce" });
+  await page.goto(BASE + "/fx-harness/primitives?room=studio", { waitUntil: "networkidle" });
+  const anim = await page.evaluate(() =>
+    [".cta--beam .cta__beam", ".cta--beam .cta__dots", ".cta--spin .cta__beam", ".cbtn--glass .cbtn__aura"].map(
+      (sel) => getComputedStyle(document.querySelector(sel)).animationName
+    )
+  );
+  check("primitives-reduced", "nothing loops under reduced motion", anim.every((a) => a === "none"), { anim });
+  await context.close();
+}
+
+// ── Decode: scrambles the visible layer only, settles exactly, never shifts layout ─
+const sampleDecode = (page, selector, ms) =>
+  page.evaluate(
+    ([sel, duration]) =>
+      new Promise((resolve) => {
+        const host = document.querySelector(sel);
+        const live = host.querySelector("[data-decode-live]");
+        const sr = host.querySelector(".sr-only");
+        const target = host.dataset.decodeText;
+        const box = () => {
+          const r = host.getBoundingClientRect();
+          return `${r.width.toFixed(1)}x${r.height.toFixed(1)}`;
+        };
+        const firstBox = box();
+        let differed = false;
+        let srAlways = true;
+        let boxSteady = true;
+        const start = performance.now();
+        const step = (now) => {
+          if (live.textContent !== target) differed = true;
+          if (sr.textContent !== target) srAlways = false;
+          if (box() !== firstBox) boxSteady = false;
+          if (now - start < duration) requestAnimationFrame(step);
+          else resolve({ differed, srAlways, boxSteady, settled: live.textContent === target, target });
+        };
+        requestAnimationFrame(step);
+      }),
+    [selector, ms]
+  );
+
+{
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/fx-harness/primitives?room=lobby&decodeDelay=2500", { waitUntil: "load" });
+  const run = await sampleDecode(page, "#decode-lobby", 4500);
+  const heading = await page.getByRole("heading", { name: "the lobby", exact: true }).count();
+  check("decode", "scrambles, then settles on the exact text", run.differed && run.settled, run);
+  check("decode", "assistive copy never scrambles; box never shifts", run.srAlways && run.boxSteady, run);
+  check("decode", "heading is found by role and name", heading === 1, { heading });
+  await context.close();
+}
+
+{
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/fx-harness/primitives", { waitUntil: "networkidle" });
+  const sel = '[data-testid="prim-wall"] p.decode';
+  const untouched = await sampleDecode(page, sel, 600);
+  await page.locator(sel).scrollIntoViewIfNeeded();
+  const scrolled = await sampleDecode(page, sel, 1500);
+  check("decode-visible", "waits offscreen, decodes once scrolled into view", !untouched.differed && scrolled.differed && scrolled.settled, { untouched, scrolled });
+  await context.close();
+}
+
+{
+  const { context, page } = await chromePage({ reducedMotion: "reduce" });
+  await page.goto(BASE + "/fx-harness/primitives?room=lobby&decodeDelay=1500", { waitUntil: "load" });
+  const run = await sampleDecode(page, "#decode-lobby", 3000);
+  check("decode-reduced", "reduced motion shows the final text throughout", !run.differed && run.settled, run);
+  await context.close();
+}
+
+// ── HzyOrb: 2D on the shared ticker, no WebGL, pauses offscreen ───────────────────
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/primitives", { waitUntil: "networkidle" });
+  await page.waitForSelector('[data-testid="prim-lobby"] [data-fx="hzy-orb"][data-fx-state="live"]', { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const orbs = await page.evaluate(() => ({
+    lobbyLive: document.querySelectorAll('[data-testid="prim-lobby"] [data-fx="hzy-orb"][data-fx-state="live"]').length,
+    gl: window.__gl().live,
+  }));
+  const f0 = await stageFrames(page);
+  await page.waitForTimeout(800);
+  const f1 = await stageFrames(page);
+  check("hzy-orb", "three orbs live with no WebGL context", orbs.lobbyLive === 3 && orbs.gl === 0, orbs);
+  check("hzy-orb", "orbs animate", f1 > f0, { f0, f1 });
+
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForTimeout(800);
+  const lobbyIds = await page.evaluate(() => {
+    const s = window.__fx.stats().stages;
+    return s.filter((x) => !x.active).map((x) => x.id);
+  });
+  const frozenA = await page.evaluate((ids) => window.__fx.stats().stages.filter((x) => ids.includes(x.id)).reduce((n, x) => n + x.frames, 0), lobbyIds);
+  await page.waitForTimeout(800);
+  const frozenB = await page.evaluate((ids) => window.__fx.stats().stages.filter((x) => ids.includes(x.id)).reduce((n, x) => n + x.frames, 0), lobbyIds);
+  check("hzy-orb", "offscreen orbs stop drawing", lobbyIds.length >= 3 && frozenA === frozenB, { offscreen: lobbyIds.length, frozenA, frozenB });
+  check("hzy-orb", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+// ── Workshop: the IDE bar lives in the layout, crumbs follow the URL, field persists ─
+{
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work/no-such-project", { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  const deep = await page.evaluate(() => ({
+    docks: document.querySelectorAll(".dock-retro").length,
+    crumbs: [...document.querySelectorAll(".dock-retro-crumb")].map((c) => c.textContent),
+    acquisitions: window.__fx.acquisitions(),
+  }));
+  await page.click(".dock-retro-path a");
+  await page.waitForFunction(() => location.pathname === "/work", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  const top = await page.evaluate(() => ({
+    docks: document.querySelectorAll(".dock-retro").length,
+    crumbs: document.querySelectorAll(".dock-retro-crumb").length,
+    acquisitions: window.__fx.acquisitions(),
+    field: document.querySelector(".dock-retro [data-fx]")?.dataset.fxState,
+  }));
+  check("workshop-bar", "one bar with crumbs from the URL", deep.docks === 1 && deep.crumbs.join() === "/no-such-project" && top.docks === 1 && top.crumbs === 0, { deep, top });
+  check("workshop-bar", "dock field survives moving between workshop pages", top.acquisitions === deep.acquisitions && top.field === "live", { deep, top });
+  await context.close();
+}
+
+// ── Room loading: slow content reveals onto the loading state, then focus follows ─
+{
+  const { context, page, errors } = await chromePage();
+  // Hold the /work navigation's RSC payload (not its prefetches) so the loading boundary shows
+  await page.route(/\/work(\?|$)/, async (route) => {
+    const h = route.request().headers();
+    const navigation = h.rsc === "1" && !h["next-router-prefetch"] && !h["next-router-segment-prefetch"];
+    if (navigation) await new Promise((r) => setTimeout(r, 3500));
+    await route.continue();
+  });
+  await page.goto(BASE + "/colophon", { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+  await page.evaluate(() => {
+    const el = document.querySelector("[data-portal-state]");
+    const mo = new MutationObserver(() => {
+      if (el.dataset.portalState !== "revealing") return;
+      mo.disconnect();
+      window.__loadingAtReveal = document.querySelector("[data-room-loading]")?.dataset.roomLoading ?? null;
+    });
+    mo.observe(el, { attributes: true, attributeFilter: ["data-portal-state"] });
+  });
+  await page.click('.dock a[href="/work"]');
+  const idle = await portalIdleAt(page, "/work", 8000);
+  const during = await page.evaluate(() => ({
+    atReveal: window.__loadingAtReveal,
+    loading: !!document.querySelector("[data-room-loading]"),
+    status: document.querySelector("[data-room-loading]")?.getAttribute("role"),
+    orb: document.querySelector("[data-room-loading] [data-fx]")?.dataset.fxState ?? null,
+  }));
+  await page.screenshot({ path: path.join(OUT, "room-loading-workshop.png") });
+  await page.waitForFunction(() => !document.querySelector("[data-room-loading]"), null, { timeout: 10000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  const after = await page.evaluate(() => ({
+    focused: document.activeElement?.tagName === "H1" ? document.activeElement.textContent : document.activeElement?.tagName,
+  }));
+  check("room-loading", "slow room reveals onto its loading state", idle && during.atReveal === "workshop" && during.loading && during.status === "status", during);
+  check("room-loading", "loading orb draws while it waits", during.orb === "live", during);
+  check("room-loading", "heading takes focus once the content lands", after.focused === "workshop", after);
+  check("room-loading", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
 // ── Portal: one trip walks every state, pushes once, focuses the new room ────────
 {
   const { context, page, errors } = await chromePage();
@@ -540,12 +748,13 @@ for (const route of ROOM_ROUTES) {
   check("portal", "arrives at /work and returns to idle", arrived, { ms });
   check("portal", "walks covering > holding > revealing > idle", /covering>holding>revealing@\/work>idle$/.test(walk), { walk });
   check("portal", "page is inert under the cover and focus sits in the portal", portal.holding?.allInert && portal.holding?.focusInHost, portal.holding);
-  check("portal", "incoming route is inert before it paints, focus never strays", portal.added.length > 0 && portal.added.every(Boolean) && portal.strayFocus === 0, { added: portal.added, strayFocus: portal.strayFocus });
+  check("portal", "incoming route is inert before it paints, focus never strays", portal.added.every(Boolean) && portal.strayFocus === 0, { added: portal.added, strayFocus: portal.strayFocus });
   const inertAfter = await page.evaluate(() => [...document.body.children].some((k) => k.inert));
   check("portal", "nothing left inert after the trip", !inertAfter);
   check("portal", "effect went live during the trip", portal.live, portal);
   check("portal", "exactly one history push", portal.pushes === 1, { pushes: portal.pushes });
   check("portal", "new room's heading takes focus", portal.focused === "workshop", { focused: portal.focused });
+  check("portal", "a quick room reveals straight onto its content", portal.loadingAtReveal === false, { loadingAtReveal: portal.loadingAtReveal });
   check("portal", "no page errors", errors.length === 0, errors.slice(0, 3));
 
   const before = portal.log.length;

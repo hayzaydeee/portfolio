@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { WorkshopTopBar } from "@/components/workshop/WorkshopTopBar";
 
 export const metadata: Metadata = {
   title: "Workshop — hayzaydee",
@@ -10,12 +11,12 @@ export default function WorkshopLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // No global Nav/Footer — the Workshop is a self-contained IDE environment
+  // A self-contained IDE: the title bar (which is the dock) stays put while pages and
+  // their loading states swap underneath it
   return (
-    <div
-      className="min-h-screen flex flex-col bg-(--workshop-base) text-(--workshop-text)"
-    >
-      {children}
+    <div className="flex h-screen flex-col overflow-hidden bg-(--workshop-base) text-(--workshop-text)">
+      <WorkshopTopBar />
+      <div className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</div>
     </div>
   );
 }

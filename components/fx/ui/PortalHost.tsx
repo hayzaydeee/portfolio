@@ -38,6 +38,33 @@ const ROOM_NAME: Record<RoomKey, string> = {
 /** Body children that must stay usable under the cover: the host itself, the player, Next's route announcer */
 const KEEP = "[data-portal-state], [data-portal-keep], next-route-announcer, script";
 
+/** Longest we wait for a room's loading state to give way before dropping the focus move */
+const LOADING_WAIT_MS = 10000;
+
+/**
+ * Runs `fn` once no room loading state is on the page: straight away, or when the streamed
+ * content replaces it. Returns a cancel (the next trip makes the wait moot).
+ */
+function whenRoomLoaded(fn: () => void): () => void {
+  const loading = () => document.querySelector("[data-room-loading]") !== null;
+  if (!loading()) {
+    fn();
+    return () => {};
+  }
+  const observer = new MutationObserver(() => {
+    if (loading()) return;
+    stop();
+    fn();
+  });
+  const timer = window.setTimeout(() => stop(), LOADING_WAIT_MS);
+  const stop = () => {
+    observer.disconnect();
+    window.clearTimeout(timer);
+  };
+  observer.observe(document.body, { childList: true, subtree: true });
+  return stop;
+}
+
 const EFFECT_PHASE: Record<Exclude<PortalPhase, "idle">, PortalPhaseCommand["name"]> = {
   covering: "cover",
   holding: "hold",
@@ -109,17 +136,19 @@ export function PortalHost() {
   }, [active]);
 
   // Focus leaves the page with the cover, then lands on the new room's heading. The inert
-  // pass is a layout effect, so on the idle commit it has been lifted before this runs.
+  // pass is a layout effect, so on the idle commit it has been lifted before this runs. If the
+  // reveal landed on the room's loading state, the heading arrives with the content, so wait.
   const prevPhase = useRef(state.phase);
   useEffect(() => {
     const from = prevPhase.current;
     prevPhase.current = state.phase;
     if (state.phase === "covering") statusRef.current?.focus({ preventScroll: true });
     if (state.phase !== "idle" || from !== "revealing") return;
-    focusArrival();
+    const stopWaiting = whenRoomLoaded(focusArrival);
     const next = takeQueued();
     if (next && crossesRooms(window.location.pathname, next)) portalGo(next, router);
     else if (next) router.push(next);
+    return stopWaiting;
   }, [state.phase, state.trip, router]);
 
   useEffect(() => {
