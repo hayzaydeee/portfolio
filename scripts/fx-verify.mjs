@@ -220,6 +220,34 @@ const setHidden = (page, hidden) =>
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
 
+// A navigation that times out names the requests the page was still waiting on
+{
+  const probe = await browser.newPage();
+  const proto = Object.getPrototypeOf(probe);
+  await probe.close();
+  const goto = proto.goto;
+  proto.goto = async function (url, opts) {
+    const pending = new Map();
+    const start = Date.now();
+    const add = (r) => pending.set(r, Date.now() - start);
+    const done = (r) => pending.delete(r);
+    this.on("request", add);
+    this.on("requestfinished", done);
+    this.on("requestfailed", done);
+    try {
+      return await goto.call(this, url, opts);
+    } catch (e) {
+      const list = [...pending].map(([r, at]) => `${r.method()} ${r.url()} (sent +${at}ms)`);
+      e.message += `\nstill pending: ${JSON.stringify(list, null, 2)}`;
+      throw e;
+    } finally {
+      this.off("request", add);
+      this.off("requestfinished", done);
+      this.off("requestfailed", done);
+    }
+  };
+}
+
 // ── HZY reveal easing: one shared curve, continuous, and the bloom's inverse matches it ──
 {
   const mod = await import(new URL("../components/nav/hzyMarkPath.ts", import.meta.url).href).catch(() => ({}));
