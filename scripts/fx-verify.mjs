@@ -220,6 +220,20 @@ const setHidden = (page, hidden) =>
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
 
+// Google Fonts is the suite's only third-party fetch. Through the sandbox proxy it can take 25s,
+// holding networkidle and stalling frames while it lands, so every context fails it fast and
+// renders in the fallback stack (no check depends on the face itself). Patched on the
+// prototype, so the strict-autoplay browser and browser.newPage get it too.
+{
+  const proto = Object.getPrototypeOf(browser);
+  const newContext = proto.newContext;
+  proto.newContext = async function (opts) {
+    const context = await newContext.call(this, opts);
+    await context.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort("blockedbyclient"));
+    return context;
+  };
+}
+
 // A navigation that times out names the requests the page was still waiting on, and is tried
 // once more: a paused sandbox VM stalls whichever load is in flight, server and page alike idle
 {
