@@ -3,8 +3,11 @@ import { bellFieldMeta } from "./effects/bell-field/meta";
 import { dockGlassMeta } from "./effects/dock-glass/meta";
 import { dockRetroMeta } from "./effects/dock-retro/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
+import { generativeTreeMeta } from "./effects/generative-tree/meta";
+import { glyphBallMeta } from "./effects/glyph-ball/meta";
 import { glyphVortexMeta } from "./effects/glyph-vortex/meta";
 import { hzyOrbMeta } from "./effects/hzy-orb/meta";
+import { outlineTypeflowMeta } from "./effects/outline-typeflow/meta";
 import { portalFieldMeta } from "./effects/portal-field/meta";
 
 /**
@@ -19,6 +22,9 @@ export const FX_METAS = {
   "portal-field": portalFieldMeta,
   "glyph-vortex": glyphVortexMeta,
   "hzy-orb": hzyOrbMeta,
+  "glyph-ball": glyphBallMeta,
+  "generative-tree": generativeTreeMeta,
+  "outline-typeflow": outlineTypeflowMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

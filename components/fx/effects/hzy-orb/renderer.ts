@@ -26,14 +26,14 @@ const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const luma = ([r, g, b]: RGB) => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
 /** Lattice points inside the mark, normalised to [-1, 1] on the mark's own bounding box */
-function sampleMark(n: number): [number, number][] {
+function sampleMark(n: number, path: string, viewBox: number): [number, number][] {
   const c = document.createElement("canvas");
   c.width = c.height = RASTER;
   const g = c.getContext("2d", { willReadFrequently: true });
   if (!g) return [];
-  g.setTransform(RASTER / HZY_MARK_VIEWBOX, 0, 0, RASTER / HZY_MARK_VIEWBOX, 0, 0);
+  g.setTransform(RASTER / viewBox, 0, 0, RASTER / viewBox, 0, 0);
   g.fillStyle = "#fff";
-  g.fill(new Path2D(HZY_MARK_PATH));
+  g.fill(new Path2D(path));
   const img = g.getImageData(0, 0, RASTER, RASTER).data;
   const on = (i: number, j: number) => img[(j * RASTER + i) * 4 + 3] > 128;
 
@@ -104,7 +104,7 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
     const n = cells();
     let pts = lattice.get(n);
     if (!pts) {
-      pts = sampleMark(n);
+      pts = opts.path ? sampleMark(n, opts.path, opts.viewBox || 24) : sampleMark(n, HZY_MARK_PATH, HZY_MARK_VIEWBOX);
       lattice.set(n, pts);
     }
     return pts;
@@ -203,7 +203,9 @@ export function create(ctx: FxContext, initial: HzyOrbOptions): FxInstance<HzyOr
 
     update(next) {
       const recolour = next.sourcePalette !== undefined && next.sourcePalette !== opts.sourcePalette;
+      const reshape = (next.path !== undefined && next.path !== opts.path) || (next.viewBox !== undefined && next.viewBox !== opts.viewBox);
       opts = { ...opts, ...next };
+      if (reshape) lattice.clear();
       if (recolour) buildRamp();
       if (still) draw();
     },

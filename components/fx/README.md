@@ -29,6 +29,19 @@ Rebuilt from ThreeUI's RectangleButtons, CircleButtons, ArticleHeadings and Bran
 | `ui/CircleButton.tsx` | `variant`: `glass`, `key`, `trace`. `label` is required (the accessible name); `pressed` sets `aria-pressed` for toggles |
 | `ui/Decode.tsx` | `<Decode as="h2" text=… trigger="visible" />` (`trigger` is `mount` by default, or `visible` to wait until it scrolls into view). An sr-only copy is what assistive tech reads, a hidden copy reserves the final box, and the loop writes into an `aria-hidden` layer. `useDecodeGroup(ref)` staggers every `[data-decode]` inside a container |
 | `ui/HzyOrb.tsx` | The HZY mark as a 2D dot lattice (`effects/hzy-orb`, no WebGL slot). `size`: `sm` 20px, `md` 56px, `lg` 120px; `handle.command("pulse")` sends a ring out from the centre |
+| `ui/IconOrb.tsx` | Any simple-icons glyph as an hzy-orb lattice: the flat icon is the poster, and its own path data (read from the DOM) is what the orb samples (`path` / `viewBox` options) |
+
+## Lobby effects
+
+All 2D, so none of them takes a WebGL slot; the lobby's only context is its horizon.
+
+| Effect | Source | On the site |
+|---|---|---|
+| `glyph-ball` | Text Path Studies, "Ball" | About: a sphere spun from the bio's letters. A click knocks the facing letters loose; they grow back in the glow (`data-loose` counts them) |
+| `generative-tree` | Generative Tree | Seedling: grown from a seed up front with the original's rules, each branch scheduled, so `command("progress", 0..1)` grows it either way with the scroll or the sequence. `command("anchors", { targets, onFrame })` reports tip positions every frame for DOM labels. Left alone it grows, holds and regrows |
+| `outline-typeflow` | Text Path Studies II, "Outline Typeflow" | Footer emblem: a phrase running the HZY outline; the pointer lights the type under it, a click shoves it outward |
+
+The lobby sections share one progress source (`components/lobby/sectionProgress.ts`): scroll in the resting page, a timed 0 to 1 per slide in the sequence. Each section poses the horizon (`components/lobby/poses.ts`), and `data-gesture-capture="x"` (or `"all"`) on an element keeps the sequence's wheel, swipe and arrow handling off the gestures it needs.
 
 ## Adding an effect
 

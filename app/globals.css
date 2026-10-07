@@ -1,6 +1,7 @@
 @import "tailwindcss";
 @import "./styles/dock.css";
 @import "./styles/primitives.css";
+@import "./styles/lobby.css";
 
 /* ── Design tokens ─────────────────────────────────────────────────── */
 @theme inline {
@@ -275,8 +276,9 @@ body {
 /* ── Lobby ──────────────────────────────────────────────────────────── */
 @layer components {
   /* The splash and the sequence fill the screen over a transparent background so the lobby
-     horizon shows through; the in-flow footer would show through with it, so it steps out */
+     horizon shows through; the in-flow footer would show through with it, so it steps out.
+     display (not visibility) so its emblem's stage stops intersecting and stops drawing */
   html:has([data-lobby-phase="splash"], [data-lobby-phase="sequence"]) [data-site-footer] {
-    visibility: hidden;
+    display: none;
   }
 }

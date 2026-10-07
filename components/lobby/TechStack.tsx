@@ -1,9 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { motion, useScroll, useTransform } from "motion/react";
-import { cn } from "@/lib/utils";
-import { SectionHeading } from "./SectionHeading";
+import { motion, useMotionValueEvent, useTransform, type MotionValue } from "motion/react";
 import {
   SiJavascript,
   SiTypescript,
@@ -14,208 +12,133 @@ import {
   SiPython,
   SiKotlin,
 } from "@icons-pack/react-simple-icons";
+import type { FxHandle } from "@/components/fx/FxStage";
+import { IconOrb } from "@/components/fx/ui/IconOrb";
+import { SectionHeading } from "./SectionHeading";
+import { useSectionProgress, type LobbyMode } from "./sectionProgress";
 
-const ICON_SIZE = 20;
-
-const WORDS: Array<{
+type Item = {
   word: string;
-  Icon?: React.ComponentType<{ size: number; className?: string }>;
+  Icon?: React.ComponentType<{ size?: number; className?: string; title?: string }>;
+  /** Plain words dim once the icons resolve, unless kept */
   keep?: boolean;
-}> = [
-  { word: "I", keep: false },
-  { word: "work", keep: false },
-  { word: "primarily", keep: false },
-  { word: "in", keep: false },
+};
+
+const WORDS: Item[] = [
+  { word: "I" },
+  { word: "work" },
+  { word: "primarily" },
+  { word: "in" },
   { word: "JavaScript", Icon: SiJavascript },
-  { word: "—", keep: false },
+  { word: "·" },
   { word: "React,", Icon: SiReact },
   { word: "Node,", Icon: SiNodedotjs },
   { word: "Express,", Icon: SiExpress },
   { word: "MongoDB", Icon: SiMongodb },
-  { word: "—", keep: false },
-  { word: "with", keep: false },
-  { word: "experience", keep: false },
-  { word: "in", keep: false },
+  { word: "·" },
+  { word: "with" },
+  { word: "experience" },
+  { word: "in" },
   { word: "Kotlin,", Icon: SiKotlin },
   { word: "C++,", keep: true },
   { word: "TypeScript,", Icon: SiTypescript },
-  { word: "and", keep: false },
+  { word: "and" },
   { word: "Python.", Icon: SiPython },
 ];
 
-/* ── Scroll-driven word ───────────────────────────────────────────── */
+/** Progress marks: words arrive by 0.42 (each over 0.08, so the last lands before 0.5), then the icon words turn into orbs */
+const ARRIVE_END = 0.42;
+const MORPH = [0.55, 0.75] as const;
 
-function Word({
-  item,
-  index,
-  total,
-  progress,
-}: {
-  item: (typeof WORDS)[number];
-  index: number;
-  total: number;
-  progress: ReturnType<typeof useScroll>["scrollYProgress"];
-}) {
-  const hasIcon = !!item.Icon;
-  const fadeOut = !hasIcon && item.keep !== true;
+function Word({ item, index, progress, orb }: { item: Item; index: number; progress: MotionValue<number>; orb: (el: FxHandle | null) => void }) {
+  const appearStart = (index / WORDS.length) * ARRIVE_END;
+  const opacity = useTransform(progress, [appearStart, appearStart + 0.08, 0.5, 0.8], [0, 1, 1, item.Icon || item.keep ? 1 : 0.3]);
+  const y = useTransform(progress, [appearStart, appearStart + 0.08], [8, 0]);
 
-  // Phase 1 (0–0.5): all words appear in sequence
-  const appearStart = (index / total) * 0.5;
-  const appearEnd = appearStart + 0.08;
-  const wordOpacity = useTransform(progress, [appearStart, appearEnd], [0, 1]);
-  const wordY = useTransform(progress, [appearStart, appearEnd], [6, 0]);
+  // The word blurs away as its orb gathers out of the same spot
+  const textOpacity = useTransform(progress, [MORPH[0], MORPH[1] - 0.05], [1, 0]);
+  const textBlur = useTransform(progress, [MORPH[0], MORPH[1]], ["blur(0px)", "blur(6px)"]);
+  const orbOpacity = useTransform(progress, [MORPH[0] + 0.03, MORPH[1]], [0, 1]);
+  const orbScale = useTransform(progress, [MORPH[0], MORPH[1]], [0.4, 1]);
 
-  // Phase 2 (0.5–0.8): non-icon words fade, icons resolve
-  const settleOpacity = useTransform(
-    progress,
-    [0.5, 0.8],
-    [1, fadeOut ? 0.3 : 1]
-  );
-
-  // Combine: word appears then optionally fades
-  const combinedOpacity = useTransform(
-    () => wordOpacity.get() * settleOpacity.get()
-  );
-
-  // Icon visibility tied to settle phase
-  const iconOpacity = useTransform(progress, [0.55, 0.75], [0, 1]);
-  const textOpacity = useTransform(iconOpacity, (v) => 1 - v);
+  if (!item.Icon) {
+    return (
+      <motion.span className="inline-block" style={{ opacity, y }}>
+        {item.word}
+      </motion.span>
+    );
+  }
 
   return (
-    <motion.span
-      className="inline-flex items-center gap-1"
-      style={{ opacity: combinedOpacity, y: wordY }}
-    >
-      {hasIcon && item.Icon ? (
-        <>
-          {/* Text form visible pre-settle */}
-          <motion.span
-            className="text-base font-sans text-(--lobby-text)"
-            style={{ opacity: textOpacity }}
-          >
-            {item.word}
-          </motion.span>
-          {/* Icon form visible post-settle */}
-          <motion.span style={{ opacity: iconOpacity, position: "absolute" }}>
-            <item.Icon size={ICON_SIZE} className="text-(--lobby-text)" />
-          </motion.span>
-        </>
-      ) : (
-        <span
-          className={cn(
-            "text-base font-sans text-(--lobby-text)"
-          )}
-        >
-          {item.word}
-        </span>
-      )}
+    <motion.span className="relative inline-grid place-items-center" style={{ opacity, y }} data-tech-word={item.word}>
+      <motion.span style={{ opacity: textOpacity, filter: textBlur }}>{item.word}</motion.span>
+      <motion.span
+        className="absolute top-1/2 left-1/2 -translate-1/2"
+        style={{ opacity: orbOpacity, scale: orbScale }}
+      >
+        <IconOrb Icon={item.Icon} room="lobby" className="size-14 md:size-16" handle={orb} />
+      </motion.span>
     </motion.span>
   );
 }
 
-/* ── Timed sequence word ──────────────────────────────────────────── */
-
-function SequenceWord({
-  item,
-  index,
-  total,
-}: {
-  item: (typeof WORDS)[number];
-  index: number;
-  total: number;
-}) {
-  const hasIcon = !!item.Icon;
-  const fadeOut = !hasIcon && item.keep !== true;
-
-  return (
-    <motion.span
-      className="inline-flex items-center gap-1 relative"
-      initial={{ opacity: 0, y: 6 }}
-      animate={{
-        opacity: fadeOut ? [0, 1, 0.3] : 1,
-        y: 0,
-      }}
-      transition={{
-        delay: (index / total) * 2,
-        duration: 0.4,
-      }}
-    >
-      {hasIcon && item.Icon ? (
-        <>
-          <motion.span
-            className="text-base font-sans text-(--lobby-text)"
-            initial={{ opacity: 1 }}
-            animate={{ opacity: 0 }}
-            transition={{ delay: 2.5, duration: 0.3 }}
-          >
-            {item.word}
-          </motion.span>
-          <motion.span
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 2.5, duration: 0.3 }}
-            style={{ position: "absolute" }}
-          >
-            <item.Icon size={ICON_SIZE} className="text-(--lobby-text)" />
-          </motion.span>
-        </>
-      ) : (
-        <span className="text-base font-sans text-(--lobby-text)">
-          {item.word}
-        </span>
-      )}
-    </motion.span>
-  );
-}
-
-/* ── TechStack ────────────────────────────────────────────────────── */
-
-export function TechStack({ mode = "resting" }: { mode?: "sequence" | "resting" }) {
+export function TechStack({ mode = "resting" }: { mode?: LobbyMode }) {
   const isSequence = mode === "sequence";
-  const containerRef = useRef<HTMLDivElement>(null);
-  const { scrollYProgress } = useScroll({
-    target: isSequence ? undefined : containerRef,
-    offset: ["start 0.8", "end 0.2"],
+  const containerRef = useRef<HTMLElement>(null);
+  const progress = useSectionProgress(mode, containerRef, {
+    offset: ["start start", "end end"],
+    duration: 3.6,
+    ease: "linear",
   });
+
+  // Each orb lets off a ring of light as the morph lands, left to right
+  const orbs = useRef<(FxHandle | null)[]>([]);
+  const landed = useRef(false);
+  useMotionValueEvent(progress, "change", (v) => {
+    const now = v >= MORPH[1];
+    if (now && !landed.current) {
+      orbs.current.forEach((orb, i) => {
+        if (orb) setTimeout(() => orb.command("pulse"), i * 90);
+      });
+    }
+    landed.current = now;
+  });
+
+  const sentence = (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-6 font-sans text-2xl leading-tight text-(--lobby-text) md:gap-x-4 md:text-4xl">
+      {WORDS.map((item, i) => (
+        <Word
+          key={`${item.word}-${i}`}
+          item={item}
+          index={i}
+          progress={progress}
+          orb={(el) => {
+            orbs.current[i] = el;
+          }}
+        />
+      ))}
+    </p>
+  );
 
   if (isSequence) {
     return (
-      <section className="min-h-screen flex items-center justify-center bg-(--lobby-surface) px-6">
-        <div className="max-w-5xl mx-auto w-full">
+      <section ref={containerRef} className="flex min-h-screen items-center justify-center px-6">
+        <div className="mx-auto w-full max-w-5xl">
           <SectionHeading>TECH STACK</SectionHeading>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
-            {WORDS.map((item, i) => (
-              <SequenceWord
-                key={`${item.word}-${i}`}
-                item={item}
-                index={i}
-                total={WORDS.length}
-              />
-            ))}
-          </div>
+          {sentence}
         </div>
       </section>
     );
   }
 
   return (
-    <div ref={containerRef} className="min-h-[60vh]">
-      <section className="sticky top-0 bg-(--lobby-surface) py-20 px-6 flex items-center min-h-[50vh]">
-        <div className="max-w-5xl mx-auto w-full">
+    <section ref={containerRef} className="relative h-[180vh]">
+      <div className="sticky top-0 flex h-screen items-center px-6">
+        <div className="mx-auto w-full max-w-5xl">
           <SectionHeading>TECH STACK</SectionHeading>
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-3">
-            {WORDS.map((item, i) => (
-              <Word
-                key={`${item.word}-${i}`}
-                item={item}
-                index={i}
-                total={WORDS.length}
-                progress={scrollYProgress}
-              />
-            ))}
-          </div>
+          {sentence}
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
   );
 }

@@ -13,7 +13,7 @@ export function TourNudge({ onStart, onDecline, mode = "resting" }: TourNudgePro
 
   return (
     <motion.section
-      className={`bg-(--lobby-surface) px-6 text-center ${
+      className={`px-6 text-center ${
         isSequence ? "min-h-screen flex flex-col items-center justify-center" : "py-16"
       }`}
       initial={{ opacity: 0 }}
@@ -28,7 +28,7 @@ export function TourNudge({ onStart, onDecline, mode = "resting" }: TourNudgePro
       <p className="text-sm font-sans text-text-muted mb-4">
         want to see the whole place?
       </p>
-      <div className="flex items-center gap-6">
+      <div className="flex items-center justify-center gap-6">
         <button
           type="button"
           onClick={onStart}

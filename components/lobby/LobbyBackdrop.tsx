@@ -40,6 +40,9 @@ export function LobbyBackdropProvider({ initialRise, phase, children }: Props) {
   const options = useMemo(() => ({ rise }), [rise]);
   // Under the opaque splash the horizon draws its first frame, then holds until it rises
   const [covered, setCovered] = useState(initialRise === 0);
+  // Tint and pose mirrored for tests, like rise
+  const [tint, setTint] = useState<string>("home");
+  const [lift, setLift] = useState(0);
 
   const command = useCallback((name: string, arg?: unknown) => {
     if (name === "rise") {
@@ -47,6 +50,8 @@ export function LobbyBackdropProvider({ initialRise, phase, children }: Props) {
       setCovered(false);
       return;
     }
+    if (name === "tint") setTint((arg as string | null) ?? "home");
+    if (name === "slide") setLift((arg as { lift?: number } | undefined)?.lift ?? 0);
     handle.current?.command(name, arg);
   }, []);
 
@@ -65,6 +70,8 @@ export function LobbyBackdropProvider({ initialRise, phase, children }: Props) {
         data-lobby-backdrop=""
         data-lobby-phase={phase}
         data-rise={rise}
+        data-tint={tint}
+        data-lift={lift}
       >
         <FxStage
           slot="lobby.backdrop"

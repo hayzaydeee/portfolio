@@ -1,128 +1,10 @@
 "use client";
 
-import { useRef, useState } from "react";
-import Link from "next/link";
-import { motion, useScroll, useTransform, AnimatePresence } from "motion/react";
-import { ExternalLink, GitBranch } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { motion } from "motion/react";
 import { SectionHeading } from "./SectionHeading";
+import { ProjectWave } from "./ProjectWave";
 import type { FeaturedProject } from "@/lib/data/projects";
-
-interface ProjectCardsProps {
-  projects: FeaturedProject[];
-}
-
-interface CardProps {
-  project: FeaturedProject;
-  isActive: boolean;
-  isPassive: boolean;
-  onHover: () => void;
-  onLeave: () => void;
-}
-
-function ProjectCard({ project, isActive, isPassive, onHover, onLeave }: CardProps) {
-  return (
-    <motion.div
-      layout
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      animate={{
-        scale: isPassive ? 0.95 : 1,
-        opacity: isPassive ? 0.7 : 1,
-      }}
-      transition={{ duration: 0.2, ease: "easeInOut" }}
-      className={cn(
-        "relative rounded-xl border border-white/10 bg-(--lobby-card) overflow-hidden shrink-0 cursor-pointer",
-        "transition-shadow hover:shadow-md",
-        isActive ? "w-85 md:w-105" : "w-55 md:w-65"
-      )}
-      style={{ minHeight: 240 }}
-    >
-      {/* Thumbnail / placeholder */}
-      <div className="h-32 bg-(--lobby-surface-deep) flex items-center justify-center">
-        {project.thumbnail_url ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={project.thumbnail_url}
-            alt={project.title}
-            className="h-full w-full object-cover"
-          />
-        ) : (
-          <span className="text-xs font-mono text-text-muted">{project.slug}</span>
-        )}
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="text-sm font-sans font-medium text-(--lobby-text)">
-            {project.title}
-          </h3>
-          <div className="flex items-center gap-2 shrink-0">
-            {project.live_url && (
-              <a
-                href={project.live_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${project.title} live site`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <ExternalLink size={13} className="text-text-muted hover:text-accent" />
-              </a>
-            )}
-            {project.repo_url && (
-              <a
-                href={project.repo_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label={`${project.title} repository`}
-                onClick={(e) => e.stopPropagation()}
-              >
-                <GitBranch size={13} className="text-text-muted hover:text-accent" />
-              </a>
-            )}
-          </div>
-        </div>
-
-        {project.tagline && (
-          <p className="text-xs text-text-muted mt-1 line-clamp-2">
-            {project.tagline}
-          </p>
-        )}
-
-        {/* Expanded content */}
-        <AnimatePresence>
-          {isActive && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: "auto" }}
-              exit={{ opacity: 0, height: 0 }}
-              transition={{ duration: 0.2 }}
-              className="overflow-hidden"
-            >
-              {project.personal_note && (
-                <p className="mt-3 text-xs text-(--lobby-text) leading-relaxed border-t border-white/5 pt-3">
-                  {project.personal_note}
-                </p>
-              )}
-              {project.stack.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  {project.stack.map((s) => (
-                    <span
-                      key={s}
-                      className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-(--lobby-surface-deep) text-text-muted"
-                    >
-                      {s}
-                    </span>
-                  ))}
-                </div>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-    </motion.div>
-  );
-}
+import type { LobbyMode } from "./sectionProgress";
 
 const PLACEHOLDER_PROJECTS: FeaturedProject[] = [
   {
@@ -168,81 +50,24 @@ const PLACEHOLDER_PROJECTS: FeaturedProject[] = [
 
 interface ProjectCardsProps {
   projects: FeaturedProject[];
-  mode?: "sequence" | "resting";
+  mode?: LobbyMode;
 }
 
 export function ProjectCards({ projects, mode = "resting" }: ProjectCardsProps) {
   const isSequence = mode === "sequence";
-  const [activeId, setActiveId] = useState<string | null>(null);
   const displayProjects = projects.length > 0 ? projects : PLACEHOLDER_PROJECTS;
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  const { scrollYProgress } = useScroll({
-    target: isSequence ? undefined : containerRef,
-    offset: ["start start", "end end"],
-  });
-
-  const x = useTransform(scrollYProgress, [0, 1], ["0%", "-60%"]);
-
-  if (isSequence) {
-    return (
-      <section className="min-h-screen flex items-center justify-center bg-(--lobby-surface-deep) px-6">
-        <div className="max-w-[100vw] w-full px-6">
-          <SectionHeading>PROJECTS</SectionHeading>
-          <div className="flex items-stretch gap-4 justify-center flex-wrap md:flex-nowrap">
-            {displayProjects.map((project, i) => (
-              <motion.div
-                key={project.id}
-                initial={{ opacity: 0, x: 40 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ delay: i * 0.15, duration: 0.4, ease: "easeOut" }}
-              >
-                <ProjectCard
-                  project={project}
-                  isActive={activeId === project.id}
-                  isPassive={activeId !== null && activeId !== project.id}
-                  onHover={() => setActiveId(project.id)}
-                  onLeave={() => setActiveId(null)}
-                />
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-    );
-  }
 
   return (
-    <div ref={containerRef} className="h-[250vh] relative">
-      <div className="sticky top-0 h-screen flex flex-col items-center justify-center overflow-hidden bg-(--lobby-surface-deep)">
+    <section className={`px-6 ${isSequence ? "flex min-h-screen items-center justify-center" : "py-20"}`}>
+      <motion.div
+        className="mx-auto w-full max-w-6xl"
+        initial={{ opacity: 0, x: isSequence ? 40 : 0 }}
+        animate={{ opacity: 1, x: 0 }}
+        transition={{ duration: 0.5, ease: "easeOut" }}
+      >
         <SectionHeading>PROJECTS</SectionHeading>
-        <div className="max-w-[100vw] w-full px-6">
-          <motion.div
-            className="flex items-stretch gap-4"
-            style={{ x }}
-          >
-            {displayProjects.map((project) => (
-              <ProjectCard
-                key={project.id}
-                project={project}
-                isActive={activeId === project.id}
-                isPassive={activeId !== null && activeId !== project.id}
-                onHover={() => setActiveId(project.id)}
-                onLeave={() => setActiveId(null)}
-              />
-            ))}
-
-            <div className="flex items-center pl-2 shrink-0">
-              <Link
-                href="/work"
-                className="text-sm font-sans text-accent-muted hover:text-accent transition-colors whitespace-nowrap"
-              >
-                see more in the workshop →
-              </Link>
-            </div>
-          </motion.div>
-        </div>
-      </div>
-    </div>
+        <ProjectWave projects={displayProjects} />
+      </motion.div>
+    </section>
   );
 }

@@ -12,4 +12,7 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "portal-field": () => import("./effects/portal-field/renderer") as unknown as ReturnType<Loader>,
   "glyph-vortex": () => import("./effects/glyph-vortex/renderer") as unknown as ReturnType<Loader>,
   "hzy-orb": () => import("./effects/hzy-orb/renderer") as unknown as ReturnType<Loader>,
+  "glyph-ball": () => import("./effects/glyph-ball/renderer") as unknown as ReturnType<Loader>,
+  "generative-tree": () => import("./effects/generative-tree/renderer") as unknown as ReturnType<Loader>,
+  "outline-typeflow": () => import("./effects/outline-typeflow/renderer") as unknown as ReturnType<Loader>,
 };
