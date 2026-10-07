@@ -779,9 +779,12 @@ const sampleDecode = (page, selector, ms) =>
     crumbs: document.querySelectorAll(".dock-retro-crumb").length,
     acquisitions: window.__fx.acquisitions(),
     field: document.querySelector(".dock-retro [data-fx]")?.dataset.fxState,
+    boot: document.querySelector("[data-workshop-boot]")?.dataset.workshopBoot ?? null,
   }));
   check("workshop-bar", "one bar with crumbs from the URL", deep.docks === 1 && deep.crumbs.join() === "/no-such-project" && top.docks === 1 && top.crumbs === 0, { deep, top });
   check("workshop-bar", "dock field survives moving between workshop pages", top.acquisitions === deep.acquisitions && top.field === "live", { deep, top });
+  // A visit that starts on a project has already entered the room: /work doesn't boot on it
+  check("workshop-boot", "no boot on reaching /work from a project page", top.boot === null, { boot: top.boot });
   await context.close();
 }
 
@@ -825,7 +828,8 @@ const sampleDecode = (page, selector, ms) =>
   const during = await page.evaluate(() => ({
     atReveal: window.__loadingAtReveal,
     loading: !!document.querySelector("[data-room-loading]"),
-    status: document.querySelector("[data-room-loading]")?.getAttribute("role"),
+    // The live line may be the container (RoomLoading) or an sr-only line inside it (UplinkLoader)
+    status: document.querySelector('[data-room-loading][role="status"], [data-room-loading] [role="status"]')?.textContent.trim() ?? null,
     lit: document.querySelectorAll("[data-room-loading] .uplink__tick.is-on").length,
   }));
   await page.screenshot({ path: path.join(OUT, "room-loading-workshop.png") });
@@ -834,7 +838,7 @@ const sampleDecode = (page, selector, ms) =>
   const after = await page.evaluate(() => ({
     focused: document.activeElement?.tagName === "H1" ? document.activeElement.textContent : document.activeElement?.tagName,
   }));
-  check("room-loading", "slow room reveals onto its loading state", idle && during.atReveal === "workshop" && during.loading && during.status === "status", during);
+  check("room-loading", "slow room reveals onto its loading state", idle && during.atReveal === "workshop" && during.loading && !!during.status, during);
   check("room-loading", "the workshop's uplink bar lights while it waits", during.lit > 0, during);
   check("room-loading", "heading takes focus once the content lands", after.focused === "workshop", after);
   check("room-loading", "no page errors", errors.length === 0, errors.slice(0, 3));

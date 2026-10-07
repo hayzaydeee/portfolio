@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import { FxStage, type FxHandle } from "@/components/fx/FxStage";
 
 const BOOT_KEY = "hzy:workshop-booted";
@@ -18,7 +19,28 @@ function shouldBoot(): boolean {
   }
 }
 
+function markBooted() {
+  try {
+    sessionStorage.setItem(BOOT_KEY, "1");
+  } catch {
+    // storage blocked: it simply boots again next visit
+  }
+}
+
 const noSubscribe = () => () => {};
+
+/**
+ * The boot greets the first entry into the room, whichever page that is: a visit that starts
+ * on a project has already arrived, so /work never boots on it afterwards. Mounted in the
+ * workshop layout.
+ */
+export function WorkshopEntry() {
+  const pathname = usePathname();
+  useEffect(() => {
+    if (pathname !== "/work") markBooted();
+  }, [pathname]);
+  return null;
+}
 
 /**
  * The workshop's first-visit boot, once per session: a CRT types the boot log, holds on the
@@ -68,11 +90,7 @@ export function WorkshopBoot({ projects, onFinished }: { projects: number; onFin
       aria-hidden="true"
       onAnimationEnd={(e) => {
         if (phase !== "off" || e.target !== e.currentTarget) return;
-        try {
-          sessionStorage.setItem(BOOT_KEY, "1");
-        } catch {
-          // storage blocked: it simply boots again next visit
-        }
+        markBooted();
         finishedRef.current();
       }}
     >
