@@ -1161,7 +1161,10 @@ const backdropFrames = (page) =>
   const wave = await page.locator("[data-project-wave]").boundingBox();
   await page.mouse.move(wave.x + 10, wave.y + 10);
   await page.mouse.wheel(120, 0);
-  await page.waitForTimeout(1200);
+  await page
+    .waitForFunction((b) => document.querySelector('[data-wave-card][aria-current="true"]')?.dataset.waveCard !== b, before, { timeout: 4000 })
+    .catch(() => {});
+  await page.waitForTimeout(300);
   const afterWheel = await current();
   const stayed = await section();
   await page.keyboard.press("ArrowDown");

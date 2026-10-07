@@ -93,7 +93,8 @@ export function ProjectWave({ projects }: { projects: FeaturedProject[] }) {
       const st = s.current;
       const stage = stageRef.current;
       if (!stage || !count) return;
-      const ease = st.reduced ? 1 : 1 - Math.pow(0.0007, Math.min(32, dt) / 1000);
+      // Eased by real elapsed time, so a slow frame doesn't make the deck lag behind input
+      const ease = st.reduced ? 1 : 1 - Math.pow(0.0007, Math.min(100, dt) / 1000);
 
       // Left alone, the wave drifts to and fro and leans a little toward vertical
       if (!st.reduced && !st.pointing && now - st.lastInput > IDLE_MS) {
