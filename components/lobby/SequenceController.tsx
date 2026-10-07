@@ -10,6 +10,9 @@ import { ProjectCards } from "./ProjectCards";
 import { CTA } from "./CTA";
 import { TourNudge } from "./TourNudge";
 import type { FeaturedProject } from "@/lib/data/projects";
+import { useLobbyBackdrop } from "./LobbyBackdrop";
+import { gestureCaptured, keyBelongsToTarget } from "./gestures";
+import { LOBBY_SECTIONS, POSES } from "./poses";
 
 /* ── Transition variants ──────────────────────────────────────────── */
 
@@ -66,9 +69,7 @@ function getVariants(type: TransitionType) {
   }
 }
 
-/* ── Section components ───────────────────────────────────────────── */
-
-const SECTION_KEYS = ["hero", "about", "seedling", "techstack", "projects", "cta", "tour"] as const;
+const SECTION_KEYS = LOBBY_SECTIONS;
 
 /* ── SequenceController ───────────────────────────────────────────── */
 
@@ -82,7 +83,8 @@ export function SequenceController({ projects, onComplete, onTourStart }: Sequen
   const [activeSection, setActiveSection] = useState(0);
   const [transitioning, setTransitioning] = useState(false);
   const lastScrollTime = useRef(0);
-  const touchStartY = useRef(0);
+  const touchStart = useRef<{ x: number; y: number; target: EventTarget | null }>({ x: 0, y: 0, target: null });
+  const { command: drive } = useLobbyBackdrop();
 
   const advance = useCallback(
     (direction: 1 | -1) => {
@@ -107,22 +109,29 @@ export function SequenceController({ projects, onComplete, onTourStart }: Sequen
     html.style.overflow = "hidden";
 
     function handleWheel(e: WheelEvent) {
+      // A section that moves under this gesture handles (and cancels) it itself
+      if (gestureCaptured(e.target, e.deltaX, e.deltaY)) return;
       e.preventDefault();
       if (Math.abs(e.deltaY) < 10) return;
       advance(e.deltaY > 0 ? 1 : -1);
     }
 
     function handleTouchStart(e: TouchEvent) {
-      touchStartY.current = e.touches[0].clientY;
+      touchStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY, target: e.target };
     }
 
     function handleTouchEnd(e: TouchEvent) {
-      const dy = touchStartY.current - e.changedTouches[0].clientY;
+      const start = touchStart.current;
+      const dx = start.x - e.changedTouches[0].clientX;
+      const dy = start.y - e.changedTouches[0].clientY;
+      if (gestureCaptured(start.target, dx, dy)) return;
       if (Math.abs(dy) < 30) return;
       advance(dy > 0 ? 1 : -1);
     }
 
     function handleKeyDown(e: KeyboardEvent) {
+      // Space presses the focused button or link; arrows move the caret in a field
+      if (keyBelongsToTarget(e)) return;
       if (e.key === "ArrowDown" || e.key === " ") {
         e.preventDefault();
         advance(1);
@@ -146,9 +155,15 @@ export function SequenceController({ projects, onComplete, onTourStart }: Sequen
     };
   }, [advance]);
 
+  // Each slide poses the horizon behind it, and any hover tint from the last slide lets go
+  const sectionKey = SECTION_KEYS[activeSection];
+  useEffect(() => {
+    drive("slide", POSES[sectionKey]);
+    drive("tint", null);
+  }, [drive, sectionKey]);
+
   const transitionType = TRANSITION_MAP[activeSection] || "fade";
   const variants = getVariants(transitionType);
-  const sectionKey = SECTION_KEYS[activeSection];
 
   function handleTourDecline() {
     onComplete();
@@ -180,7 +195,7 @@ export function SequenceController({ projects, onComplete, onTourStart }: Sequen
   }
 
   return (
-    <div className="fixed inset-0 z-(--z-sequence)">
+    <div className="fixed inset-0 z-(--z-sequence)" data-sequence-section={sectionKey}>
       {/* Progress indicator */}
       <div className="fixed top-1/2 right-4 -translate-y-1/2 z-50 flex flex-col gap-2">
         {SECTION_KEYS.map((key, i) => (
@@ -215,6 +230,7 @@ export function SequenceController({ projects, onComplete, onTourStart }: Sequen
           exit="exit"
           transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
           className="absolute inset-0"
+          data-lobby-section={sectionKey}
         >
           {renderSection()}
         </motion.div>

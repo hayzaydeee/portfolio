@@ -40,19 +40,30 @@ export function LobbyBackdropProvider({ initialRise, phase, children }: Props) {
   const options = useMemo(() => ({ rise }), [rise]);
   // Under the opaque splash the horizon draws its first frame, then holds until it rises
   const [covered, setCovered] = useState(initialRise === 0);
+  // Tint and pose mirrored for tests, like rise
+  const [tint, setTint] = useState<string>("home");
+  const [lift, setLift] = useState(0);
+
+  // Tint and pose are one-off commands, so a recreated instance (context loss, eviction) would
+  // drop them; the last of each is replayed whenever the stage comes back live
+  const sticky = useRef(new Map<string, unknown>());
 
   const command = useCallback((name: string, arg?: unknown) => {
+    if (name === "tint" || name === "slide") sticky.current.set(name, arg);
     if (name === "rise") {
       setRise((arg as { to?: number } | undefined)?.to ?? 1);
       setCovered(false);
       return;
     }
+    if (name === "tint") setTint((arg as string | null) ?? "home");
+    if (name === "slide") setLift((arg as { lift?: number } | undefined)?.lift ?? 0);
     handle.current?.command(name, arg);
   }, []);
 
   const onStatusChange = useCallback((status: StageStatus | "disabled") => {
     // Poster, error and disabled are all final answers: nothing more is coming, so stop waiting
     if (status !== "poster") setReady(true);
+    if (status === "live") sticky.current.forEach((arg, name) => handle.current?.command(name, arg));
   }, []);
 
   const value = useMemo(() => ({ command, ready }), [command, ready]);
@@ -65,6 +76,8 @@ export function LobbyBackdropProvider({ initialRise, phase, children }: Props) {
         data-lobby-backdrop=""
         data-lobby-phase={phase}
         data-rise={rise}
+        data-tint={tint}
+        data-lift={lift}
       >
         <FxStage
           slot="lobby.backdrop"

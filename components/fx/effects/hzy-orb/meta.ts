@@ -6,6 +6,10 @@ export type HzyOrbOptions = {
   motion: "scan" | "sweep" | "diag";
   speed: number;
   sourcePalette: boolean;
+  /** Any filled SVG path to sample instead of the HZY mark (e.g. a simple-icons glyph) */
+  path: string;
+  /** The path's viewBox size; simple-icons draw on 24 */
+  viewBox: number;
 };
 
 export const hzyOrbMeta: FxMeta<HzyOrbOptions> = {
@@ -19,7 +23,7 @@ export const hzyOrbMeta: FxMeta<HzyOrbOptions> = {
   pixelBudget: 0.3,
   rooms: ["lobby", "workshop", "studio", "notebook", "wall"],
   demoCommands: [{ label: "pulse", name: "pulse" }],
-  defaults: { density: 48, motion: "scan", speed: 1, sourcePalette: false },
+  defaults: { density: 48, motion: "scan", speed: 1, sourcePalette: false, path: "", viewBox: 24 },
   controls: [
     { kind: "range", key: "density", label: "density", min: 24, max: 72, step: 1 },
     {

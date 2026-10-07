@@ -15,6 +15,7 @@ import { CTA } from "./CTA";
 import { TourNudge } from "./TourNudge";
 import { GuidedTour } from "./GuidedTour";
 import { CurrentlyIndicator } from "./CurrentlyIndicator";
+import { RestingPoses } from "./RestingPoses";
 import type { Currently } from "@/lib/data/currently";
 import type { FeaturedProject } from "@/lib/data/projects";
 
@@ -97,16 +98,28 @@ export function LobbyPage({ currently, projects }: LobbyPageProps) {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4, ease: "easeOut" }}
           >
-            <Hero mode="resting" />
-            <About mode="resting" />
-            <Seedling mode="resting" />
-            <TechStack mode="resting" />
-            <ProjectCards projects={projects} mode="resting" />
-            <CTA mode="resting" />
-            <TourNudge
-              mode="resting"
-              onStart={() => setTourActive(true)}
-            />
+            <div data-lobby-section="hero">
+              <Hero mode="resting" />
+            </div>
+            <div data-lobby-section="about">
+              <About mode="resting" />
+            </div>
+            <div data-lobby-section="seedling">
+              <Seedling mode="resting" />
+            </div>
+            <div data-lobby-section="techstack">
+              <TechStack mode="resting" />
+            </div>
+            <div data-lobby-section="projects">
+              <ProjectCards projects={projects} mode="resting" />
+            </div>
+            <div data-lobby-section="cta">
+              <CTA mode="resting" />
+            </div>
+            <div data-lobby-section="tour">
+              <TourNudge mode="resting" onStart={() => setTourActive(true)} />
+            </div>
+            <RestingPoses />
           </motion.div>
         )}
       </AnimatePresence>

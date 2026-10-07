@@ -3,37 +3,36 @@
 import { useActionState } from "react";
 import { motion } from "motion/react";
 import { sendContact, type ContactState } from "@/app/actions/contact";
-import { SectionHeading } from "./SectionHeading";
-import Link from "next/link";
+import { Cta } from "@/components/fx/ui/Cta";
 import { CV_HREF } from "@/lib/rooms";
+import { SectionHeading } from "./SectionHeading";
 
 const INITIAL: ContactState = { success: false };
+
+const FIELD =
+  "w-full rounded-md border border-white/15 bg-(--lobby-surface)/40 px-3 py-2 font-sans text-sm text-(--lobby-text) backdrop-blur-sm transition-colors placeholder:text-text-muted focus:border-(--lobby-accent) focus:outline-none";
 
 function ContactForm() {
   const [state, action, pending] = useActionState(sendContact, INITIAL);
 
   if (state.success) {
-    return (
-      <p className="text-sm font-sans text-(--color-accent) py-8">
-        message sent — i&apos;ll be in touch.
-      </p>
-    );
+    return <p className="py-8 font-sans text-sm text-accent-light">message sent. i&apos;ll be in touch.</p>;
   }
 
   return (
     <form action={action} noValidate className="flex flex-col gap-4">
-      {/* Honeypot — hidden from real users, visually hidden */}
+      {/* Honeypot: hidden from real users */}
       <input
         name="website"
         type="text"
         tabIndex={-1}
         autoComplete="off"
         aria-hidden="true"
-        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+        className="pointer-events-none absolute h-0 w-0 opacity-0"
       />
 
       <div>
-        <label htmlFor="contact-name" className="block text-xs font-sans text-(--color-text-muted) mb-1.5">
+        <label htmlFor="contact-name" className="mb-1.5 block font-sans text-xs text-text-muted">
           name
         </label>
         <input
@@ -43,13 +42,13 @@ function ContactForm() {
           required
           maxLength={100}
           autoComplete="name"
-          className="w-full bg-transparent border border-white/15 rounded-md px-3 py-2 text-sm font-sans text-(--lobby-text) placeholder:text-(--color-text-muted) focus:outline-none focus:border-(--lobby-accent) transition-colors"
+          className={FIELD}
           placeholder="your name"
         />
       </div>
 
       <div>
-        <label htmlFor="contact-email" className="block text-xs font-sans text-(--color-text-muted) mb-1.5">
+        <label htmlFor="contact-email" className="mb-1.5 block font-sans text-xs text-text-muted">
           email
         </label>
         <input
@@ -59,13 +58,13 @@ function ContactForm() {
           required
           maxLength={200}
           autoComplete="email"
-          className="w-full bg-transparent border border-white/15 rounded-md px-3 py-2 text-sm font-sans text-(--lobby-text) placeholder:text-(--color-text-muted) focus:outline-none focus:border-(--lobby-accent) transition-colors"
+          className={FIELD}
           placeholder="you@example.com"
         />
       </div>
 
       <div>
-        <label htmlFor="contact-message" className="block text-xs font-sans text-(--color-text-muted) mb-1.5">
+        <label htmlFor="contact-message" className="mb-1.5 block font-sans text-xs text-text-muted">
           message
         </label>
         <textarea
@@ -75,25 +74,29 @@ function ContactForm() {
           minLength={10}
           maxLength={2000}
           rows={5}
-          className="w-full bg-transparent border border-white/15 rounded-md px-3 py-2 text-sm font-sans text-(--lobby-text) placeholder:text-(--color-text-muted) focus:outline-none focus:border-(--lobby-accent) transition-colors resize-none"
+          className={`${FIELD} resize-none`}
           placeholder="what&apos;s on your mind?"
         />
       </div>
 
       {state.error && (
-        <p role="alert" className="text-xs text-red-600">
+        <p role="alert" className="text-xs text-red-400">
           {state.error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="self-start text-sm font-sans px-4 py-2 rounded-md border border-(--color-accent) text-(--color-accent) hover:bg-(--color-accent) hover:text-white transition-colors disabled:opacity-50 cursor-pointer"
-      >
-        {pending ? "sending..." : "send"}
-      </button>
+      <Cta variant="beam" type="submit" label={pending ? "sending..." : "send"} disabled={pending} room="lobby" className="self-start" />
     </form>
+  );
+}
+
+function DirectActions() {
+  return (
+    <div className="flex flex-col items-start gap-5">
+      <Cta variant="slide" href="mailto:hayzayd33@gmail.com" label="hayzayd33@gmail.com" room="lobby" />
+      <Cta variant="beam" href={CV_HREF} download label="download CV" room="lobby" />
+      <Cta variant="slide" href="/work" label="view my work" size="sm" room="lobby" />
+    </div>
   );
 }
 
@@ -101,93 +104,31 @@ export function CTA({ mode = "resting" }: { mode?: "sequence" | "resting" }) {
   const isSequence = mode === "sequence";
 
   return (
-    <section
-      className={`bg-(--lobby-surface-deep) px-6 ${
-        isSequence ? "min-h-screen flex items-center justify-center" : "py-20"
-      }`}
-    >
-      <div className="max-w-5xl mx-auto w-full">
+    <section className={`px-6 ${isSequence ? "flex min-h-screen items-center justify-center" : "py-20"}`}>
+      <div className="mx-auto w-full max-w-5xl">
         <SectionHeading>LET&apos;S TALK</SectionHeading>
 
-        {isSequence ? (
-          <div className="grid md:grid-cols-2 gap-16">
-            {/* Left column — slides from left */}
-            <motion.div
-              initial={{ opacity: 0, x: -30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, ease: "easeOut" }}
-            >
-              <div className="flex flex-col gap-5">
-                <a
-                  href="mailto:hayzayd33@gmail.com"
-                  className="text-base font-sans text-(--lobby-accent) hover:text-(--color-accent-light) transition-colors"
-                >
-                  hayzayd33@gmail.com ↗
-                </a>
-                <a
-                  href={CV_HREF}
-                  download
-                  className="self-start text-sm font-sans px-4 py-2 rounded-md border border-white/20 text-(--lobby-text) hover:border-(--lobby-accent) hover:text-(--lobby-accent) transition-colors"
-                >
-                  download CV
-                </a>
-                <Link
-                  href="/work"
-                  className="text-sm font-sans text-(--color-text-muted) hover:text-(--lobby-text) transition-colors"
-                >
-                  view my work →
-                </Link>
-              </div>
-            </motion.div>
-
-            {/* Right column — slides from right */}
-            <motion.div
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
-            >
-              <ContactForm />
-            </motion.div>
-          </div>
-        ) : (
+        <div className="grid gap-16 md:grid-cols-2">
           <motion.div
-            className="grid md:grid-cols-2 gap-16"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-80px" }}
+            initial={{ opacity: 0, x: isSequence ? -30 : 0, y: isSequence ? 0 : 20 }}
+            {...(isSequence
+              ? { animate: { opacity: 1, x: 0 } }
+              : { whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-80px" } })}
             transition={{ duration: 0.5, ease: "easeOut" }}
           >
-            {/* Left column — direct actions */}
-            <div>
-              <div className="flex flex-col gap-5">
-                <a
-                  href="mailto:hayzayd33@gmail.com"
-                  className="text-base font-sans text-(--lobby-accent) hover:text-(--color-accent-light) transition-colors"
-                >
-                  hayzayd33@gmail.com ↗
-                </a>
-                <a
-                  href={CV_HREF}
-                  download
-                  className="self-start text-sm font-sans px-4 py-2 rounded-md border border-white/20 text-(--lobby-text) hover:border-(--lobby-accent) hover:text-(--lobby-accent) transition-colors"
-                >
-                  download CV
-                </a>
-                <Link
-                  href="/work"
-                  className="text-sm font-sans text-(--color-text-muted) hover:text-(--lobby-text) transition-colors"
-                >
-                  view my work →
-                </Link>
-              </div>
-            </div>
-
-            {/* Right column — contact form */}
-            <div>
-              <ContactForm />
-            </div>
+            <DirectActions />
           </motion.div>
-        )}
+
+          <motion.div
+            initial={{ opacity: 0, x: isSequence ? 30 : 0, y: isSequence ? 0 : 20 }}
+            {...(isSequence
+              ? { animate: { opacity: 1, x: 0 } }
+              : { whileInView: { opacity: 1, y: 0 }, viewport: { once: true, margin: "-80px" } })}
+            transition={{ duration: 0.5, delay: 0.1, ease: "easeOut" }}
+          >
+            <ContactForm />
+          </motion.div>
+        </div>
       </div>
     </section>
   );

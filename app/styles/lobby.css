@@ -1,0 +1,169 @@
+/*
+ * Lobby section pieces that need more than utilities: the hero's room cards (a spinning
+ * border beam after ThreeUI's RectangleButtons) and the project wave cards (after ThreeUI's
+ * Character Wave, MIT, Meng To). Colours come from the room tokens via .prim[data-room].
+ */
+@layer components {
+  /* ── Hero room cards ──────────────────────────────────────────────── */
+  .room-card {
+    position: relative;
+    display: block;
+    isolation: isolate;
+    overflow: hidden;
+    padding: 1px;
+    border-radius: 0.75rem;
+    transition:
+      transform 0.35s var(--prim-ease),
+      box-shadow 0.35s ease;
+  }
+
+  .room-card::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    background: var(--prim-edge);
+  }
+
+  .room-card__beam {
+    position: absolute;
+    inset: -150%;
+    z-index: -2;
+    background: conic-gradient(from 90deg at 50% 50%, transparent 0%, transparent 72%, var(--prim-accent) 100%);
+    opacity: 0.35;
+    animation: prim-spin 4.5s linear infinite;
+    transition: opacity 0.35s ease;
+  }
+
+  .room-card__face {
+    position: relative;
+    display: flex;
+    height: 7rem;
+    flex-direction: column;
+    justify-content: flex-end;
+    overflow: hidden;
+    padding: 1.25rem;
+    border-radius: calc(0.75rem - 1px);
+    background: linear-gradient(160deg, color-mix(in srgb, var(--prim-accent) 7%, var(--lobby-card)), var(--lobby-card) 55%);
+  }
+
+  @media (min-width: 48rem) {
+    .room-card__face {
+      height: 8rem;
+    }
+  }
+
+  .room-card:is(:hover, :focus-visible) {
+    transform: translateY(-2px) scale(1.02);
+    box-shadow: 0 0 32px color-mix(in srgb, var(--prim-accent) 22%, transparent);
+  }
+
+  .room-card:is(:hover, :focus-visible)::before {
+    opacity: 0;
+  }
+
+  .room-card:is(:hover, :focus-visible) .room-card__beam {
+    opacity: 1;
+  }
+
+  .room-card:focus-visible {
+    outline: 2px solid var(--prim-accent);
+    outline-offset: 3px;
+  }
+
+  .room-card__sub {
+    display: block;
+    max-height: 0;
+    overflow: hidden;
+    opacity: 0;
+    color: var(--prim-accent);
+    transition:
+      max-height 0.2s ease-out,
+      opacity 0.2s ease-out;
+  }
+
+  .room-card:is(:hover, :focus-visible) .room-card__sub {
+    max-height: 1.5rem;
+    opacity: 1;
+  }
+
+  /* ── Project wave ─────────────────────────────────────────────────── */
+  .wave-stage {
+    position: relative;
+    overflow: hidden;
+    perspective: 1100px;
+    touch-action: pan-y;
+  }
+
+  .wave-deck {
+    position: absolute;
+    inset: 0;
+    transform-style: preserve-3d;
+  }
+
+  .wave-card {
+    --focus: 0;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    display: flex;
+    width: clamp(10rem, 15vw, 13.5rem);
+    flex-direction: column;
+    padding: 0.625rem;
+    border-radius: 1rem;
+    color: var(--lobby-text);
+    background:
+      linear-gradient(145deg, rgb(255 255 255 / 0.05), transparent 34%),
+      var(--lobby-card);
+    box-shadow:
+      0 calc(7px + var(--focus) * 20px) calc(13px + var(--focus) * 40px) rgb(0 0 0 / calc(0.25 + var(--focus) * 0.34)),
+      inset 0 1px rgb(255 255 255 / 0.06),
+      inset 0 0 0 1px rgb(0 0 0 / 0.24);
+    transform-style: preserve-3d;
+    will-change: transform, opacity, filter;
+    cursor: pointer;
+  }
+
+  .wave-card::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px solid color-mix(in srgb, var(--lobby-accent) calc(6% + var(--focus) * 34%), transparent);
+    border-radius: inherit;
+    pointer-events: none;
+  }
+
+  .wave-card:focus-within::after {
+    border-color: var(--lobby-accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--lobby-accent) 20%, transparent);
+  }
+
+  .wave-card__art {
+    position: relative;
+    aspect-ratio: 1;
+    overflow: hidden;
+    border-radius: 0.75rem;
+    background: var(--lobby-surface-deep);
+    transform: translateZ(7px);
+  }
+
+  .wave-card__body {
+    display: grid;
+    gap: 0.25rem;
+    margin-top: 0.625rem;
+    transform: translateZ(8px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .wave-card {
+      will-change: auto;
+    }
+
+    .room-card,
+    .room-card * {
+      animation: none !important;
+      transition-duration: 0s !important;
+    }
+  }
+}

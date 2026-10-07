@@ -12,6 +12,9 @@ export const FX_SLOTS = {
   "studio.dock": { effect: "dock-glass", room: "studio", label: "Studio dock field" },
   "portal.field": { effect: "portal-field", room: "lobby", label: "Transition · portal field" },
   "portal.vortex": { effect: "glyph-vortex", room: "lobby", label: "Transition · glyph vortex" },
+  "lobby.about": { effect: "glyph-ball", room: "lobby", label: "Lobby · about sphere" },
+  "lobby.seedling": { effect: "generative-tree", room: "lobby", label: "Lobby · seedling tree" },
+  "site.emblem": { effect: "outline-typeflow", room: "lobby", label: "Footer · HZY emblem" },
 } as const satisfies Record<string, { effect: FxId; room: RoomKey; label: string }>;
 
 export type FxSlotId = keyof typeof FX_SLOTS;

@@ -95,6 +95,12 @@ const ROUTES = [
   { name: "hzy-orb-lobby", path: "/fx-harness/hzy-orb?room=lobby", maxLive: 0, canvas2d: true },
   { name: "hzy-orb-notebook", path: "/fx-harness/hzy-orb?room=notebook", maxLive: 0, canvas2d: true },
   { name: "hzy-orb-source", path: "/fx-harness/hzy-orb?room=lobby&source=1", maxLive: 0, canvas2d: true },
+  { name: "glyph-ball-lobby", path: "/fx-harness/glyph-ball?room=lobby", maxLive: 0, canvas2d: true },
+  { name: "glyph-ball-source", path: "/fx-harness/glyph-ball?room=lobby&source=1", maxLive: 0, canvas2d: true },
+  { name: "generative-tree-lobby", path: "/fx-harness/generative-tree?room=lobby", maxLive: 0, canvas2d: true },
+  { name: "generative-tree-source", path: "/fx-harness/generative-tree?room=lobby&source=1", maxLive: 0, canvas2d: true },
+  { name: "outline-typeflow-lobby", path: "/fx-harness/outline-typeflow?room=lobby", maxLive: 0, canvas2d: true },
+  { name: "outline-typeflow-notebook", path: "/fx-harness/outline-typeflow?room=notebook", maxLive: 0, canvas2d: true },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -959,7 +965,7 @@ const backdropFrames = (page) =>
   await page.waitForTimeout(800);
   const risenB = await backdropFrames(page);
   const seq = await page.evaluate(() => ({
-    footer: getComputedStyle(document.querySelector("[data-site-footer]")).visibility,
+    footer: getComputedStyle(document.querySelector("[data-site-footer]")).display,
     gl: window.__gl().live,
   }));
   const alpha = (() => {
@@ -969,7 +975,7 @@ const backdropFrames = (page) =>
   })();
   check("lobby-splash", "exit lifts the cream off a rising horizon", lifting.rise === "1" && alpha < 1, { ...lifting, alpha });
   check("lobby-splash", "horizon animates once uncovered", risenB > risenA, { risenA, risenB });
-  check("lobby-sequence", "footer steps out under the sequence; contexts within budget", seq.footer === "hidden" && seq.gl <= 2, seq);
+  check("lobby-sequence", "footer steps out under the sequence; contexts within budget", seq.footer === "none" && seq.gl <= 2, seq);
   check("lobby-splash", "no page errors", errors.length === 0, errors.slice(0, 3));
   await page.screenshot({ path: path.join(OUT, "lobby-sequence-hero.png") });
 
@@ -984,9 +990,9 @@ const backdropFrames = (page) =>
     phase: document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase,
     rise: document.querySelector("[data-lobby-backdrop]")?.dataset.rise,
     state: document.querySelector("[data-lobby-backdrop] [data-fx]")?.dataset.fxState,
-    footer: getComputedStyle(document.querySelector("[data-site-footer]")).visibility,
+    footer: getComputedStyle(document.querySelector("[data-site-footer]")).display,
   }));
-  check("lobby-return", "returning visitor: no splash, horizon at rest, footer back", !back.splash && back.phase === "resting" && back.rise === "1" && back.state === "live" && back.footer === "visible", back);
+  check("lobby-return", "returning visitor: no splash, horizon at rest, footer back", !back.splash && back.phase === "resting" && back.rise === "1" && back.state === "live" && back.footer !== "none", back);
   await context.close();
 }
 
@@ -1066,6 +1072,221 @@ const backdropFrames = (page) =>
   });
   check("splash", "dock shows and is interactive afterwards", after.splash === "false" && !after.inert && after.opacity === "1", after);
   await page.screenshot({ path: path.join(OUT, "splash-handoff.png") });
+  await context.close();
+}
+
+// ── Lobby sections (1b): sphere, tree, orbs, wave, footer emblem, tour ─────────────
+{
+  // The sphere: a click knocks the facing letters loose and they grow back
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/glyph-ball?room=lobby", { waitUntil: "networkidle" });
+  await page.waitForSelector('[data-fx="glyph-ball"][data-fx-state="live"]', { timeout: 20000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  const box = await page.locator('[data-fx="glyph-ball"]').boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(250);
+  const loose = await page.evaluate(() => Number(document.querySelector('[data-fx="glyph-ball"] canvas')?.dataset.loose ?? -1));
+  await page.waitForTimeout(3200);
+  const regrown = await page.evaluate(() => Number(document.querySelector('[data-fx="glyph-ball"] canvas')?.dataset.loose ?? -1));
+  check("glyph-ball", "a click knocks letters loose, and they all grow back", loose > 0 && regrown === 0, { loose, regrown });
+  check("glyph-ball", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/", { waitUntil: "networkidle" });
+  const go = page.getByRole("button", { name: /let.s go/i });
+  await go.waitFor({ timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  await go.click();
+  await page.waitForFunction(() => document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase === "sequence", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  const section = () => page.evaluate(() => document.querySelector("[data-sequence-section]")?.dataset.sequenceSection);
+  const backdrop = () => page.evaluate(() => ({ ...document.querySelector("[data-lobby-backdrop]")?.dataset }));
+
+  // Pointing at a room card leans the horizon toward it; leaving lets go
+  await page.hover('.room-card[data-room="studio"]');
+  await page.waitForTimeout(150);
+  const leaning = (await backdrop()).tint;
+  await page.mouse.move(20, 880);
+  await page.waitForTimeout(150);
+  const home = (await backdrop()).tint;
+  check("lobby-hero", "room card hover tints the horizon, leaving returns it home", leaning === "studio" && home === "home", { leaning, home });
+
+  // Space on a focused control belongs to the control, not the sequence
+  await page.focus('.room-card[data-room="workshop"]');
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(900);
+  const afterSpace = await section();
+  await page.mouse.click(20, 880);
+  await page.keyboard.press(" ");
+  await page.waitForTimeout(900);
+  const afterBodySpace = await section();
+  check("lobby-sequence", "Space on a focused link doesn't advance; on the page it does", afterSpace === "hero" && afterBodySpace === "about", { afterSpace, afterBodySpace });
+
+  // Each slide poses the horizon
+  const aboutLift = (await backdrop()).lift;
+  check("lobby-sequence", "slides pose the horizon (about lowers it)", Number(aboutLift) < 0, { aboutLift });
+  await page.waitForSelector('[data-fx="glyph-ball"][data-fx-state="live"]', { timeout: 10000 }).catch(() => {});
+  await page.screenshot({ path: path.join(OUT, "lobby-1b-about.png") });
+
+  // Seedling grows over its slide, and its milestones arrive with their branches
+  await page.click('button[aria-label="Go to seedling section"]');
+  await page.waitForFunction(() => document.querySelector('[data-fx="generative-tree"] canvas')?.dataset.growth === "1.00", null, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  const tree = await page.evaluate(() => ({
+    growth: document.querySelector('[data-fx="generative-tree"] canvas')?.dataset.growth,
+    labels: [...document.querySelectorAll("[data-seedling-tip]")].map((el) => Number(getComputedStyle(el).opacity)),
+  }));
+  check("lobby-seedling", "tree grows through the slide; every milestone shows by the end", tree.growth === "1.00" && tree.labels.length === 7 && tree.labels.every((o) => o > 0.9), tree);
+  await page.screenshot({ path: path.join(OUT, "lobby-1b-seedling.png") });
+
+  // Tech words resolve into icon orbs (2D: no WebGL beyond the horizon)
+  await page.click('button[aria-label="Go to techstack section"]');
+  await page.waitForTimeout(5000);
+  const orbs = await page.evaluate(() => ({
+    live: document.querySelectorAll('[data-icon-orb] [data-fx-state="live"]').length,
+    total: document.querySelectorAll("[data-icon-orb]").length,
+    gl: window.__gl().live,
+  }));
+  check("lobby-techstack", "every icon word becomes a live orb; contexts within budget", orbs.total === 8 && orbs.live === 8 && orbs.gl <= 2, orbs);
+  await page.screenshot({ path: path.join(OUT, "lobby-1b-techstack.png") });
+
+  // The wave claims horizontal gestures; vertical ones still move the sequence
+  await page.click('button[aria-label="Go to projects section"]');
+  // The slide enters from the right: measure the stage only once it has settled on screen
+  await page
+    .waitForFunction(() => {
+      const r = document.querySelector("[data-project-wave]")?.getBoundingClientRect();
+      return !!r && r.left >= 0 && r.right <= innerWidth && document.querySelector('[data-wave-card][aria-current="true"]');
+    }, null, { timeout: 8000 })
+    .catch(() => {});
+  await page.waitForTimeout(800);
+  const current = () => page.evaluate(() => document.querySelector('[data-wave-card][aria-current="true"]')?.dataset.waveCard ?? null);
+  const before = await current();
+  const wave = await page.locator("[data-project-wave]").boundingBox();
+  await page.mouse.move(wave.x + 10, wave.y + 10);
+  await page.mouse.wheel(120, 0);
+  await page
+    .waitForFunction((b) => document.querySelector('[data-wave-card][aria-current="true"]')?.dataset.waveCard !== b, before, { timeout: 4000 })
+    .catch(() => {});
+  await page.waitForTimeout(300);
+  const afterWheel = await current();
+  const stayed = await section();
+
+  // Wrapping back lands a padded copy in front: it must still take the click and link out
+  await page.mouse.wheel(-120, 0);
+  await page.mouse.wheel(-120, 0);
+  await page.waitForTimeout(1800);
+  const front = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll("[data-wave-card]")];
+    const card = cards.reduce((a, b) => (Number(b.style.getPropertyValue("--focus")) > Number(a.style.getPropertyValue("--focus")) ? b : a));
+    const r = card.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { which: card.dataset.waveCard, hitInside: card.contains(hit), link: !!card.querySelector("a[href^='/work/']") };
+  });
+  check("lobby-projects", "a padded copy in front takes clicks and links to its project", front.which === "copy" && front.hitInside && front.link, front);
+
+  await page.keyboard.press("ArrowDown");
+  await page.waitForTimeout(1000);
+  const advanced = await section();
+  check("lobby-projects", "horizontal wheel moves the wave and stays on the slide", before && afterWheel && afterWheel !== before && stayed === "projects", { before, afterWheel, stayed });
+  check("lobby-projects", "vertical gestures still move the sequence", advanced === "cta", { advanced });
+
+  // Out to the resting page: the tree follows the scroll, the footer and its emblem come back
+  await page.click('button[aria-label="Go to tour section"]');
+  await page.waitForTimeout(1000);
+  await page.getByRole("button", { name: "skip" }).click();
+  await page.waitForFunction(() => document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase === "resting", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  const growthAt = async (frac) => {
+    await page.evaluate((f) => {
+      const el = document.querySelector("[data-seedling-tree]");
+      const top = el.getBoundingClientRect().top + scrollY;
+      scrollTo(0, top - innerHeight * f);
+    }, frac);
+    await page.waitForTimeout(1500);
+    return page.evaluate(() => Number(document.querySelector('[data-fx="generative-tree"] canvas')?.dataset.growth ?? -1));
+  };
+  const early = await growthAt(1.05);
+  const later = await growthAt(0.1);
+  check("lobby-seedling", "resting: the tree grows with the scroll", early >= 0 && later > early + 0.3, { early, later });
+
+  await page.evaluate(() => document.querySelector('[data-lobby-section="projects"]').scrollIntoView());
+  await page.waitForTimeout(800);
+  const restingLift = (await backdrop()).lift;
+  check("lobby-resting", "the section in view poses the horizon", restingLift === "0.14", { restingLift });
+
+  await page.evaluate(() => scrollTo(0, document.documentElement.scrollHeight));
+  await page.waitForSelector('[data-footer-emblem] [data-fx-state="live"]', { timeout: 10000 }).catch(() => {});
+  const footer = await page.evaluate(() => ({
+    display: getComputedStyle(document.querySelector("[data-site-footer]")).display,
+    line: document.querySelector("[data-footer-line]")?.textContent,
+    lines: Number(document.querySelector("[data-footer-emblem] canvas")?.dataset.lines ?? 0),
+    state: document.querySelector("[data-footer-emblem] [data-fx]")?.dataset.fxState,
+  }));
+  check("lobby-footer", "footer back with its line, and the emblem traces the HZY outline", footer.display !== "none" && /glad/.test(footer.line ?? "") && footer.lines > 0 && footer.state === "live", footer);
+  await page.screenshot({ path: path.join(OUT, "lobby-1b-footer.png") });
+
+  // The tour: a modal with one live preview, Escape out, focus back on the opener
+  const opener = page.getByRole("button", { name: "start guided tour" });
+  await opener.scrollIntoViewIfNeeded();
+  await opener.click();
+  await page.waitForSelector('[data-tour-preview] [data-fx-state="live"]', { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  const tour = await page.evaluate(() => ({
+    dialog: !!document.querySelector('[role="dialog"][aria-modal="true"]'),
+    focusIn: !!document.activeElement?.closest("[data-guided-tour]"),
+    preview: document.querySelector("[data-tour-preview] [data-fx]")?.dataset.fx,
+    previewState: document.querySelector("[data-tour-preview] [data-fx]")?.dataset.fxState,
+    gl: window.__gl().live,
+  }));
+  let escaped = 0;
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press(i % 5 === 4 ? "Shift+Tab" : "Tab");
+    if (!(await page.evaluate(() => !!document.activeElement?.closest("[data-guided-tour]")))) escaped++;
+  }
+  check("lobby-tour", "Tab and Shift+Tab stay inside the dialog", escaped === 0, { escaped });
+  check("lobby-tour", "modal with focus inside and one live room preview", tour.dialog && tour.focusIn && tour.previewState === "live" && tour.gl <= 2, tour);
+  await page.screenshot({ path: path.join(OUT, "lobby-1b-tour.png") });
+  await page.keyboard.press("Escape");
+  // The exit animation has to finish before the dialog unmounts and hands focus back
+  await page.waitForFunction(() => !document.querySelector("[data-guided-tour]"), null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(200);
+  const closed = await page.evaluate(() => ({
+    open: !!document.querySelector("[data-guided-tour]"),
+    focus: document.activeElement?.getAttribute("aria-label"),
+  }));
+  check("lobby-tour", "Escape closes it and focus returns to the opener", !closed.open && closed.focus === "start guided tour", closed);
+
+  check("lobby-1b", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
+  // Phone width: through the splash, straight out of the sequence, and down the resting page
+  const { context, page, errors } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  await page.goto(BASE + "/", { waitUntil: "networkidle" });
+  const go = page.getByRole("button", { name: /let.s go/i });
+  await go.waitFor({ timeout: 30000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  await go.click();
+  await page.waitForTimeout(1500);
+  await page.click('button[aria-label="Go to tour section"]');
+  await page.waitForTimeout(1000);
+  await page.getByRole("button", { name: "skip" }).click();
+  await page.waitForFunction(() => document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase === "resting", null, { timeout: 8000 }).catch(() => {});
+  let widest = 0;
+  const H = await page.evaluate(() => document.documentElement.scrollHeight);
+  for (let y = 0, i = 0; y < H; y += 1600, i++) {
+    await page.evaluate((top) => scrollTo(0, top), y);
+    await page.waitForTimeout(700);
+    widest = Math.max(widest, await page.evaluate(() => document.documentElement.scrollWidth));
+    if (i < 4) await page.screenshot({ path: path.join(OUT, `lobby-1b-mobile-${i}.png`) });
+  }
+  check("lobby-mobile", "no horizontal scroll down the resting lobby at 390px", widest <= 390, { widest });
+  check("lobby-mobile", "no page errors", errors.length === 0, errors.slice(0, 3));
   await context.close();
 }
 
