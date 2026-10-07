@@ -41,6 +41,19 @@ All 2D, so none of them takes a WebGL slot; the lobby's only context is its hori
 | `generative-tree` | Generative Tree | Seedling: grown from a seed up front with the original's rules, each branch scheduled, so `command("progress", 0..1)` grows it either way with the scroll or the sequence. `command("anchors", { targets, onFrame })` reports tip positions every frame for DOM labels. Left alone it grows, holds and regrows |
 | `outline-typeflow` | Text Path Studies II, "Outline Typeflow" | Footer emblem: a phrase running the HZY outline; the pointer lights the type under it, a click shoves it outward |
 
+## Workshop effects
+
+| Effect | Source | In the workshop |
+|---|---|---|
+| `dot-matrix` | Dot Matrix | The room backdrop (`workshop.backdrop`, mounted in `app/work/layout.tsx`, so it survives moving between pages); panels sit over it slightly translucent |
+| `crt-boot` | CRT Background, terminal style | First visit per session: types the workshop's boot log through the CRT shader, then powers off into the IDE (`components/workshop/WorkshopBoot.tsx`). Any key skips it; reduced motion never sees it. Its context goes when it does |
+| `condensation` | Condensation | Glass behind `.debug/life.log`, whose lines decode in |
+| `ignition` | Ignition Button | The ask terminal's run key, in 2D: a star tunnel that primes on hover or focus (`warp`) and flashes on press (`flash`) |
+| `trace-border` | Thinking Button | A comet lapping the ask input while an answer streams |
+| `constellation-field`, `warp-field`, `logic-core` | Constellation Field; Warp Field (letters); Platform Core | Project identity fields, picked per project in the admin (`visual_variant`) and drawn in its `visual_accent` token. Warp flies the project's own letters. Unported choices fall back to the constellation (`lib/fx/projectVisuals.ts`) |
+
+`warp-field` and `logic-core` are raw WebGL with `runtime/mat4.ts` for their cameras, so three never ships. `ui/Toggle.tsx` is ThreeUI's modern skeuomorphic toggle as a room primitive (a real `role="switch"`), and the workshop's `loading.tsx` is an uplink loader (`components/workshop/UplinkLoader.tsx`) whose bar eases toward 99 and never claims 100. `/fx-harness/project?variant=…&accent=…` renders a project page from a fixture.
+
 The lobby sections share one progress source (`components/lobby/sectionProgress.ts`): scroll in the resting page, a timed 0 to 1 per slide in the sequence. Each section poses the horizon (`components/lobby/poses.ts`), and `data-gesture-capture="x"` (or `"all"`) on an element keeps the sequence's wheel, swipe and arrow handling off the gestures it needs.
 
 ## Adding an effect

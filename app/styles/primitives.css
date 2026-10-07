@@ -970,6 +970,135 @@
     transform: scale(0.98);
   }
 
+  /* ── Toggle: ModernToggle's switch, a spring-driven thumb ──────────── */
+  .toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .toggle__switch {
+    position: relative;
+    display: block;
+    width: 2.75rem;
+    aspect-ratio: 44 / 25;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    cursor: pointer;
+    container-type: inline-size;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .toggle--md .toggle__switch {
+    width: 4rem;
+  }
+
+  .toggle__switch:focus-visible {
+    outline: none;
+  }
+
+  .toggle__track {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    background: var(--prim-surface);
+    box-shadow: inset 0 0 0 1px var(--prim-edge);
+    transition:
+      background 0.46s cubic-bezier(0.32, 0.72, 0, 1),
+      box-shadow 0.46s ease;
+  }
+
+  .toggle[data-state="on"] .toggle__track {
+    background: var(--prim-accent);
+  }
+
+  .toggle__switch:focus-visible .toggle__track {
+    box-shadow:
+      inset 0 0 0 1px var(--prim-edge),
+      0 0 0 3px color-mix(in srgb, var(--prim-accent) 40%, transparent);
+  }
+
+  .toggle__thumb {
+    position: absolute;
+    top: 4.6cqw;
+    left: 4.6cqw;
+    display: grid;
+    width: 47.6cqw;
+    height: 47.6cqw;
+    place-items: center;
+    border-radius: 9999px;
+    background: var(--prim-ink);
+    box-shadow:
+      0 1px 1px var(--prim-shadow),
+      0 6px 14px -4px var(--prim-shadow);
+    transform: translateZ(0);
+    will-change: transform;
+  }
+
+  .toggle__mark {
+    position: relative;
+    width: 40%;
+    height: 40%;
+    color: var(--prim-deep);
+  }
+
+  .toggle__mark svg {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.6;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    transition:
+      opacity 0.28s ease,
+      transform 0.34s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+
+  .toggle__mark svg[data-mark="check"] {
+    opacity: 0;
+    transform: scale(0.6) rotate(-18deg);
+  }
+
+  .toggle__mark svg[data-mark="dash"] {
+    opacity: 0.4;
+  }
+
+  .toggle[data-state="on"] .toggle__mark svg[data-mark="check"] {
+    opacity: 1;
+    transform: none;
+  }
+
+  .toggle[data-state="on"] .toggle__mark svg[data-mark="dash"] {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  .toggle__caption {
+    display: flex;
+    align-items: baseline;
+    gap: 0.55em;
+    font-family: var(--font-mono);
+    font-size: 0.625rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--prim-muted);
+    transition: color 0.4s ease;
+  }
+
+  .toggle[data-state="on"] .toggle__caption {
+    color: var(--prim-ink);
+  }
+
+  .toggle__caption b {
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+  }
+
   /* ── Decode ───────────────────────────────────────────────────────── */
   .decode {
     display: inline-grid;

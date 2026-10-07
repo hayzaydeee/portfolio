@@ -2,6 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from "react";
 import { AnimatePresence, motion } from "motion/react";
+import { FxStage, type FxHandle } from "@/components/fx/FxStage";
+import { Decode, DECODE_MONO_POOL } from "@/components/fx/ui/Decode";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -33,6 +35,35 @@ function parseFollowUps(text: string): { body: string; followUps: string[] } {
     body: bodyLines.join("\n").trimEnd(),
     followUps,
   };
+}
+
+// ── Run button ─────────────────────────────────────────────────────────────────
+
+/** The run key, after ThreeUI's Ignition Button: a star tunnel that primes on hover or focus and flashes as it fires */
+function RunButton({ streaming, disabled, onRun, accentClass }: { streaming: boolean; disabled: boolean; onRun: () => void; accentClass: string }) {
+  const core = useRef<FxHandle>(null);
+  const prime = (on: boolean) => core.current?.command("warp", on && !disabled);
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        core.current?.command("flash");
+        onRun();
+      }}
+      onPointerEnter={() => prime(true)}
+      onPointerLeave={() => prime(false)}
+      onFocus={() => prime(true)}
+      onBlur={() => prime(false)}
+      disabled={disabled}
+      className={`relative isolate shrink-0 overflow-hidden rounded-md border border-(--workshop-tree-border) px-2.5 py-1 font-mono text-xs transition-opacity disabled:cursor-not-allowed disabled:opacity-40 ${accentClass}`}
+      aria-label={streaming ? "streaming" : "run (⌘↵)"}
+      data-run-button=""
+    >
+      <FxStage effect="ignition" room="workshop" handle={core} className="absolute inset-0 -z-10" posterClassName="bg-(--workshop-base)" />
+      {streaming ? <span className="animate-pulse">●</span> : <span>▶ run</span>}
+    </button>
+  );
 }
 
 // ── Main component ─────────────────────────────────────────────────────────────
@@ -173,43 +204,37 @@ export function AskTerminal({
 
   return (
     <div className={className}>
-      {/* Input row */}
-      <div
-        className="flex items-center gap-2 rounded-lg px-3 py-2 font-mono text-xs border border-(--workshop-tree-border) bg-(--workshop-base) group focus-within:border-(--workshop-syntax)"
-        style={{ transition: "border-color 0.15s" }}
-      >
-        <span className={`shrink-0 select-none ${accentClass}`}>
-          {promptSymbol} ask(
-        </span>
-        <input
-          ref={inputRef}
-          type="text"
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={handleKeyDown}
-          maxLength={500}
-          spellCheck={false}
-          className="flex-1 bg-transparent outline-none min-w-0 text-(--workshop-text)"
-          placeholder={defaultQuery}
-          aria-label="ask a question about this project"
-          disabled={isStreaming}
-        />
-        <span className={`shrink-0 select-none ${accentClass}`}>)</span>
-        <button
-          type="button"
-          onClick={() => run(query)}
-          disabled={isStreaming || !query.trim()}
-          className={`shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-xs font-mono transition-opacity ${
-            isStreaming || !query.trim() ? "opacity-30 cursor-not-allowed" : "opacity-70 hover:opacity-100"
-          } ${accentClass}`}
-          aria-label={isStreaming ? "streaming…" : "run (⌘↵)"}
-        >
-          {isStreaming ? (
-            <span className="animate-pulse">●</span>
-          ) : (
-            <>▶ run</>
-          )}
-        </button>
+      {/* Input row; while an answer streams, a comet of light laps it */}
+      <div className="relative">
+        {isStreaming && (
+          <FxStage
+            effect="trace-border"
+            room="workshop"
+            options={{ radius: 11, inset: 3 }}
+            className="pointer-events-none absolute -inset-1.5"
+            posterClassName="bg-transparent"
+          />
+        )}
+        <div className="group flex items-center gap-2 rounded-lg border border-(--workshop-tree-border) bg-(--workshop-base) px-3 py-2 font-mono text-xs transition-colors duration-150 focus-within:border-(--workshop-syntax)">
+          <span className={`shrink-0 select-none ${accentClass}`}>
+            {promptSymbol} ask(
+          </span>
+          <input
+            ref={inputRef}
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
+            maxLength={500}
+            spellCheck={false}
+            className="flex-1 bg-transparent outline-none min-w-0 text-(--workshop-text)"
+            placeholder={defaultQuery}
+            aria-label="ask a question about this project"
+            disabled={isStreaming}
+          />
+          <span className={`shrink-0 select-none ${accentClass}`}>)</span>
+          <RunButton streaming={isStreaming} disabled={isStreaming || !query.trim()} onRun={() => run(query)} accentClass={accentClass} />
+        </div>
       </div>
 
       {/* Terminal panel */}
@@ -274,14 +299,14 @@ export function AskTerminal({
                   <span className="font-mono text-[10px] text-(--workshop-text-muted) mb-1 select-none">
                     {"// follow-up"}
                   </span>
-                  {followUps.map((s) => (
+                  {followUps.map((s, i) => (
                     <button
                       key={s}
                       type="button"
                       onClick={() => handleFollowUp(s)}
                       className={`text-left font-mono text-[11px] opacity-60 hover:opacity-100 transition-opacity hover:underline ${accentClass}`}
                     >
-                      › {s}
+                      <Decode text={`› ${s}`} delay={i * 140} duration={480} pool={DECODE_MONO_POOL} />
                     </button>
                   ))}
                 </div>

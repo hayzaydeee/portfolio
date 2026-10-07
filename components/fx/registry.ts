@@ -15,4 +15,12 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "glyph-ball": () => import("./effects/glyph-ball/renderer") as unknown as ReturnType<Loader>,
   "generative-tree": () => import("./effects/generative-tree/renderer") as unknown as ReturnType<Loader>,
   "outline-typeflow": () => import("./effects/outline-typeflow/renderer") as unknown as ReturnType<Loader>,
+  "dot-matrix": () => import("./effects/dot-matrix/renderer") as unknown as ReturnType<Loader>,
+  "condensation": () => import("./effects/condensation/renderer") as unknown as ReturnType<Loader>,
+  "ignition": () => import("./effects/ignition/renderer") as unknown as ReturnType<Loader>,
+  "trace-border": () => import("./effects/trace-border/renderer") as unknown as ReturnType<Loader>,
+  "crt-boot": () => import("./effects/crt-boot/renderer") as unknown as ReturnType<Loader>,
+  "constellation-field": () => import("./effects/constellation-field/renderer") as unknown as ReturnType<Loader>,
+  "warp-field": () => import("./effects/warp-field/renderer") as unknown as ReturnType<Loader>,
+  "logic-core": () => import("./effects/logic-core/renderer") as unknown as ReturnType<Loader>,
 };

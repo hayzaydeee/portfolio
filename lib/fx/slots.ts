@@ -7,6 +7,9 @@ import type { RoomKey } from "@/components/fx/runtime/types";
  */
 export const FX_SLOTS = {
   "lobby.backdrop": { effect: "emerald-horizon", room: "lobby", label: "Lobby backdrop" },
+  "workshop.backdrop": { effect: "dot-matrix", room: "workshop", label: "Workshop backdrop" },
+  "workshop.boot": { effect: "crt-boot", room: "workshop", label: "Workshop · CRT boot" },
+  "workshop.lifelog": { effect: "condensation", room: "workshop", label: "Workshop · life.log glass" },
   "studio.backdrop": { effect: "bell-field", room: "studio", label: "Studio backdrop" },
   "workshop.dock": { effect: "dock-retro", room: "workshop", label: "Workshop dock field" },
   "studio.dock": { effect: "dock-glass", room: "studio", label: "Studio dock field" },

@@ -2,6 +2,7 @@
 @import "./styles/dock.css";
 @import "./styles/primitives.css";
 @import "./styles/lobby.css";
+@import "./styles/workshop.css";
 
 /* ── Design tokens ─────────────────────────────────────────────────── */
 @theme inline {

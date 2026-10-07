@@ -9,6 +9,9 @@ import { StatusBar } from "@/components/workshop/StatusBar";
 import { AskTerminal } from "@/components/workshop/AskTerminal";
 import type { WorkshopProject } from "@/components/workshop/FileTree";
 import type { Currently } from "@/lib/data/currently";
+import { FxStage } from "@/components/fx/FxStage";
+import { Decode, DECODE_MONO_POOL } from "@/components/fx/ui/Decode";
+import { WorkshopBoot, useWorkshopBoot } from "@/components/workshop/WorkshopBoot";
 
 // ─── Static file content ──────────────────────────────────────────────────────
 
@@ -17,7 +20,7 @@ const README_CONTENT = `# hayzaydee
 software engineer. second year at northampton.
 building things in javascript mostly, branching out constantly.
 
-currently working on vrrbose — a developer activity daemon with
+currently working on vrrbose, a developer activity daemon with
 an MCP gateway. it's the most technically interesting thing i've
 built so far.
 
@@ -38,13 +41,16 @@ const STACK_CONTENT = `{
 }`;
 
 const LIFE_LOG_CONTENT = `[WARN]  purpose.exe is running but output is unclear
-[INFO]  trust_process() called — awaiting resolution
+[INFO]  trust_process() called, awaiting resolution
 [ERROR] comparison.js: cannot benchmark self against others
         stack trace: identity not found in external validation
 [INFO]  faith.config loaded successfully
 [DEBUG] patience: still compiling
 [WARN]  growth is slow but process confirms it is running
 [INFO]  still growing.`;
+
+// Each line decodes in on its own beat; continuation lines keep their indent
+const LIFE_LOG_LINES = LIFE_LOG_CONTENT.split("\n");
 
 // ─── File content renderer ────────────────────────────────────────────────────
 
@@ -84,14 +90,19 @@ function FileContent({ slug, highlightedStackHtml }: { slug: string | null; high
 
   if (slug === "life-log") {
     return (
-      <div className="p-6 overflow-auto h-full flex flex-col gap-6">
-        <pre className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-(--workshop-syntax-dim)">
-          {LIFE_LOG_CONTENT}
-        </pre>
-        <AskTerminal
-          defaultQuery="what does this log mean?"
-          variant="life-log"
-        />
+      <div className="relative h-full overflow-hidden" data-life-log="">
+        {/* Breath on the glass: the log reads through condensation */}
+        <FxStage slot="workshop.lifelog" className="absolute inset-0" posterClassName="bg-transparent" />
+        <div className="relative flex h-full flex-col gap-6 overflow-auto p-6">
+          <pre className="font-mono text-sm leading-relaxed whitespace-pre-wrap text-(--workshop-syntax-dim)">
+            {LIFE_LOG_LINES.map((line, i) => (
+              <span key={i} className="block">
+                <Decode text={line} delay={i * 220} duration={520} pool={DECODE_MONO_POOL} />
+              </span>
+            ))}
+          </pre>
+          <AskTerminal defaultQuery="what does this log mean?" variant="life-log" />
+        </div>
       </div>
     );
   }
@@ -119,6 +130,7 @@ export function WorkshopClient({ projects, currently, highlightedStackHtml }: Wo
   const router = useRouter();
   const { openTabs, activeSlug, openTab, closeTab } = useTabState("readme");
   const [mobilePanel, setMobilePanel] = useState<"tree" | "content">("content");
+  const boot = useWorkshopBoot();
 
   const projectSlugs = new Set(projects.map((p) => p.slug));
 
@@ -132,8 +144,9 @@ export function WorkshopClient({ projects, currently, highlightedStackHtml }: Wo
   }
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+    <div className="relative flex flex-1 min-h-0 flex-col overflow-hidden">
       <h1 className="sr-only">workshop</h1>
+      {boot.booting && <WorkshopBoot projects={projects.length} onFinished={boot.finish} />}
 
       {/* Mobile tab selector */}
       <div
@@ -171,7 +184,7 @@ export function WorkshopClient({ projects, currently, highlightedStackHtml }: Wo
         {/* Content panel */}
         <div
           className={[
-            "flex-1 flex flex-col overflow-hidden bg-(--workshop-panel)",
+            "flex-1 flex flex-col overflow-hidden bg-(--workshop-panel)/80",
             mobilePanel === "content" ? "flex" : "hidden md:flex",
           ].join(" ")}
         >

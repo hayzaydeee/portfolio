@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ChevronRight, ChevronDown, FileText, Folder, FolderOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Toggle } from "@/components/fx/ui/Toggle";
 
 type TreeNode = {
   name: string;
@@ -152,7 +153,7 @@ export function FileTree({ activeSlug, onSelect, projects }: FileTreeProps) {
 
   return (
     <div
-      className="flex flex-col h-full overflow-y-auto py-3 select-none bg-(--workshop-tree)"
+      className="flex flex-col h-full overflow-y-auto py-3 select-none bg-(--workshop-tree)/90"
     >
       <div className="flex-1">
         {allNodes.map((node) => (
@@ -166,15 +167,10 @@ export function FileTree({ activeSlug, onSelect, projects }: FileTreeProps) {
         ))}
       </div>
 
-      {/* Hidden files hint */}
-      <div className="mt-4 px-3">
-        <button
-          type="button"
-          onClick={() => setShowHidden((v) => !v)}
-          className="text-[10px] font-mono text-(--workshop-syntax-dim) hover:text-(--workshop-text-muted) transition-colors cursor-pointer"
-        >
-          {showHidden ? "// hide hidden files" : "// try showing hidden files"}
-        </button>
+      {/* Hidden files: there's a .debug folder for anyone who flips this */}
+      <div className="mt-4 flex flex-col gap-1.5 px-3" data-hidden-files="">
+        {!showHidden && <span className="font-mono text-[10px] text-(--workshop-syntax-dim)">{"// try showing hidden files"}</span>}
+        <Toggle label="hidden files" checked={showHidden} onChange={setShowHidden} room="workshop" />
       </div>
     </div>
   );

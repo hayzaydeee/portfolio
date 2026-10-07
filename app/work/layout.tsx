@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { WorkshopTopBar } from "@/components/workshop/WorkshopTopBar";
+import { WorkshopBackdrop } from "@/components/workshop/WorkshopBackdrop";
 
 export const metadata: Metadata = {
   title: "Workshop — hayzaydee",
@@ -14,7 +15,10 @@ export default function WorkshopLayout({
   // A self-contained IDE: the title bar (which is the dock) stays put while pages and
   // their loading states swap underneath it
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-(--workshop-base) text-(--workshop-text)">
+    // No background or z-index here: the backdrop sits in the root stacking context underneath,
+    // and the dock keeps its place above the rest of the page
+    <div className="relative flex h-screen flex-col overflow-hidden text-(--workshop-text)">
+      <WorkshopBackdrop />
       <WorkshopTopBar />
       <div className="flex min-h-0 flex-1 flex-col overflow-auto">{children}</div>
     </div>

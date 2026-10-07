@@ -8,6 +8,9 @@ import { MediaUpload } from "@/components/admin/MediaUpload";
 import { StatusBadge } from "@/components/admin/StatusBadge";
 import { createProject, updateProject, deleteProject, uploadProjectThumbnail } from "@/app/actions/projects";
 import type { Project, ProjectActionState } from "@/app/actions/projects";
+import { ProjectIdentity } from "@/components/workshop/ProjectIdentity";
+import { FX_METAS } from "@/components/fx/metas";
+import { ACCENT_TOKENS, PORTED_VISUALS } from "@/lib/fx/projectVisuals";
 
 type ProjectFormProps = {
   project?: Project;
@@ -46,6 +49,8 @@ export function ProjectForm({ project }: ProjectFormProps) {
   const [orderIndex, setOrderIndex] = useState(String(project?.order_index ?? 0));
   const [isFeatured, setIsFeatured] = useState(project?.is_featured ?? false);
   const [personalNote, setPersonalNote] = useState(project?.personal_note ?? "");
+  const [visualVariant, setVisualVariant] = useState<string>(project?.visual_variant ?? "");
+  const [visualAccent, setVisualAccent] = useState<string>(project?.visual_accent ?? "");
 
   // Rich text refs (values set via hidden inputs from RichTextEditor)
   const formRef = useRef<HTMLFormElement>(null);
@@ -272,6 +277,55 @@ export function ProjectForm({ project }: ProjectFormProps) {
           />
         )}
         <input type="hidden" name="thumbnail_url" value={thumbUrl ?? ""} />
+      </section>
+
+      {/* Identity field: the visual at the top of the project page */}
+      <section className="bg-white border border-black/10 rounded-xl p-6 space-y-4" data-visual-picker="">
+        <h2 className="text-sm font-medium text-(--color-base-dark)">Identity field</h2>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="visual_variant" className="block text-xs text-(--color-text-muted) mb-1">
+              Visual
+            </label>
+            <select
+              id="visual_variant"
+              name="visual_variant"
+              value={visualVariant}
+              onChange={(e) => setVisualVariant(e.target.value)}
+              className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) bg-white focus:outline-none focus:border-accent/50"
+            >
+              <option value="">Default ({FX_METAS["constellation-field"].label})</option>
+              {PORTED_VISUALS.map((v) => (
+                <option key={v} value={v}>
+                  {FX_METAS[v].label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="visual_accent" className="block text-xs text-(--color-text-muted) mb-1">
+              Accent
+            </label>
+            <select
+              id="visual_accent"
+              name="visual_accent"
+              value={visualAccent}
+              onChange={(e) => setVisualAccent(e.target.value)}
+              className="w-full text-sm border border-black/10 rounded-lg px-3 py-2.5 text-(--color-base-dark) bg-white focus:outline-none focus:border-accent/50"
+            >
+              <option value="">Room glow</option>
+              {ACCENT_TOKENS.map((t) => (
+                <option key={t} value={t}>
+                  {t}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+        <div className="relative h-40 overflow-hidden rounded-lg" aria-label="identity field preview" role="img">
+          <ProjectIdentity variant={visualVariant || null} accent={visualAccent || null} title={title || "project"} preview className="absolute inset-0" />
+        </div>
+        <p className="text-xs text-(--color-text-muted)">More fields arrive as they are ported; a project set to one that isn&apos;t yet shows the default.</p>
       </section>
 
       {/* Actions */}
