@@ -208,6 +208,7 @@
 
   /* ── CRT boot: powers off into a bright line, then the line goes out ── */
   .crt-boot[data-workshop-boot="off"] {
+    pointer-events: none;
     animation: crt-off 0.55s cubic-bezier(0.7, 0, 0.84, 0) forwards;
   }
 

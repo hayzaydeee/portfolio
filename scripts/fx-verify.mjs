@@ -1403,6 +1403,53 @@ const backdropFrames = (page) =>
 }
 
 {
+  // While the glass is up, keyboard focus stays out of the IDE behind it (the dock stays reachable)
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-workshop-boot="running"] [data-fx-state="live"]', { timeout: 10000 }).catch(() => {});
+  const stops = [];
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press("Tab");
+    stops.push(
+      await page.evaluate(() => {
+        const a = document.activeElement;
+        if (!a || a === document.body) return "body";
+        if (a.closest(".dock-retro")) return "dock";
+        return a.closest("aside, main, [data-workshop-ide]") ? "ide" : a.tagName.toLowerCase();
+      })
+    );
+  }
+  const stillBooting = await page.evaluate(() => document.querySelector("[data-workshop-boot]")?.dataset.workshopBoot);
+  check("workshop-boot", "Tab never reaches the IDE behind the glass", stillBooting === "running" && !stops.includes("ide") && stops.includes("dock"), { stillBooting, stops });
+  await context.close();
+}
+
+{
+  // Leaving mid-boot still counts as having booted: coming back doesn't play it again
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-workshop-boot="running"]', { timeout: 10000 }).catch(() => {});
+  await page.goto(BASE + "/colophon", { waitUntil: "domcontentloaded" });
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2500);
+  const again = await page.evaluate(() => !!document.querySelector("[data-workshop-boot]"));
+  check("workshop-boot", "leaving mid-boot: no second boot on return", !again, { again });
+  await context.close();
+}
+
+{
+  // A skip whose power-off animation never ends (animationend missed) still clears the overlay
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-workshop-boot="running"]', { timeout: 10000 }).catch(() => {});
+  await page.addStyleTag({ content: ".crt-boot { animation: none !important; }" });
+  await page.keyboard.press("Escape");
+  const cleared = await page.waitForFunction(() => !document.querySelector("[data-workshop-boot]"), null, { timeout: 3000 }).then(() => true).catch(() => false);
+  check("workshop-boot", "overlay clears even without animationend", cleared, { cleared });
+  await context.close();
+}
+
+{
   // Reduced motion never boots
   const { context, page } = await chromePage({ reducedMotion: "reduce" });
   await page.goto(BASE + "/work", { waitUntil: "networkidle" });

@@ -148,8 +148,9 @@ export function WorkshopClient({ projects, currently, highlightedStackHtml }: Wo
       <h1 className="sr-only">workshop</h1>
       {boot.booting && <WorkshopBoot projects={projects.length} onFinished={boot.finish} />}
 
-      {/* Mobile tab selector */}
+      {/* Mobile tab selector (the IDE is inert behind the boot's glass) */}
       <div
+        inert={boot.booting}
         className="md:hidden flex gap-0 border-b shrink-0 border-(--workshop-tree-border)"
       >
         {(["tree", "content"] as const).map((p) => (
@@ -169,7 +170,7 @@ export function WorkshopClient({ projects, currently, highlightedStackHtml }: Wo
       </div>
 
       {/* Main 3-panel body */}
-      <div className="flex flex-1 overflow-hidden">
+      <div inert={boot.booting} className="flex flex-1 overflow-hidden">
         {/* File tree panel */}
         <aside
           className={[

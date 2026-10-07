@@ -9,6 +9,8 @@ const BOOT_KEY = "hzy:workshop-booted";
 const HOLD_MS = 650;
 /** Never keep the workshop behind glass longer than this */
 const SAFETY_MS = 7000;
+/** The power-off animation (workshop.css crt-off) plus slack: gone by now even if animationend never fires */
+const OFF_MS = 550 + 250;
 
 function shouldBoot(): boolean {
   try {
@@ -49,7 +51,13 @@ export function WorkshopEntry() {
  * visitor never sees a flash of glass.
  */
 export function useWorkshopBoot() {
-  const wanted = useSyncExternalStore(noSubscribe, shouldBoot, () => false);
+  // Decided once per mount: the boot writes the flag as soon as it starts, and a re-render
+  // mid-boot mustn't read that back as "already booted"
+  const [decide] = useState(() => {
+    let decided: boolean | undefined;
+    return () => (decided ??= shouldBoot());
+  });
+  const wanted = useSyncExternalStore(noSubscribe, decide, () => false);
   const [finished, setFinished] = useState(false);
   return { booting: wanted && !finished, finish: () => setFinished(true) };
 }
@@ -61,6 +69,17 @@ export function WorkshopBoot({ projects, onFinished }: { projects: number; onFin
   useEffect(() => {
     finishedRef.current = onFinished;
   }, [onFinished]);
+
+  // Seen is seen: leaving mid-boot doesn't earn a second one this session
+  useEffect(markBooted, []);
+
+  // The overlay leaves on animationend; this catches the end that never comes (animations
+  // switched off, a background tab), so an invisible layer never sits on the IDE
+  useEffect(() => {
+    if (phase !== "off") return;
+    const done = setTimeout(() => finishedRef.current(), OFF_MS);
+    return () => clearTimeout(done);
+  }, [phase]);
 
   useEffect(() => {
     let hold: ReturnType<typeof setTimeout> | undefined;
@@ -90,7 +109,6 @@ export function WorkshopBoot({ projects, onFinished }: { projects: number; onFin
       aria-hidden="true"
       onAnimationEnd={(e) => {
         if (phase !== "off" || e.target !== e.currentTarget) return;
-        markBooted();
         finishedRef.current();
       }}
     >
