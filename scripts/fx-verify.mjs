@@ -1155,7 +1155,14 @@ const backdropFrames = (page) =>
 
   // The wave claims horizontal gestures; vertical ones still move the sequence
   await page.click('button[aria-label="Go to projects section"]');
-  await page.waitForTimeout(1500);
+  // The slide enters from the right: measure the stage only once it has settled on screen
+  await page
+    .waitForFunction(() => {
+      const r = document.querySelector("[data-project-wave]")?.getBoundingClientRect();
+      return !!r && r.left >= 0 && r.right <= innerWidth && document.querySelector('[data-wave-card][aria-current="true"]');
+    }, null, { timeout: 8000 })
+    .catch(() => {});
+  await page.waitForTimeout(800);
   const current = () => page.evaluate(() => document.querySelector('[data-wave-card][aria-current="true"]')?.dataset.waveCard ?? null);
   const before = await current();
   const wave = await page.locator("[data-project-wave]").boundingBox();
@@ -1224,7 +1231,9 @@ const backdropFrames = (page) =>
   check("lobby-tour", "modal with focus inside and one live room preview", tour.dialog && tour.focusIn && tour.previewState === "live" && tour.gl <= 2, tour);
   await page.screenshot({ path: path.join(OUT, "lobby-1b-tour.png") });
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(600);
+  // The exit animation has to finish before the dialog unmounts and hands focus back
+  await page.waitForFunction(() => !document.querySelector("[data-guided-tour]"), null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(200);
   const closed = await page.evaluate(() => ({
     open: !!document.querySelector("[data-guided-tour]"),
     focus: document.activeElement?.getAttribute("aria-label"),
