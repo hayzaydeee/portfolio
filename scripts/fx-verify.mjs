@@ -220,13 +220,23 @@ const setHidden = (page, hidden) =>
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
 
-// A navigation that times out names the requests the page was still waiting on
+// A navigation that times out names the requests the page was still waiting on, and is tried
+// once more: a paused sandbox VM stalls whichever load is in flight, server and page alike idle
 {
   const probe = await browser.newPage();
   const proto = Object.getPrototypeOf(probe);
   await probe.close();
   const goto = proto.goto;
   proto.goto = async function (url, opts) {
+    try {
+      return await gotoOnce.call(this, url, opts);
+    } catch (e) {
+      if (e?.name !== "TimeoutError") throw e;
+      console.log(`NOTE  navigation timed out, retrying once: ${url}\n${e.message.slice(e.message.indexOf("still pending"))}`);
+      return await gotoOnce.call(this, url, opts);
+    }
+  };
+  async function gotoOnce(url, opts) {
     const pending = new Map();
     const start = Date.now();
     const add = (r) => pending.set(r, Date.now() - start);
@@ -245,7 +255,7 @@ const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
       this.off("requestfinished", done);
       this.off("requestfailed", done);
     }
-  };
+  }
 }
 
 // ── HZY reveal easing: one shared curve, continuous, and the bloom's inverse matches it ──
