@@ -143,6 +143,8 @@ function StopPreview({ room }: { room: Stop["room"] }) {
   );
 }
 
+const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
 // ── Main tour component ───────────────────────────────────────────────────────
 
 type GuidedTourProps = {
@@ -159,12 +161,31 @@ export function GuidedTour({ onClose }: GuidedTourProps) {
     closeRef.current = onClose;
   }, [onClose]);
 
-  // A modal: focus moves in on open, Escape leaves, and focus returns to whatever opened it
+  // A modal: focus moves in on open and Tab cycles inside it, Escape leaves, and focus
+  // returns to whatever opened it
   useEffect(() => {
     const opener = document.activeElement as HTMLElement | null;
     dialogRef.current?.focus();
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeRef.current();
+      if (e.key === "Escape") {
+        closeRef.current();
+        return;
+      }
+      const dialog = dialogRef.current;
+      if (e.key !== "Tab" || !dialog) return;
+      const stops = Array.from(dialog.querySelectorAll<HTMLElement>(FOCUSABLE)).filter((el) => !el.closest("[aria-hidden='true']"));
+      if (!stops.length) return;
+      const first = stops[0];
+      const last = stops[stops.length - 1];
+      const at = document.activeElement;
+      const inside = at instanceof Node && dialog.contains(at);
+      if (e.shiftKey && (!inside || at === first || at === dialog)) {
+        e.preventDefault();
+        last.focus();
+      } else if (!e.shiftKey && (!inside || at === last)) {
+        e.preventDefault();
+        first.focus();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => {

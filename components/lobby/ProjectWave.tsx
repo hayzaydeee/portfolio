@@ -15,7 +15,11 @@ import type { FeaturedProject } from "@/lib/data/projects";
  * Layout is written straight to the cards from the shared ticker, never through React state.
  */
 
-/** Short decks repeat so the wave always has both flanks; repeats are inert copies */
+/**
+ * Short decks repeat so the wave always has both flanks. Repeats stay clickable (one can land
+ * in front) but are hidden from assistive tech and the tab order, so each project is announced
+ * and tabbed to once
+ */
 const MIN_CARDS = 7;
 const IDLE_MS = 4200;
 /** Dark palettes only: a cream poster would glare out of the lobby */
@@ -288,7 +292,6 @@ export function ProjectWave({ projects }: { projects: FeaturedProject[] }) {
               }}
               className="wave-card"
               aria-hidden={copy || undefined}
-              inert={copy}
               aria-current={!copy && real === active ? "true" : undefined}
               data-wave-card={copy ? "copy" : project.slug}
               onClick={() => select(i)}
@@ -303,20 +306,17 @@ export function ProjectWave({ projects }: { projects: FeaturedProject[] }) {
               </div>
               <div className="wave-card__body">
                 <h3 className="truncate font-sans text-sm font-medium">
-                  {copy ? (
-                    project.title
-                  ) : (
-                    <TransitionLink
-                      href={`/work/${project.slug}`}
-                      ref={(el) => {
-                        links.current[real] = el;
-                      }}
-                      className="outline-none"
-                      onFocus={() => select(i)}
-                    >
-                      {project.title}
-                    </TransitionLink>
-                  )}
+                  <TransitionLink
+                    href={`/work/${project.slug}`}
+                    ref={(el) => {
+                      if (!copy) links.current[real] = el;
+                    }}
+                    tabIndex={copy ? -1 : undefined}
+                    className="outline-none"
+                    onFocus={() => select(i)}
+                  >
+                    {project.title}
+                  </TransitionLink>
                 </h3>
                 {project.tagline && <p className="line-clamp-2 text-[11px] leading-snug text-text-muted">{project.tagline}</p>}
                 {project.stack.length > 0 && (

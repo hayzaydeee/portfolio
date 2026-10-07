@@ -1174,6 +1174,20 @@ const backdropFrames = (page) =>
   await page.waitForTimeout(300);
   const afterWheel = await current();
   const stayed = await section();
+
+  // Wrapping back lands a padded copy in front: it must still take the click and link out
+  await page.mouse.wheel(-120, 0);
+  await page.mouse.wheel(-120, 0);
+  await page.waitForTimeout(1800);
+  const front = await page.evaluate(() => {
+    const cards = [...document.querySelectorAll("[data-wave-card]")];
+    const card = cards.reduce((a, b) => (Number(b.style.getPropertyValue("--focus")) > Number(a.style.getPropertyValue("--focus")) ? b : a));
+    const r = card.getBoundingClientRect();
+    const hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+    return { which: card.dataset.waveCard, hitInside: card.contains(hit), link: !!card.querySelector("a[href^='/work/']") };
+  });
+  check("lobby-projects", "a padded copy in front takes clicks and links to its project", front.which === "copy" && front.hitInside && front.link, front);
+
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(1000);
   const advanced = await section();
@@ -1228,6 +1242,12 @@ const backdropFrames = (page) =>
     previewState: document.querySelector("[data-tour-preview] [data-fx]")?.dataset.fxState,
     gl: window.__gl().live,
   }));
+  let escaped = 0;
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press(i % 5 === 4 ? "Shift+Tab" : "Tab");
+    if (!(await page.evaluate(() => !!document.activeElement?.closest("[data-guided-tour]")))) escaped++;
+  }
+  check("lobby-tour", "Tab and Shift+Tab stay inside the dialog", escaped === 0, { escaped });
   check("lobby-tour", "modal with focus inside and one live room preview", tour.dialog && tour.focusIn && tour.previewState === "live" && tour.gl <= 2, tour);
   await page.screenshot({ path: path.join(OUT, "lobby-1b-tour.png") });
   await page.keyboard.press("Escape");

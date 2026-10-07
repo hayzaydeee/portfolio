@@ -533,9 +533,10 @@ export function create(ctx: FxContext, initial: GenerativeTreeOptions): FxInstan
       if (still) draw(0);
     },
 
-    render(now, dt) {
+    render(_now, dt) {
       const step = Math.min(64, dt);
-      clock = now;
+      // Sway runs on accumulated time, so a pause resumes where it left off instead of jumping
+      clock += step;
       advance(step);
       draw(step);
     },
