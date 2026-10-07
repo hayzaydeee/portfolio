@@ -3,6 +3,8 @@
 import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { HzyMark } from "@/components/nav/HzyMark";
+import { useLobbyBackdrop } from "./LobbyBackdrop";
+import { MarkBloom } from "./MarkBloom";
 
 /* ── Types & Constants ──────────────────────────────────────────────── */
 
@@ -42,6 +44,8 @@ const TYPEWRITER_SEGMENTS: Segment[] = [
 
 /* ── Timing constants (ms) ──────────────────────────────────────────── */
 const LOAD_MIN_TIME = 2500;
+/** The counter waits for fonts and the backdrop's first frame, but never longer than this */
+const READY_CAP = 8000;
 const COUNTER_HOLD = 350;
 const LOGO_REVEAL_DUR = 2000;
 const LOGO_HOLD = 500;
@@ -94,6 +98,12 @@ export function Splash({ onDismiss, onHandoff }: SplashProps) {
   const timeoutsRef = useRef<number[]>([]);
   const rafRef = useRef<number | null>(null);
   const skipTriggeredRef = useRef(false);
+
+  const backdrop = useLobbyBackdrop();
+  const backdropReadyRef = useRef(backdrop.ready);
+  useEffect(() => {
+    backdropReadyRef.current = backdrop.ready;
+  }, [backdrop.ready]);
 
   const [initialLogoSize] = useState(() =>
     typeof window !== "undefined"
@@ -156,14 +166,16 @@ export function Splash({ onDismiss, onHandoff }: SplashProps) {
     setPhase("exit");
     setExitStage("fly");
     // After logo finishes flying, start simultaneous color transitions
+    // The logo lands, then the cream lifts off the horizon as it rises into place
     addTimeout(() => {
       setExitStage("colors");
       setLogoMode("dark");
+      backdrop.command("rise", { from: 0, to: 1 });
       onHandoff?.();
     }, LOGO_FLY_DUR * 1000);
     // onDismiss after fly + color transition
     addTimeout(() => onDismiss(), (LOGO_FLY_DUR + EXIT_DUR) * 1000);
-  }, [clearAllTimeouts, addTimeout, onDismiss, onHandoff]);
+  }, [clearAllTimeouts, addTimeout, onDismiss, onHandoff, backdrop]);
 
   /* ── Phase 1: Loading counter (rAF + direct DOM) ──────────────── */
 
@@ -195,8 +207,10 @@ export function Splash({ onDismiss, onHandoff }: SplashProps) {
       const timeProgress = Math.min(elapsed / LOAD_MIN_TIME, 1);
       const eased = 1 - Math.pow(1 - timeProgress, 3);
 
+      // An honest 100: fonts and the backdrop's first frame are in (or the wait has run too long)
+      const ready = (fontsReady && backdropReadyRef.current) || elapsed >= READY_CAP;
       let percent: number;
-      if (fontsReady && elapsed >= LOAD_MIN_TIME) {
+      if (ready && elapsed >= LOAD_MIN_TIME) {
         percent = 100;
       } else {
         percent = Math.min(Math.floor(eased * 97), 97);
@@ -266,12 +280,10 @@ export function Splash({ onDismiss, onHandoff }: SplashProps) {
   return (
     <motion.div
       key="splash"
-      className="fixed inset-0 z-50 overflow-hidden"
-      initial={{ backgroundColor: "#F5F4F0" }}
-      animate={{
-        backgroundColor: colorsActive ? "#0C110A" : "#F5F4F0",
-      }}
-      transition={{ duration: colorsActive ? EXIT_DUR : 0, ease: "easeInOut" }}
+      data-splash-phase={phase}
+      className={`fixed inset-0 z-(--z-splash) overflow-hidden transition-colors duration-800 ease-in-out ${
+        colorsActive ? "bg-transparent" : "bg-base-light"
+      }`}
     >
       {/* ── Loading Counter ──────────────────────────────────────── */}
       <motion.div
@@ -309,7 +321,7 @@ export function Splash({ onDismiss, onHandoff }: SplashProps) {
         {/* Logo (in-flow during normal phases) */}
         <motion.div
           ref={logoContainerRef}
-          className="mb-10"
+          className="relative mb-10"
           initial={{ width: initialLogoSize, height: initialLogoSize }}
           animate={{
             width: logoSettled ? 72 : initialLogoSize,
@@ -326,6 +338,7 @@ export function Splash({ onDismiss, onHandoff }: SplashProps) {
             animate={atLeast("logo")}
             duration={LOGO_REVEAL_DUR}
           />
+          {phase === "logo" && !logoSettled && <MarkBloom size={initialLogoSize} duration={LOGO_REVEAL_DUR} />}
         </motion.div>
 
         {/* ── Flowing paragraph ──────────────────────────────────── */}

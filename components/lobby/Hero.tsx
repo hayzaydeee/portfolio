@@ -201,7 +201,7 @@ export function Hero({ mode = "resting" }: { mode?: "sequence" | "resting" }) {
   return (
     <section
       ref={sectionRef}
-      className={`relative flex items-center overflow-hidden bg-(--lobby-surface) ${
+      className={`relative flex items-center overflow-hidden ${
         isSequence ? "min-h-screen justify-center" : "min-h-[calc(100vh-3.5rem)]"
       }`}
     >

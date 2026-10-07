@@ -203,6 +203,22 @@ const setHidden = (page, hidden) =>
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
 
+// ── HZY reveal easing: one shared curve, continuous, and the bloom's inverse matches it ──
+{
+  const mod = await import(new URL("../components/nav/hzyMarkPath.ts", import.meta.url).href).catch(() => ({}));
+  const { hzyRevealEase: ease, hzyRevealAt: at } = mod;
+  const shared = typeof ease === "function" && typeof at === "function";
+  let jump = Infinity;
+  let monotonic = false;
+  let roundTrip = Infinity;
+  if (shared) {
+    jump = Math.abs(ease(0.5 - 1e-6) - ease(0.5 + 1e-6));
+    monotonic = Array.from({ length: 200 }, (_, i) => ease((i + 1) / 200) >= ease(i / 200)).every(Boolean);
+    roundTrip = Math.max(...Array.from({ length: 101 }, (_, i) => Math.abs(at(ease(i / 100)) - i / 100)));
+  }
+  check("hzy-ease", "mark and bloom share one continuous, invertible reveal curve", shared && jump < 1e-3 && monotonic && roundTrip < 1e-6, { shared, jump, monotonic, roundTrip });
+}
+
 // ── GL sanity ──────────────────────────────────────────────────────────────────
 {
   const page = await browser.newPage(CONTEXT_OPTS);
@@ -880,6 +896,142 @@ for (const [when, expect] of [
   await page.waitForTimeout(1000);
   const portal = await page.evaluate(() => ({ ...window.__portal, stages: document.querySelectorAll("[data-portal-state] [data-fx]").length }));
   check("portal-reduced", "no cover and no transition effect", !portal.log.includes("covering") && portal.stages === 0, portal);
+  await context.close();
+}
+
+// ── Lobby: one persistent horizon behind the splash, honest counter, bloom, rise ──
+const LOBBY_LOG = () => {
+  window.__lobby = { at100: null, bloomSeen: false, bloomDuringGreeting: false, phases: [] };
+  const tick = () => {
+    const splash = document.querySelector("[data-splash-phase]");
+    const phase = splash?.dataset.splashPhase ?? null;
+    if (phase && window.__lobby.phases.at(-1) !== phase) window.__lobby.phases.push(phase);
+    const counter = splash?.querySelector("span.font-mono");
+    if (window.__lobby.at100 === null && counter?.textContent === "100")
+      window.__lobby.at100 = document.querySelector("[data-lobby-backdrop] [data-fx]")?.dataset.fxState ?? "missing";
+    if (document.querySelector("[data-splash-bloom]")) {
+      window.__lobby.bloomSeen = true;
+      if (phase === "greeting" || phase === "typewriter") window.__lobby.bloomDuringGreeting = true;
+    }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
+const backdropFrames = (page) =>
+  page.evaluate(() => {
+    const stages = window.__fx?.stats().stages ?? [];
+    return stages.reduce((n, s) => n + s.frames, 0);
+  });
+
+{
+  const { context, page, errors } = await chromePage();
+  await context.addInitScript(LOBBY_LOG);
+  await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  const one = await page.evaluate(() => document.querySelectorAll('[data-lobby-backdrop] [data-fx="emerald-horizon"]').length);
+  // Fonts come through the sandbox proxy here, so the counter can take a while
+  await page.waitForSelector('[data-splash-phase="logo"]', { timeout: 40000 }).catch(() => {});
+  const underSplash = await page.evaluate(() => ({
+    rise: document.querySelector("[data-lobby-backdrop]")?.dataset.rise,
+    state: document.querySelector("[data-lobby-backdrop] [data-fx]")?.dataset.fxState,
+  }));
+  const coveredA = await backdropFrames(page);
+  await page.waitForTimeout(800);
+  const coveredB = await backdropFrames(page);
+  const cta = page.getByRole("button", { name: /let.s go/i });
+  await cta.waitFor({ timeout: 20000 }).catch(() => {});
+  const lobby = await page.evaluate(() => window.__lobby);
+  check("lobby-splash", "one horizon behind the splash, below the frame", one === 1 && underSplash.rise === "0" && underSplash.state === "live", { one, ...underSplash });
+  check("lobby-splash", "counter reads 100 only once the horizon is live", lobby.at100 === "live", { at100: lobby.at100 });
+  check("lobby-splash", "covered horizon holds its frame", coveredA === coveredB && coveredA > 0, { coveredA, coveredB });
+  check("lobby-splash", "the mark forms from particles, gone by the greeting", lobby.bloomSeen && !lobby.bloomDuringGreeting, lobby);
+
+  await page.waitForTimeout(700);
+  await cta.click();
+  await page.waitForFunction(() => document.querySelector("[data-lobby-backdrop]")?.dataset.rise === "1", null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(300);
+  const lifting = await page.evaluate(() => {
+    const s = document.querySelector("[data-splash-phase]");
+    return { bg: s ? getComputedStyle(s).backgroundColor : null, rise: document.querySelector("[data-lobby-backdrop]")?.dataset.rise };
+  });
+  await page.waitForFunction(() => document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase === "sequence", null, { timeout: 6000 }).catch(() => {});
+  const risenA = await backdropFrames(page);
+  await page.waitForTimeout(800);
+  const risenB = await backdropFrames(page);
+  const seq = await page.evaluate(() => ({
+    footer: getComputedStyle(document.querySelector("[data-site-footer]")).visibility,
+    gl: window.__gl().live,
+  }));
+  const alpha = (() => {
+    const m = /rgba?\(([^)]+)\)/.exec(lifting.bg ?? "");
+    const parts = m ? m[1].split(",").map(Number) : [];
+    return parts.length === 4 ? parts[3] : lifting.bg === "transparent" ? 0 : 1;
+  })();
+  check("lobby-splash", "exit lifts the cream off a rising horizon", lifting.rise === "1" && alpha < 1, { ...lifting, alpha });
+  check("lobby-splash", "horizon animates once uncovered", risenB > risenA, { risenA, risenB });
+  check("lobby-sequence", "footer steps out under the sequence; contexts within budget", seq.footer === "hidden" && seq.gl <= 2, seq);
+  check("lobby-splash", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await page.screenshot({ path: path.join(OUT, "lobby-sequence-hero.png") });
+
+  // Leave through the dock and come back: no splash, the horizon starts at rest
+  await page.click('.dock a[href="/work"]');
+  await portalIdleAt(page, "/work", 15000);
+  await page.click('.dock a[href="/"]').catch(() => page.click(".dock [data-hzy-mark-target]"));
+  await portalIdleAt(page, "/", 15000);
+  await page.waitForTimeout(800);
+  const back = await page.evaluate(() => ({
+    splash: !!document.querySelector("[data-splash-phase]"),
+    phase: document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase,
+    rise: document.querySelector("[data-lobby-backdrop]")?.dataset.rise,
+    state: document.querySelector("[data-lobby-backdrop] [data-fx]")?.dataset.fxState,
+    footer: getComputedStyle(document.querySelector("[data-site-footer]")).visibility,
+  }));
+  check("lobby-return", "returning visitor: no splash, horizon at rest, footer back", !back.splash && back.phase === "resting" && back.rise === "1" && back.state === "live" && back.footer === "visible", back);
+  await context.close();
+}
+
+// The horizon's rise must survive a context loss: a recreated instance starts where it was
+{
+  const sharp = (await import("sharp")).default;
+  const bottomLuma = async (page) => {
+    const png = await page.screenshot({ clip: { x: 0, y: 700, width: 1440, height: 200 } });
+    const { data } = await sharp(png).greyscale().raw().toBuffer({ resolveWithObject: true });
+    return data.reduce((n, v) => n + v, 0) / data.length;
+  };
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2300);
+  await page.getByText("skip").click().catch(() => {});
+  const cta = page.getByRole("button", { name: /let.s go/i });
+  await cta.waitFor({ timeout: 40000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  await cta.click();
+  await page.waitForFunction(() => document.querySelector("[data-lobby-backdrop]")?.dataset.lobbyPhase === "sequence", null, { timeout: 8000 }).catch(() => {});
+  await page.waitForTimeout(3000);
+  const before = await bottomLuma(page);
+  const attemptsBefore = await page.evaluate(() => window.__fx.attempts());
+  await page.evaluate(() => {
+    const canvas = document.querySelector("[data-lobby-backdrop] [data-fx] canvas");
+    const ext = canvas?.getContext("webgl")?.getExtension("WEBGL_lose_context");
+    ext?.loseContext();
+    setTimeout(() => ext?.restoreContext(), 300);
+  });
+  await page.waitForFunction((n) => window.__fx.attempts() > n && document.querySelector("[data-lobby-backdrop] [data-fx]")?.dataset.fxState === "live", attemptsBefore, { timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(2500);
+  const after = await bottomLuma(page);
+  check("lobby-recreate", "a recreated horizon stays risen (bottom of the frame keeps its glow)", after > before * 0.6 && before > 25, { before: +before.toFixed(1), after: +after.toFixed(1) });
+  check("lobby-recreate", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
+  const { context, page } = await chromePage({ reducedMotion: "reduce" });
+  await context.addInitScript(LOBBY_LOG);
+  await page.goto(BASE + "/", { waitUntil: "domcontentloaded" });
+  await page.getByRole("button", { name: /let.s go/i }).waitFor({ timeout: 15000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  const lobby = await page.evaluate(() => window.__lobby);
+  check("lobby-reduced", "reduced motion: straight to the CTA, no particles", !lobby.bloomSeen && !lobby.phases.includes("logo"), lobby);
   await context.close();
 }
 
