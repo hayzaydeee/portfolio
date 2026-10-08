@@ -93,8 +93,15 @@ function ProjectDetail({ project, onClose }: { project: MusicProject; onClose: (
       data-project-detail={project.slug}
     >
       <div className="mb-4 flex gap-4">
-        <div className="relative size-20 shrink-0 overflow-hidden rounded-lg bg-(--studio-raised)">
-          {project.artwork_path && <Image src={project.artwork_path} alt="" fill className="object-cover" sizes="80px" />}
+        <div className="relative grid size-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-(--studio-raised)">
+          {project.artwork_path ? (
+            <Image src={project.artwork_path} alt="" fill className="object-cover" sizes="80px" />
+          ) : (
+            // Drawn like the gallery's strips for projects without artwork: the initial
+            <span className="font-sans text-3xl text-(--studio-text-muted)" aria-hidden="true">
+              {project.title.charAt(0).toUpperCase()}
+            </span>
+          )}
         </div>
         <div className="min-w-0 flex-1">
           <h3 id={`project-${project.id}`} className="text-lg text-(--studio-text)">

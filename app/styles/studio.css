@@ -61,6 +61,8 @@
     /* vertical swipes still scroll the page; horizontal ones spin the helix */
     touch-action: pan-y;
     user-select: none;
+    /* the helix runs on past the stage: its ends fade out instead of being cut off */
+    mask-image: linear-gradient(to bottom, transparent, black 14%, black 86%, transparent);
   }
 
   .studio-gallery:active {

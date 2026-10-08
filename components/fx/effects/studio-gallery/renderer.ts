@@ -18,7 +18,7 @@ import type { GalleryItem, StudioGalleryOptions } from "./meta";
 
 /**
  * Port of ThreeUI's Gallery (MIT, Meng To) from three r149 to r186. Same scene: a 35° camera at
- * z 18, sixteen open cylinder segments (radius 5, 1.8 tall, 72° of arc) stacked 2.4 apart and
+ * z 18 (further back on a stage narrower than it is tall), sixteen open cylinder segments (radius 5, 1.8 tall, 72° of arc) stacked 2.4 apart and
  * turned an eighth of a turn each, so they wind two full turns of a helix; the group turns and
  * bobs. The original hung five stock photos; here each panel is a strip for one project (its
  * artwork, title and meta, or a drawn strip without artwork), projects repeating round the
@@ -42,6 +42,9 @@ const STRIP_W = 1024;
 const STRIP_H = 292;
 /** How long a focused panel holds the front before the helix turns on */
 const HOLD_MS = 6000;
+const CAMERA_Z = 18;
+/** The helix's half-width, as a multiple of its radius, that a narrow stage keeps in view */
+const FIT_MARGIN = 1.12;
 
 type Strip = { canvas: HTMLCanvasElement; texture: CanvasTexture; image: HTMLImageElement | null; loaded: boolean };
 
@@ -58,7 +61,7 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
   renderer.setClearColor(0x000000, 0);
   const scene = new Scene();
   const camera = new PerspectiveCamera(35, 1, 0.1, 100);
-  camera.position.z = 18;
+  camera.position.z = CAMERA_Z;
   const helix = new Group();
   scene.add(helix);
 
@@ -259,6 +262,8 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
       h = Math.max(1, cssH);
       sizeRenderer(renderer, w, h, pr);
       camera.aspect = w / h;
+      // A stage narrower than it is tall pulls the camera back until the helix's sides fit
+      camera.position.z = Math.max(CAMERA_Z, (RADIUS * FIT_MARGIN) / (Math.tan((camera.fov / 2) * (Math.PI / 180)) * camera.aspect));
       camera.updateProjectionMatrix();
       if (still) draw();
     },
