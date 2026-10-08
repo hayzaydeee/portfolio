@@ -10,6 +10,9 @@ import { crtBootMeta } from "./effects/crt-boot/meta";
 import { constellationFieldMeta } from "./effects/constellation-field/meta";
 import { warpFieldMeta } from "./effects/warp-field/meta";
 import { logicCoreMeta } from "./effects/logic-core/meta";
+import { structureFlowMeta } from "./effects/structure-flow/meta";
+import { orbitalSphereMeta } from "./effects/orbital-sphere/meta";
+import { warpKeycapsMeta } from "./effects/warp-keycaps/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
 import { generativeTreeMeta } from "./effects/generative-tree/meta";
 import { glyphBallMeta } from "./effects/glyph-ball/meta";
@@ -41,6 +44,9 @@ export const FX_METAS = {
   "constellation-field": constellationFieldMeta,
   "warp-field": warpFieldMeta,
   "logic-core": logicCoreMeta,
+  "structure-flow": structureFlowMeta,
+  "orbital-sphere": orbitalSphereMeta,
+  "warp-keycaps": warpKeycapsMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

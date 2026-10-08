@@ -15,13 +15,13 @@ type Props = {
 
 /**
  * A project's identity field: the visual chosen for it in the admin (falling back to the
- * constellation while a choice is still unported), drawn in its accent token. The warp field
- * flies the project's own letters.
+ * constellation while a choice is still unported), drawn in its accent token. Both warp fields
+ * fly the project's own letters.
  */
 export function ProjectIdentity({ variant, accent, title, preview = false, className }: Props) {
   const effect = resolveVisual(variant);
   const options: Partial<FxOptions> = { accent: isAccentToken(accent) ? accent : "" };
-  if (effect === "warp-field") options.text = title;
+  if (effect === "warp-field" || effect === "warp-keycaps") options.text = title;
 
   return (
     <FxStage

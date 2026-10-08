@@ -112,6 +112,13 @@ const ROUTES = [
   { name: "warp-field-source", path: "/fx-harness/warp-field?room=workshop&source=1", maxLive: 1 },
   { name: "logic-core-workshop", path: "/fx-harness/logic-core?room=workshop", maxLive: 1 },
   { name: "logic-core-source", path: "/fx-harness/logic-core?room=workshop&source=1", maxLive: 1 },
+  // three (r186), webgl2
+  { name: "structure-flow-workshop", path: "/fx-harness/structure-flow?room=workshop", maxLive: 1 },
+  { name: "structure-flow-source", path: "/fx-harness/structure-flow?room=workshop&source=1", maxLive: 1 },
+  { name: "orbital-sphere-workshop", path: "/fx-harness/orbital-sphere?room=workshop", maxLive: 1 },
+  { name: "orbital-sphere-source", path: "/fx-harness/orbital-sphere?room=workshop&source=1", maxLive: 1 },
+  { name: "warp-keycaps-workshop", path: "/fx-harness/warp-keycaps?room=workshop", maxLive: 1 },
+  { name: "warp-keycaps-source", path: "/fx-harness/warp-keycaps?room=workshop&source=1", maxLive: 1 },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -390,22 +397,26 @@ for (const route of ROUTES.filter((r) => !r.name.endsWith("source"))) {
 }
 
 // ── Budget: stages denied a slot wait, then go live when slots free ─────────────
-{
+// Raw WebGL, then three (whose WebGL2 context the stage must lose on teardown)
+for (const [label, effect] of [
+  ["budget", "bell-field?room=studio"],
+  ["budget-three", "structure-flow?room=workshop"],
+]) {
   const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1440, height: 900 } });
   await context.addInitScript(COUNT_CONTEXTS);
   const page = await context.newPage();
-  await page.goto(BASE + "/fx-harness/bell-field?room=studio&count=8", { waitUntil: "networkidle" });
+  await page.goto(BASE + `/fx-harness/${effect}&count=8`, { waitUntil: "networkidle" });
   await page.waitForTimeout(4000);
   const states = () => page.evaluate(() => [...document.querySelectorAll("[data-fx]")].map((h) => h.dataset.fxState));
   const before = await states();
   const leasesBefore = await page.evaluate(() => window.__fx.live());
-  check("budget", "6 leases, 2 stages waiting on posters", leasesBefore === 6 && before.filter((s) => s === "poster").length === 2, { leasesBefore, before });
+  check(label, "6 leases, 2 stages waiting on posters", leasesBefore === 6 && before.filter((s) => s === "poster").length === 2, { leasesBefore, before });
   await page.click('[data-testid="remove-two"]');
   await page.waitForTimeout(4000);
   const after = await states();
   const gl = await page.evaluate(() => window.__gl());
-  check("budget", "waiting stages go live once slots free", after.length === 6 && after.every((s) => s === "live"), { after });
-  check("budget", "no leaked contexts after removal", gl.live === 6, gl);
+  check(label, "waiting stages go live once slots free", after.length === 6 && after.every((s) => s === "live"), { after });
+  check(label, "no leaked contexts after removal", gl.live === 6, gl);
   await context.close();
 }
 
@@ -1532,6 +1543,9 @@ const backdropFrames = (page) =>
     ["constellation-field", "constellation-field", 0],
     ["warp-field", "warp-field", 1],
     ["logic-core", "logic-core", 1],
+    ["structure-flow", "structure-flow", 1],
+    ["orbital-sphere", "orbital-sphere", 1],
+    ["warp-keycaps", "warp-keycaps", 1],
     ["topo-field", "constellation-field", 0],
   ]) {
     const { context, page, errors } = await chromePage();
@@ -1551,6 +1565,70 @@ const backdropFrames = (page) =>
     await page.screenshot({ path: path.join(OUT, `identity-${variant}.png`) });
     await context.close();
   }
+}
+
+// ── three: loads only with the effects that use it ──────────────────────────────
+{
+  // three stamps its canvases with data-engine "three.js r<REVISION>"; that string marks its chunk
+  const loadsThree = async (url) => {
+    const { context, page } = await chromePage();
+    const bodies = [];
+    page.on("response", (r) => {
+      if (/\/_next\/static\/chunks\/.+\.js/.test(r.url())) bodies.push(r.text().catch(() => ""));
+    });
+    await page.goto(BASE + url, { waitUntil: "networkidle" });
+    await page.waitForSelector('[data-fx-state="live"]', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(1500);
+    const texts = await Promise.all(bodies);
+    await context.close();
+    return { chunks: texts.length, three: texts.some((t) => t.includes("three.js r")) };
+  };
+  for (const url of ["/", "/work", "/fx-harness/project?variant=warp-field", "/fx-harness/project?variant=constellation-field"]) {
+    const r = await loadsThree(url);
+    check("three-chunk", `${url}: three never loads`, r.chunks > 0 && !r.three, r);
+  }
+  for (const variant of ["structure-flow", "orbital-sphere", "warp-keycaps"]) {
+    const r = await loadsThree(`/fx-harness/project?variant=${variant}`);
+    check("three-chunk", `${variant}: three loads with it`, r.three, r);
+  }
+}
+
+{
+  // Keycaps: one under the pointer dips; a click surges the field, then it settles
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/warp-keycaps?room=workshop", { waitUntil: "networkidle" });
+  await page.waitForSelector('[data-fx="warp-keycaps"][data-fx-state="live"]', { timeout: 20000 }).catch(() => {});
+  let pressed = 0;
+  for (let i = 0; i < 40 && pressed === 0; i++) {
+    await page.mouse.move(200 + ((i * 197) % 1040), 150 + ((i * 113) % 600), { steps: 4 });
+    await page.waitForTimeout(60);
+    pressed = await page.evaluate(() => Number(document.querySelector('[data-fx="warp-keycaps"] canvas')?.dataset.pressed ?? 0));
+  }
+  check("warp-keycaps", "a keycap under the pointer is pressed", pressed > 0, { pressed });
+  await page.mouse.click(720, 450);
+  const surged = await page
+    .waitForFunction(() => document.querySelector('[data-fx="warp-keycaps"] canvas')?.dataset.surge === "1", null, { timeout: 1000 })
+    .then(() => true)
+    .catch(() => false);
+  const settled = await page
+    .waitForFunction(() => !document.querySelector('[data-fx="warp-keycaps"] canvas')?.dataset.surge, null, { timeout: 4000 })
+    .then(() => true)
+    .catch(() => false);
+  check("warp-keycaps", "a click surges the field, then it settles", surged && settled, { surged, settled });
+  check("warp-keycaps", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
+  // Reduced motion: a click doesn't set the still frame moving
+  const { context, page } = await chromePage({ reducedMotion: "reduce" });
+  await page.goto(BASE + "/fx-harness/warp-keycaps?room=workshop", { waitUntil: "networkidle" });
+  await page.waitForSelector('[data-fx="warp-keycaps"][data-fx-state="live"]', { timeout: 20000 }).catch(() => {});
+  await page.mouse.click(720, 450);
+  await page.waitForTimeout(400);
+  const surge = await page.evaluate(() => document.querySelector('[data-fx="warp-keycaps"] canvas')?.dataset.surge ?? null);
+  check("warp-keycaps", "reduced motion: a click doesn't surge", surge === null, { surge });
+  await context.close();
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────
