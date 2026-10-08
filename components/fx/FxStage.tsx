@@ -11,7 +11,7 @@ import {
 } from "react";
 import { cn } from "@/lib/utils";
 import { readFrame } from "@/lib/audio/frame";
-import { FX_SLOTS, isBackdropSlot, type FxSlotId } from "@/lib/fx/slots";
+import { FX_SLOTS, isBackdropSlot, slotOnByDefault, type FxSlotId } from "@/lib/fx/slots";
 import { holdRoomReveal } from "@/lib/fx/portalStore";
 import { FX_METAS, type FxId } from "./metas";
 import { FX_LOADERS } from "./registry";
@@ -85,7 +85,7 @@ export function FxStage({
   const room: RoomKey = roomProp ?? (slot ? FX_SLOTS[slot].room : DEFAULT_ROOM);
   const meta = FX_METAS[effect];
   const preset = useSlotPreset(slot);
-  const enabled = preset?.enabled ?? true;
+  const enabled = preset?.enabled ?? (slot ? slotOnByDefault(slot) : true);
   const priority = priorityProp ?? meta.priority;
   const reducedMotion = usePrefersReducedMotion();
 

@@ -3,8 +3,12 @@
 import Image from "next/image";
 import { motion, AnimatePresence } from "motion/react";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Repeat, Link } from "lucide-react";
-import { useAudio, useAudioTime } from "@/lib/audio/AudioContext";
 import { useCallback } from "react";
+import { useAudio, useAudioTime } from "@/lib/audio/AudioContext";
+import { useStudioPlayer } from "@/lib/audio/studioPlayer";
+import { FxStage } from "@/components/fx/FxStage";
+import { CircleButton } from "@/components/fx/ui/CircleButton";
+import { LiquidKey } from "./LiquidKey";
 
 function formatTime(s: number): string {
   if (!isFinite(s) || isNaN(s)) return "0:00";
@@ -13,21 +17,15 @@ function formatTime(s: number): string {
   return `${m}:${sec.toString().padStart(2, "0")}`;
 }
 
+/**
+ * The persistent player. Light rises off its top edge with the music; in the studio its play
+ * key is liquid metal, and everywhere else a glass circle button. Prev, next and loop are
+ * hairline circle buttons; loop announces its state as pressed and lights its icon.
+ */
 export function PlayerBar() {
-  const {
-    currentTrack,
-    isPlaying,
-    volume,
-    loop,
-    pause,
-    resume,
-    seek,
-    next,
-    prev,
-    setVolume,
-    toggleLoop,
-  } = useAudio();
+  const { currentTrack, isPlaying, volume, loop, pause, resume, seek, next, prev, setVolume, toggleLoop } = useAudio();
   const { progress, duration, currentTime } = useAudioTime();
+  const studio = useStudioPlayer();
 
   const handleProgressClick = useCallback(
     (e: React.MouseEvent<HTMLDivElement>) => {
@@ -42,6 +40,10 @@ export function PlayerBar() {
     navigator.clipboard.writeText(window.location.href).catch(() => {});
   }, []);
 
+  const playLabel = isPlaying ? "Pause" : "Play";
+  const playIcon = isPlaying ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="translate-x-px" />;
+  const toggle = isPlaying ? pause : resume;
+
   return (
     <AnimatePresence>
       {currentTrack && (
@@ -51,135 +53,75 @@ export function PlayerBar() {
           exit={{ y: 80, opacity: 0 }}
           transition={{ duration: 0.3, ease: "easeOut" }}
           data-portal-keep
-          className="fixed bottom-0 left-0 right-0 z-(--z-player) bg-(--studio-player-bg) border-t border-(--studio-border)"
+          data-player-bar=""
+          className="fixed right-0 bottom-0 left-0 z-(--z-player) border-t border-(--studio-border) bg-(--studio-player-bg)"
         >
+          <FxStage
+            effect="player-glow"
+            room="studio"
+            className="pointer-events-none absolute inset-x-0 bottom-full h-16"
+            posterClassName="bg-transparent"
+          />
+
           {/* Progress bar (full width, above controls) */}
-          <div
-            className="relative w-full h-0.5 cursor-pointer group"
-            style={{ background: "rgba(240,230,232,0.08)" }}
-            onClick={handleProgressClick}
-          >
+          <div className="group relative h-0.5 w-full cursor-pointer bg-(--studio-text)/8" onClick={handleProgressClick}>
             <div
-              className="absolute inset-y-0 left-0 transition-[width] duration-100"
-              style={{
-                width: `${progress * 100}%`,
-                background: "var(--studio-player-accent)",
-              }}
+              className="absolute inset-y-0 left-0 bg-(--studio-player-accent) transition-[width] duration-100"
+              style={{ width: `${progress * 100}%` }}
             />
             {/* Hover hit area */}
             <div className="absolute inset-0 -top-2 -bottom-2" />
           </div>
 
-          <div className="flex items-center px-4 py-3 gap-4">
-            {/* Left — track info */}
-            <div className="flex items-center gap-3 w-48 shrink-0">
-              <div
-                className="relative w-10 h-10 rounded shrink-0 overflow-hidden"
-                style={{ background: "var(--studio-raised)" }}
-              >
+          <div className="flex items-center gap-4 px-4 py-3">
+            {/* Left: track info */}
+            <div className="flex min-w-0 flex-1 items-center gap-3 md:w-48 md:flex-none">
+              <div className="relative size-10 shrink-0 overflow-hidden rounded bg-(--studio-raised)">
                 {currentTrack.artworkPath && (
-                  <Image
-                    src={currentTrack.artworkPath}
-                    alt={currentTrack.title}
-                    fill
-                    className="object-cover"
-                    sizes="40px"
-                  />
+                  <Image src={currentTrack.artworkPath} alt={currentTrack.title} fill className="object-cover" sizes="40px" />
                 )}
               </div>
               <div className="min-w-0">
-                <p
-                  className="text-xs font-medium truncate"
-                  style={{ color: "var(--studio-text)" }}
-                >
-                  {currentTrack.title}
-                </p>
-                {currentTrack.projectTitle && (
-                  <p className="text-[10px] truncate" style={{ color: "var(--studio-text-muted)" }}>
-                    {currentTrack.projectTitle}
-                  </p>
+                <p className="truncate text-xs font-medium text-(--studio-text)">{currentTrack.title}</p>
+                {currentTrack.projectTitle && <p className="truncate text-[10px] text-(--studio-text-muted)">{currentTrack.projectTitle}</p>}
+              </div>
+            </div>
+
+            {/* Centre: controls, and the time from md up (the top line carries progress on a phone) */}
+            <div className="flex shrink-0 flex-col items-center gap-1 md:flex-1">
+              <div className="flex items-center gap-3">
+                <CircleButton variant="trace" size="sm" room="studio" label="Previous" icon={<SkipBack size={14} />} onClick={prev} />
+                {studio ? (
+                  <LiquidKey label={playLabel} icon={playIcon} onClick={toggle} />
+                ) : (
+                  <CircleButton variant="glass" size="sm" room="studio" label={playLabel} icon={playIcon} onClick={toggle} />
                 )}
-              </div>
-            </div>
-
-            {/* Centre — controls + time */}
-            <div className="flex-1 flex flex-col items-center gap-1">
-              <div className="flex items-center gap-4">
-                <button
-                  onClick={prev}
-                  className="opacity-70 hover:opacity-100 transition-opacity"
-                  aria-label="Previous"
-                >
-                  <SkipBack size={16} style={{ color: "var(--studio-text)" }} />
-                </button>
-                <button
-                  onClick={isPlaying ? pause : resume}
-                  className="w-8 h-8 rounded-full flex items-center justify-center transition-colors duration-150"
-                  style={{ background: "var(--studio-accent)" }}
-                  aria-label={isPlaying ? "Pause" : "Play"}
-                >
-                  {isPlaying ? (
-                    <Pause size={14} fill="currentColor" style={{ color: "var(--studio-text)" }} />
-                  ) : (
-                    <Play
-                      size={14}
-                      fill="currentColor"
-                      style={{ color: "var(--studio-text)", marginLeft: 1 }}
-                    />
-                  )}
-                </button>
-                <button
-                  onClick={next}
-                  className="opacity-70 hover:opacity-100 transition-opacity"
-                  aria-label="Next"
-                >
-                  <SkipForward size={16} style={{ color: "var(--studio-text)" }} />
-                </button>
+                <CircleButton variant="trace" size="sm" room="studio" label="Next" icon={<SkipForward size={14} />} onClick={next} />
               </div>
 
-              <div className="flex items-center gap-2 w-full max-w-sm">
-                <span
-                  className="text-[10px] font-mono w-8 text-right shrink-0"
-                  style={{ color: "var(--studio-text-muted)" }}
-                >
-                  {formatTime(currentTime)}
-                </span>
-                <div
-                  className="relative flex-1 h-0.5 cursor-pointer rounded-full"
-                  style={{ background: "rgba(240,230,232,0.12)" }}
-                  onClick={handleProgressClick}
-                >
-                  <div
-                    className="absolute inset-y-0 left-0 rounded-full"
-                    style={{
-                      width: `${progress * 100}%`,
-                      background: "var(--studio-player-accent)",
-                    }}
-                  />
+              <div className="hidden w-full max-w-sm items-center gap-2 md:flex">
+                <span className="w-8 shrink-0 text-right font-mono text-[10px] text-(--studio-text-muted)">{formatTime(currentTime)}</span>
+                <div className="relative h-0.5 flex-1 cursor-pointer rounded-full bg-(--studio-text)/12" onClick={handleProgressClick}>
+                  <div className="absolute inset-y-0 left-0 rounded-full bg-(--studio-player-accent)" style={{ width: `${progress * 100}%` }} />
                 </div>
-                <span
-                  className="text-[10px] font-mono w-8 shrink-0"
-                  style={{ color: "var(--studio-text-muted)" }}
-                >
-                  {formatTime(duration)}
-                </span>
+                <span className="w-8 shrink-0 font-mono text-[10px] text-(--studio-text-muted)">{formatTime(duration)}</span>
               </div>
             </div>
 
-            {/* Right — volume + loop + link */}
-            <div className="flex items-center gap-3 w-48 justify-end shrink-0">
-              <button
+            {/* Right: loop, and volume and link from md up (a phone has its own volume) */}
+            <div className="flex shrink-0 items-center justify-end gap-3 md:w-48">
+              <CircleButton
+                variant="trace"
+                size="sm"
+                room="studio"
+                label="Loop"
+                pressed={loop}
+                icon={<Repeat size={13} />}
                 onClick={toggleLoop}
-                className="transition-opacity"
-                style={{ opacity: loop ? 1 : 0.4, color: "var(--studio-player-accent)" }}
-                aria-label="Toggle loop"
-                aria-pressed={loop}
-              >
-                <Repeat size={14} />
-              </button>
+              />
 
-              <div className="flex items-center gap-1.5">
-                <Volume2 size={12} style={{ color: "var(--studio-text-muted)" }} />
+              <div className="hidden items-center gap-1.5 md:flex">
+                <Volume2 size={12} className="text-(--studio-text-muted)" />
                 <input
                   type="range"
                   min={0}
@@ -193,11 +135,12 @@ export function PlayerBar() {
               </div>
 
               <button
+                type="button"
                 onClick={handleCopyLink}
-                className="opacity-50 hover:opacity-100 transition-opacity"
+                className="hidden text-(--studio-text) opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 md:block"
                 aria-label="Copy link"
               >
-                <Link size={13} style={{ color: "var(--studio-text)" }} />
+                <Link size={13} />
               </button>
             </div>
           </div>

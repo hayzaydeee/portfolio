@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { AnalysisEssay } from "@/app/actions/studio";
+import { Decode } from "@/components/fx/ui/Decode";
 
 function formatDate(dateStr: string) {
   return new Date(dateStr).toLocaleDateString("en-US", {
@@ -11,60 +12,39 @@ function formatDate(dateStr: string) {
   });
 }
 
+/** The essays, newest first; each title decodes into place as the list comes into view */
 export function AnalysisMode({ essays }: { essays: AnalysisEssay[] }) {
   return (
-    <div className="max-w-2xl mx-auto px-6 py-12">
-      <h2
-        className="text-xs font-mono uppercase tracking-widest mb-8"
-        style={{ color: "var(--studio-text-muted)" }}
-      >
-        analysis
-      </h2>
+    <div className="mx-auto max-w-2xl px-6 py-12">
+      <h2 className="mb-8 font-mono text-xs tracking-widest text-(--studio-text-muted) uppercase">analysis</h2>
 
       {essays.length === 0 ? (
-        <p className="text-sm italic" style={{ color: "var(--studio-text-muted)" }}>
-          No essays published yet.
-        </p>
+        <p className="text-sm text-(--studio-text-muted) italic">No essays published yet.</p>
       ) : (
-        <div className="space-y-0">
+        <ul className="divide-y divide-(--studio-border)" data-essay-list="">
           {essays.map((essay, i) => (
-            <Link
-              key={essay.id}
-              href={`/music/analysis/${essay.slug}`}
-              className="block group"
-            >
-              <div
-                className="py-5 transition-colors duration-150"
-                style={{
-                  borderBottom: i < essays.length - 1 ? "1px solid var(--studio-border)" : "none",
-                }}
-              >
+            <li key={essay.id}>
+              <Link href={`/music/analysis/${essay.slug}`} className="group block py-5">
                 <div className="flex items-start justify-between gap-4">
                   <div className="min-w-0">
-                    <h3
-                      className="text-base font-medium mb-1 group-hover:text-(--studio-accent-light) transition-colors duration-150" 
-                      style={{ color: "var(--studio-text)" }}
-                    >
-                      {essay.title}
-                    </h3>
-                    <p className="text-sm" style={{ color: "var(--studio-text-muted)" }}>
-                      {essay.subject}
-                    </p>
+                    <Decode
+                      as="h3"
+                      text={essay.title}
+                      trigger="visible"
+                      delay={i * 120}
+                      className="mb-1 text-base font-medium text-(--studio-text) transition-colors duration-150 group-hover:text-(--studio-accent-light) group-focus-visible:text-(--studio-accent-light)"
+                    />
+                    <p className="text-sm text-(--studio-text-muted)">{essay.subject}</p>
                   </div>
-                  <div
-                    className="shrink-0 text-right text-xs font-mono space-y-1"
-                    style={{ color: "var(--studio-text-muted)" }}
-                  >
+                  <div className="shrink-0 space-y-1 text-right font-mono text-xs text-(--studio-text-muted)">
                     <div>{formatDate(essay.created_at)}</div>
-                    {essay.read_time_minutes && (
-                      <div>{essay.read_time_minutes} min read</div>
-                    )}
+                    {essay.read_time_minutes && <div>{essay.read_time_minutes} min read</div>}
                   </div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+            </li>
           ))}
-        </div>
+        </ul>
       )}
     </div>
   );
