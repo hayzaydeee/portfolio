@@ -1231,7 +1231,10 @@ const backdropFrames = (page) =>
 
   // Tech words resolve into icon orbs (2D: no WebGL beyond the horizon)
   await page.click('button[aria-label="Go to techstack section"]');
-  await page.waitForTimeout(5000);
+  // The slide mounts after the seedling's exit, then each orb loads and draws: 4 to 8 s on SwiftShader
+  await page
+    .waitForFunction(() => document.querySelectorAll('[data-icon-orb] [data-fx-state="live"]').length === 8, null, { timeout: 15000 })
+    .catch(() => {});
   const orbs = await page.evaluate(() => ({
     live: document.querySelectorAll('[data-icon-orb] [data-fx-state="live"]').length,
     total: document.querySelectorAll("[data-icon-orb]").length,
