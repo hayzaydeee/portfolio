@@ -136,6 +136,7 @@ export function create(ctx: FxContext, initial: LiquidMetalOptions): FxInstance<
   let audioLit = 0;
   let lastOnset = -99;
   let lit = false;
+  canvas.dataset.lit = "0";
   let sounding = false;
   const ptr = { x: 0, y: 0 };
   const ptrS = { x: 0, y: 0 };

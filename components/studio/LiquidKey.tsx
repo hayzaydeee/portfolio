@@ -49,6 +49,7 @@ export function LiquidKey({ label, icon, onClick }: { label: string; icon: React
         }}
         onPointerUp={() => fx.current?.command("release")}
         onPointerCancel={() => fx.current?.command("release")}
+        onLostPointerCapture={() => fx.current?.command("release")}
         onKeyDown={(e) => {
           if ((e.key === "Enter" || e.key === " ") && !e.repeat) fx.current?.command("press", { x: 0, y: 0 });
         }}
@@ -56,7 +57,11 @@ export function LiquidKey({ label, icon, onClick }: { label: string; icon: React
           if (e.key === "Enter" || e.key === " ") fx.current?.command("release");
         }}
         onFocus={(e) => fx.current?.command("focus", e.currentTarget.matches(":focus-visible"))}
-        onBlur={() => fx.current?.command("focus", false)}
+        onBlur={() => {
+          // A key held as focus moves on never sees its keyup here: let the press go with the focus
+          fx.current?.command("focus", false);
+          fx.current?.command("release");
+        }}
       >
         {icon}
       </button>

@@ -1912,6 +1912,46 @@ const backdropFrames = (page) =>
 }
 
 {
+  // A keyboard press that loses focus before its keyup lets the key go (Space held, then Tab)
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/studio", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: /^northbound/ }).click();
+  await page.getByRole("button", { name: "Play platform 4" }).click();
+  await page.waitForSelector('[data-liquid-key] [data-fx="liquid-metal"][data-fx-state="live"]', { timeout: 15000 }).catch(() => {});
+  const lit = (v, timeout) =>
+    page
+      .waitForFunction((val) => document.querySelector('[data-liquid-key] [data-fx="liquid-metal"] canvas')?.dataset.lit === val, v, { timeout })
+      .then(() => true)
+      .catch(() => false);
+  const labelled = (v) =>
+    page
+      .waitForFunction((val) => document.querySelector("[data-liquid-key] button")?.getAttribute("aria-label") === val, v, { timeout: 6000 })
+      .then(() => true)
+      .catch(() => false);
+  // Pause once playback has really started, then let the metal settle dark
+  await labelled("Pause");
+  await page.locator("[data-liquid-key] button").click();
+  await page.mouse.move(5, 5);
+  const settled =
+    (await labelled("Play")) &&
+    (await page
+      .waitForFunction(() => document.querySelector('[data-liquid-key] [data-fx="liquid-metal"] canvas')?.dataset.lit !== "1", null, { timeout: 6000 })
+      .then(() => true)
+      .catch(() => false));
+  await page.getByRole("button", { name: "Previous" }).focus();
+  await page.keyboard.press("Tab");
+  const focusLit = await lit("1", 3000);
+  await page.keyboard.down(" ");
+  await page.keyboard.press("Tab");
+  await page.keyboard.up(" ");
+  const away = await page.evaluate(() => document.activeElement?.getAttribute("aria-label"));
+  const letGo = await lit("0", 4000);
+  check("studio-player", "a key press that loses focus before its keyup lets go", settled && focusLit && away === "Next" && letGo, { settled, focusLit, away, letGo });
+  check("studio-player", "no page errors (stuck press)", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
   // One essay: the header's stream of light, the decoded title, no sideways scroll on a phone
   const { context, page, errors } = await chromePage();
   await page.goto(BASE + "/fx-harness/essay", { waitUntil: "networkidle" });
