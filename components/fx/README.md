@@ -52,7 +52,26 @@ All 2D, so none of them takes a WebGL slot; the lobby's only context is its hori
 | `trace-border` | Thinking Button | A comet lapping the ask input while an answer streams |
 | `constellation-field`, `warp-field`, `logic-core` | Constellation Field; Warp Field (letters); Platform Core | Project identity fields, picked per project in the admin (`visual_variant`) and drawn in its `visual_accent` token. Warp flies the project's own letters. Unported choices fall back to the constellation (`lib/fx/projectVisuals.ts`) |
 
-`warp-field` and `logic-core` are raw WebGL with `runtime/mat4.ts` for their cameras, so three never ships. `ui/Toggle.tsx` is ThreeUI's modern skeuomorphic toggle as a room primitive (a real `role="switch"`), and the workshop's `loading.tsx` is an uplink loader (`components/workshop/UplinkLoader.tsx`) whose bar eases toward 99 and never claims 100. `/fx-harness/project?variant=…&accent=…` renders a project page from a fixture.
+`warp-field` and `logic-core` are raw WebGL with `runtime/mat4.ts` for their cameras. `ui/Toggle.tsx` is ThreeUI's modern skeuomorphic toggle as a room primitive (a real `role="switch"`), and the workshop's `loading.tsx` is an uplink loader (`components/workshop/UplinkLoader.tsx`) whose bar eases toward 99 and never claims 100. `/fx-harness/project?variant=…&accent=…` renders a project page from a fixture.
+
+### Written in three
+
+The ThreeUI sources that were built on three are ported to three (pinned at 0.186.1) rather than rewritten by hand. Each is an identity field the admin can pick:
+
+| Effect | Source | On the page |
+|---|---|---|
+| `structure-flow` | Structure Flow | 15,000 points on a dome below the horizon, fading in from the top. A frame wider than 16:9 shows a strip of the 16:9 view, so a banner gets the dome's shoulders |
+| `orbital-sphere` | Orbital Sphere | A wave-shaped sphere of points with tilted orbits and haloed moons, set to the right of a wide frame |
+| `warp-keycaps` | Warp Field (keycaps) | Lit, tapered keycaps carrying the project's letters through streaks and glow. A key under the pointer dips (`data-pressed` counts them), a click surges the field (`data-surge`) |
+
+All three lean toward the pointer. Rules on top of the ones below:
+
+- import from `"three"` only inside `effects/<id>/renderer.ts` (and `runtime/three.ts`), so three loads with those renderers and never in a route's first bundle; the suite checks the lobby, `/work` and the raw-WebGL identity fields load no three chunk
+- `kind: "webgl2"`: three draws through WebGL2, and the stage loses that context after `dispose()`
+- build the renderer with `createRenderer(ctx)` and size it with `sizeRenderer()`. Colours go in through `raw()`: the sources target r128, which did no colour management, and a linear output colour space reproduces that while keeping palette RGB untouched
+- r128 multiplied ambient and punctual lights by PI (legacy lighting, removed in r165), so lit ports multiply their intensities by PI to match
+- `createPointsMaterial()` gives additive points sized like `PointsMaterial` that keep their light below a pixel, with an optional top fade
+- `dispose()` frees every geometry, material and texture, then calls `renderer.dispose()`
 
 The lobby sections share one progress source (`components/lobby/sectionProgress.ts`): scroll in the resting page, a timed 0 to 1 per slide in the sequence. Each section poses the horizon (`components/lobby/poses.ts`), and `data-gesture-capture="x"` (or `"all"`) on an element keeps the sequence's wheel, swipe and arrow handling off the gestures it needs.
 

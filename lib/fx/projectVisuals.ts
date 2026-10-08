@@ -10,6 +10,7 @@ export const PROJECT_VISUALS = [
   "interface-lines",
   "topo-field",
   "warp-field",
+  "warp-keycaps",
   "logic-core",
   "topology-field",
   "data-field",

@@ -23,4 +23,7 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "constellation-field": () => import("./effects/constellation-field/renderer") as unknown as ReturnType<Loader>,
   "warp-field": () => import("./effects/warp-field/renderer") as unknown as ReturnType<Loader>,
   "logic-core": () => import("./effects/logic-core/renderer") as unknown as ReturnType<Loader>,
+  "structure-flow": () => import("./effects/structure-flow/renderer") as unknown as ReturnType<Loader>,
+  "orbital-sphere": () => import("./effects/orbital-sphere/renderer") as unknown as ReturnType<Loader>,
+  "warp-keycaps": () => import("./effects/warp-keycaps/renderer") as unknown as ReturnType<Loader>,
 };
