@@ -75,7 +75,7 @@ export function PlayerBar() {
 
           <div className="flex items-center gap-4 px-4 py-3">
             {/* Left: track info */}
-            <div className="flex w-48 shrink-0 items-center gap-3">
+            <div className="flex min-w-0 flex-1 items-center gap-3 md:w-48 md:flex-none">
               <div className="relative size-10 shrink-0 overflow-hidden rounded bg-(--studio-raised)">
                 {currentTrack.artworkPath && (
                   <Image src={currentTrack.artworkPath} alt={currentTrack.title} fill className="object-cover" sizes="40px" />
@@ -87,8 +87,8 @@ export function PlayerBar() {
               </div>
             </div>
 
-            {/* Centre: controls and time */}
-            <div className="flex flex-1 flex-col items-center gap-1">
+            {/* Centre: controls, and the time from md up (the top line carries progress on a phone) */}
+            <div className="flex shrink-0 flex-col items-center gap-1 md:flex-1">
               <div className="flex items-center gap-3">
                 <CircleButton variant="trace" size="sm" room="studio" label="Previous" icon={<SkipBack size={14} />} onClick={prev} />
                 {studio ? (
@@ -99,7 +99,7 @@ export function PlayerBar() {
                 <CircleButton variant="trace" size="sm" room="studio" label="Next" icon={<SkipForward size={14} />} onClick={next} />
               </div>
 
-              <div className="flex w-full max-w-sm items-center gap-2">
+              <div className="hidden w-full max-w-sm items-center gap-2 md:flex">
                 <span className="w-8 shrink-0 text-right font-mono text-[10px] text-(--studio-text-muted)">{formatTime(currentTime)}</span>
                 <div className="relative h-0.5 flex-1 cursor-pointer rounded-full bg-(--studio-text)/12" onClick={handleProgressClick}>
                   <div className="absolute inset-y-0 left-0 rounded-full bg-(--studio-player-accent)" style={{ width: `${progress * 100}%` }} />
@@ -108,8 +108,8 @@ export function PlayerBar() {
               </div>
             </div>
 
-            {/* Right: loop, volume, link */}
-            <div className="flex w-48 shrink-0 items-center justify-end gap-3">
+            {/* Right: loop, and volume and link from md up (a phone has its own volume) */}
+            <div className="flex shrink-0 items-center justify-end gap-3 md:w-48">
               <CircleButton
                 variant="trace"
                 size="sm"
@@ -120,7 +120,7 @@ export function PlayerBar() {
                 onClick={toggleLoop}
               />
 
-              <div className="flex items-center gap-1.5">
+              <div className="hidden items-center gap-1.5 md:flex">
                 <Volume2 size={12} className="text-(--studio-text-muted)" />
                 <input
                   type="range"
@@ -137,7 +137,7 @@ export function PlayerBar() {
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="text-(--studio-text) opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100"
+                className="hidden text-(--studio-text) opacity-50 transition-opacity hover:opacity-100 focus-visible:opacity-100 md:block"
                 aria-label="Copy link"
               >
                 <Link size={13} />
