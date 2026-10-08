@@ -264,9 +264,9 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
     },
 
     render(_now, dt) {
-      const ms = Math.min(50, dt);
-      const s = ms / 1000;
-      clock += ms;
+      const s = Math.min(50, dt) / 1000;
+      // The hold runs on elapsed time, uncapped, so a slow device holds for HOLD_MS, not longer
+      clock += dt;
       bob += s * opts.speed;
       if (focusSpin !== null) {
         spin += (focusSpin - spin) * (1 - Math.pow(0.004, s));

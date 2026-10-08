@@ -1689,10 +1689,14 @@ const backdropFrames = (page) =>
   // A drag spins the helix the way the pointer went; a drag never opens a project
   await page.getByRole("button", { name: /^glasshouse/ }).click(); // close
   await page.waitForTimeout(6500); // the focus hold ends and the helix turns on its own again
+  // Opening by a click scrolled the tracklist into view: bring the helix back and measure it again
+  await page.locator("[data-studio-gallery]").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  const stage = await page.locator("[data-studio-gallery]").boundingBox();
   const before = Number(await canvasData("studio-gallery", "spin"));
-  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height / 2);
+  await page.mouse.move(stage.x + stage.width * 0.3, stage.y + stage.height / 2);
   await page.mouse.down();
-  for (let i = 1; i <= 10; i++) await page.mouse.move(box.x + box.width * 0.3 + i * 40, box.y + box.height / 2, { steps: 2 });
+  for (let i = 1; i <= 10; i++) await page.mouse.move(stage.x + stage.width * 0.3 + i * 40, stage.y + stage.height / 2, { steps: 2 });
   await page.mouse.up();
   await page.waitForTimeout(200);
   const after = Number(await canvasData("studio-gallery", "spin"));
@@ -1718,10 +1722,14 @@ const backdropFrames = (page) =>
   const sw = page.getByRole("switch", { name: "analysis view" });
   const off = await sw.getAttribute("aria-checked");
   await sw.click();
-  await page.waitForTimeout(500);
+  // The views swap through a wait-mode exit and enter, which a busy main thread can stretch
+  const analysis = await page
+    .getByText("No essays published yet.")
+    .waitFor({ state: "visible", timeout: 4000 })
+    .then(() => true)
+    .catch(() => false);
   const on = await sw.getAttribute("aria-checked");
   const drawn = await canvasData("shader-toggle", "on");
-  const analysis = await page.getByText("No essays published yet.").isVisible();
   await page.keyboard.press("Space");
   await page.waitForTimeout(500);
   const back = await sw.getAttribute("aria-checked");
