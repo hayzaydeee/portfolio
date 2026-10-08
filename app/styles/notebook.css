@@ -1,0 +1,43 @@
+/*
+ * Notebook pieces that need more than utilities: the desk's paper grain, and the shelf's
+ * interaction surface, whose cursor follows what the pointer is over (the renderer sets
+ * data-cursor on it).
+ */
+@layer components {
+  .desk-grain {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23noise)' opacity='0.4'/%3E%3C/svg%3E");
+    background-size: 200px 200px;
+  }
+
+  /* The shelf's room fades into the page above and below, so the stage has no edges */
+  .shelf-stage {
+    mask-image: linear-gradient(to bottom, transparent, black 9%, black 88%, transparent);
+  }
+
+  .shelf-surface {
+    touch-action: pan-y;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .shelf-surface[data-cursor="pointer"] {
+    cursor: pointer;
+  }
+
+  .shelf-surface[data-cursor="grab"] {
+    cursor: grab;
+  }
+
+  .shelf-surface[data-cursor="grabbing"] {
+    cursor: grabbing;
+  }
+
+  /* The cloth heading takes sideways pulls and leaves vertical swipes to the page */
+  .cloth-surface {
+    touch-action: pan-y;
+    cursor: grab;
+  }
+
+  .cloth-surface:active {
+    cursor: grabbing;
+  }
+}

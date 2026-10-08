@@ -66,7 +66,7 @@ The ThreeUI sources that were built on three are ported to three (pinned at 0.18
 
 All three lean toward the pointer. Rules on top of the ones below:
 
-- import from `"three"` only inside `effects/<id>/renderer.ts` (and `runtime/three.ts`), so three loads with those renderers and never in a route's first bundle; the suite checks the lobby, `/work` and the raw-WebGL identity fields load no three chunk
+- import from `"three"` only inside `effects/<id>/renderer.ts` and the modules only it imports (and `runtime/three.ts`), so three loads with those renderers and never in a route's first bundle; the suite checks the lobby, `/work` and the raw-WebGL identity fields load no three chunk
 - `kind: "webgl2"`: three draws through WebGL2, and the stage loses that context after `dispose()`
 - build the renderer with `createRenderer(ctx)` and size it with `sizeRenderer()`. Colours go in through `raw()`: the sources target r128, which did no colour management, and a linear output colour space reproduces that while keeping palette RGB untouched
 - r128 multiplied ambient and punctual lights by PI (legacy lighting, removed in r165), so lit ports multiply their intensities by PI to match
@@ -90,6 +90,15 @@ All three lean toward the pointer. Rules on top of the ones below:
 | `liquid-form` | Liquid Form (Velox) | Slot `studio.about`, off until the lab switches it on: a chrome form behind the about, in three as a displaced icosphere where the original ray-marched; the music swells it |
 
 `/fx-harness/studio` renders the tracks view from fixtures (artwork from `public/fx-test/sleeve.png`, every track the kick fixture, two essays), and `/fx-harness/essay` one essay. A slot entry with `off: true` in `lib/fx/slots.ts` starts dark: its stage shows the poster without loading the effect until a preset enables it.
+
+## Notebook effects
+
+| Effect | Source | In the notebook |
+|---|---|---|
+| `bookshelf` | Bookshelf (three) | The desk (`notebook.shelf`): the six journals as cloth-bound volumes on a walnut shelf, ported from r165 with the original's construction, light rig and gestures. Volumes arrive with `command("volumes", ShelfVolume[])` (cloth in each journal's token, foil type, the leaves printed with the latest six entries); `step`, `select`, `inspect`, `book`, `page`, `close` and `reset` drive it, and it reports `fx:shelf` events (`select`, `hover`, `mode`, `book`, `entry` for a click on a printed page). The page hands it an interaction surface (`surface`) and the side panel's left edge (`panel`). It draws only while something moves and holds its last frame otherwise (`data-draws`). `components/notebook/Shelf.tsx` owns every control as DOM, with a list of the journals as the keyboard and screen-reader twin |
+| `cloth-study` | Text Path Studies II, "Cloth" | The banner on the shelf's wall (`notebook.cloth`): the journals' names woven through a sheet of letters on six pegs. `grab`/`pull`/`drop` come from the page's pointer layer (`data-held`); `tug` throws a gust |
+
+Two notes on the shelf beyond the rules for effects in three: it is an r165 port, so it renders the way the original does (sRGB output, ACES at a lower exposure for a cream room, lights in physical units with no PI factor) rather than through `createRenderer()`; and its leaves are printed only when a volume is first taken down. `/fx-harness/notebook` renders the desk from fixtures (`?exposure=`, `?environment=` and `?tint=` override the lab values).
 
 The lobby sections share one progress source (`components/lobby/sectionProgress.ts`): scroll in the resting page, a timed 0 to 1 per slide in the sequence. Each section poses the horizon (`components/lobby/poses.ts`), and `data-gesture-capture="x"` (or `"all"`) on an element keeps the sequence's wheel, swipe and arrow handling off the gestures it needs.
 
