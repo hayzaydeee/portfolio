@@ -12,38 +12,34 @@ export function ArtistAbout({ projects }: Props) {
   const since = years.length ? Math.min(...years) : null;
 
   return (
-    <section className="max-w-2xl mx-auto px-6 py-12">
-      <div className="space-y-4 mb-8">
-        <p className="text-base leading-relaxed" style={{ color: "var(--studio-text)" }}>
-          Genre-fluid, rooted in intentional sound. The work draws from neo-soul, electronic
-          minimalism, and jazz harmony — constructed carefully, never rushed. Every track is a
-          deliberate study in texture and silence.
+    <section className="mx-auto max-w-2xl px-6 py-12">
+      <div className="mb-8 space-y-4">
+        <p className="text-base leading-relaxed text-(--studio-text)">
+          Genre-fluid, rooted in intentional sound. The work draws from neo-soul, electronic minimalism, and jazz harmony:
+          constructed carefully, never rushed. Every track is a deliberate study in texture and silence.
         </p>
-        <p className="text-base leading-relaxed" style={{ color: "var(--studio-text-muted)" }}>
-          Started making music long before I started making software. The two disciplines bleed into
-          each other constantly — the same instinct that makes me want clean code makes me want
-          clean arrangements. This is where that instinct lives.
+        <p className="text-base leading-relaxed text-(--studio-text-muted)">
+          Started making music long before I started making software. The two disciplines bleed into each other constantly; the
+          same instinct that makes me want clean code makes me want clean arrangements. This is where that instinct lives.
         </p>
       </div>
 
       {(projects.length > 0 || since) && (
-        <p className="text-sm font-mono" style={{ color: "var(--studio-text-muted)" }}>
+        <p className="font-mono text-sm text-(--studio-text-muted)">
           {projects.length > 0 && (
             <>
-              <span style={{ color: "var(--studio-text)" }}>{projects.length}</span>{" "}
-              {projects.length === 1 ? "project" : "projects"}
+              <span className="text-(--studio-text)">{projects.length}</span> {projects.length === 1 ? "project" : "projects"}
               {" · "}
             </>
           )}
           {trackCount > 0 && (
             <>
-              <span style={{ color: "var(--studio-text)" }}>{trackCount}</span>{" "}
-              {trackCount === 1 ? "track" : "tracks"}
+              <span className="text-(--studio-text)">{trackCount}</span> {trackCount === 1 ? "track" : "tracks"}
             </>
           )}
           {since && (
             <>
-              {" · "}since <span style={{ color: "var(--studio-text)" }}>{since}</span>
+              {" · "}since <span className="text-(--studio-text)">{since}</span>
             </>
           )}
         </p>

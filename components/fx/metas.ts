@@ -13,6 +13,11 @@ import { logicCoreMeta } from "./effects/logic-core/meta";
 import { structureFlowMeta } from "./effects/structure-flow/meta";
 import { orbitalSphereMeta } from "./effects/orbital-sphere/meta";
 import { warpKeycapsMeta } from "./effects/warp-keycaps/meta";
+import { audioWordmarkMeta } from "./effects/audio-wordmark/meta";
+import { neonSignMeta } from "./effects/neon-sign/meta";
+import { trackMeterMeta } from "./effects/track-meter/meta";
+import { shaderToggleMeta } from "./effects/shader-toggle/meta";
+import { studioGalleryMeta } from "./effects/studio-gallery/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
 import { generativeTreeMeta } from "./effects/generative-tree/meta";
 import { glyphBallMeta } from "./effects/glyph-ball/meta";
@@ -47,6 +52,11 @@ export const FX_METAS = {
   "structure-flow": structureFlowMeta,
   "orbital-sphere": orbitalSphereMeta,
   "warp-keycaps": warpKeycapsMeta,
+  "audio-wordmark": audioWordmarkMeta,
+  "neon-sign": neonSignMeta,
+  "track-meter": trackMeterMeta,
+  "shader-toggle": shaderToggleMeta,
+  "studio-gallery": studioGalleryMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

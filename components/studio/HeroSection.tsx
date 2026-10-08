@@ -1,10 +1,12 @@
 "use client";
 
 import Image from "next/image";
-import { motion } from "motion/react";
 import { Play } from "lucide-react";
 import type { MusicProject } from "@/app/actions/studio";
 import { useAudio, buildPlaylist } from "@/lib/audio/AudioContext";
+import { FxStage } from "@/components/fx/FxStage";
+import { Cta } from "@/components/fx/ui/Cta";
+import { CircleButton } from "@/components/fx/ui/CircleButton";
 
 function formatRuntime(tracks: MusicProject["tracks"]): string {
   const total = (tracks ?? []).reduce((s, t) => s + (t.duration_seconds ?? 0), 0);
@@ -14,6 +16,10 @@ function formatRuntime(tracks: MusicProject["tracks"]): string {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+/**
+ * The featured project: its artwork, and beside the details the audio wordmark, whose bars
+ * follow the spectrum of whatever is playing and breathe on their own when nothing is.
+ */
 export function HeroSection({ project }: { project: MusicProject }) {
   const { play } = useAudio();
   const tracks = project.tracks ?? [];
@@ -26,91 +32,54 @@ export function HeroSection({ project }: { project: MusicProject }) {
   };
 
   return (
-    <section className="relative w-full overflow-hidden">
-      <div className="max-w-6xl mx-auto px-6 py-12 grid grid-cols-1 md:grid-cols-5 gap-8 items-center">
-        {/* Artwork — left 3/5 on desktop */}
-        <motion.div
-          layoutId={`artwork-${project.id}`}
-          className="md:col-span-3 relative"
-          style={{ aspectRatio: "1 / 1" }}
-        >
+    <section className="relative w-full" aria-labelledby="studio-featured" data-studio-hero="">
+      <div className="mx-auto grid max-w-6xl grid-cols-1 items-center gap-8 px-6 py-12 md:grid-cols-5">
+        <div className="group relative aspect-square overflow-hidden rounded-lg md:col-span-3">
           {project.artwork_path ? (
             <Image
               src={project.artwork_path}
               alt={project.title}
               fill
-              className="object-cover rounded-lg"
+              className="object-cover"
               priority
               sizes="(max-width: 768px) 100vw, 60vw"
             />
           ) : (
-            <div
-              className="w-full h-full rounded-lg flex items-center justify-center"
-              style={{ background: "var(--studio-panel)" }}
-            >
-              <span className="text-6xl opacity-20">♪</span>
+            <div className="flex size-full items-center justify-center bg-(--studio-panel)">
+              <span className="text-6xl text-(--studio-text-muted)" aria-hidden="true">
+                ♪
+              </span>
             </div>
           )}
-          {/* Play overlay */}
           {tracks.length > 0 && (
-            <motion.button
-              onClick={handlePlay}
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.97 }}
-              className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity duration-200 rounded-lg"
-              style={{ background: "rgba(18, 7, 9, 0.5)" }}
-              aria-label={`Play ${project.title}`}
-            >
-              <div
-                className="w-16 h-16 rounded-full flex items-center justify-center"
-                style={{ background: "var(--studio-accent)" }}
-              >
-                <Play size={28} fill="currentColor" style={{ color: "var(--studio-text)", marginLeft: 3 }} />
-              </div>
-            </motion.button>
+            <div className="absolute inset-0 grid place-items-center bg-(--studio-base)/50 opacity-0 transition-opacity duration-200 group-hover:opacity-100 focus-within:opacity-100">
+              <CircleButton variant="glass" room="studio" label={`Play ${project.title}`} icon={<Play size={22} fill="currentColor" />} onClick={handlePlay} />
+            </div>
           )}
-        </motion.div>
+        </div>
 
-        {/* Metadata — right 2/5 */}
-        <div className="md:col-span-2 flex flex-col gap-4">
-          <p className="text-xs font-mono uppercase tracking-widest" style={{ color: "var(--studio-text-muted)" }}>
-            featured
-          </p>
-          <h1 className="text-4xl font-sans" style={{ color: "var(--studio-text)" }}>
+        <div className="flex flex-col gap-4 md:col-span-2">
+          <p className="font-mono text-xs tracking-widest text-(--studio-text-muted) uppercase">featured</p>
+          <h2 id="studio-featured" className="font-sans text-4xl text-(--studio-text)">
             {project.title}
-          </h1>
-          {project.release_year && (
-            <p className="text-sm font-mono" style={{ color: "var(--studio-text-muted)" }}>
-              {project.release_year}
-            </p>
-          )}
-          {project.description && (
-            <p className="text-sm leading-relaxed" style={{ color: "var(--studio-text-muted)" }}>
-              {project.description}
-            </p>
-          )}
-          <div className="flex gap-6 text-sm font-mono" style={{ color: "var(--studio-text-muted)" }}>
+          </h2>
+          {project.release_year && <p className="font-mono text-sm text-(--studio-text-muted)">{project.release_year}</p>}
+          {project.description && <p className="text-sm leading-relaxed text-(--studio-text-muted)">{project.description}</p>}
+          <div className="flex gap-6 font-mono text-sm text-(--studio-text-muted)">
             {tracks.length > 0 && (
               <span>
-                <span style={{ color: "var(--studio-text)" }}>{tracks.length}</span>{" "}
-                {tracks.length === 1 ? "track" : "tracks"}
+                <span className="text-(--studio-text)">{tracks.length}</span> {tracks.length === 1 ? "track" : "tracks"}
               </span>
             )}
             {runtime && (
               <span>
-                <span style={{ color: "var(--studio-text)" }}>{runtime}</span> runtime
+                <span className="text-(--studio-text)">{runtime}</span> runtime
               </span>
             )}
           </div>
+          <FxStage effect="audio-wordmark" room="studio" className="h-24 w-full max-w-xs" />
           {tracks.length > 0 && (
-            <button
-              onClick={handlePlay}
-              className="mt-2 flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-medium self-start transition-colors duration-150"
-              style={{ background: "var(--studio-accent)", color: "var(--studio-text)" }}
-            >
-              <Play size={14} fill="currentColor" />
-              Play
-            </button>
+            <Cta variant="beam" room="studio" label="play" icon={<Play size={14} fill="currentColor" />} onClick={handlePlay} className="self-start" />
           )}
         </div>
       </div>

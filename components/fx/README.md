@@ -73,6 +73,19 @@ All three lean toward the pointer. Rules on top of the ones below:
 - `createPointsMaterial()` gives additive points sized like `PointsMaterial` that keep their light below a pixel, with an optional top fade
 - `dispose()` frees every geometry, material and texture, then calls `renderer.dispose()`
 
+## Studio effects
+
+| Effect | Source | In the studio |
+|---|---|---|
+| `bell-field` | Bell Field | The room backdrop (`studio.backdrop`, mounted in `app/music/layout.tsx`): strikes follow kick onsets while music plays |
+| `audio-wordmark` | Audio Wordmark (the bar mark) | Beside the featured project: both discs' bars follow 22 and 16 log-spaced spectrum bands while music plays (`data-audio`), and breathe on the original's loop when it's silent |
+| `studio-gallery` | Gallery (three) | The projects as a helix of strips (artwork, title, meta). Projects arrive with `command("items", GalleryItem[])`; `drag`/`release` spin it, `pick` raycasts and dispatches `fx:pick` from the canvas, `focus` turns and lifts a project to the front (`data-focus` once it's there), `select` keeps it lit. `components/studio/ProjectsGrid.tsx` pairs it with a list of project buttons, the keyboard and screen-reader twin |
+| `track-meter` | the wordmark's bar idiom | The playing track's row: five bars on the analyser bands (`data-peak`) |
+| `shader-toggle` | Skeuomorphic Toggle (shader) | Draws the tracks/analysis switch behind a real `role="switch"`; option `on` springs the thumb (`data-on`) |
+| `neon-sign` | Neon Typography (Glassblown) | "IN THE LAB" in glass tubes over the works in progress. I, T, H and E are added to the original's glyphs in the same hand |
+
+`/fx-harness/studio` renders the tracks view from fixtures (artwork from `public/fx-test/sleeve.png`, every track the kick fixture).
+
 The lobby sections share one progress source (`components/lobby/sectionProgress.ts`): scroll in the resting page, a timed 0 to 1 per slide in the sequence. Each section poses the horizon (`components/lobby/poses.ts`), and `data-gesture-capture="x"` (or `"all"`) on an element keeps the sequence's wheel, swipe and arrow handling off the gestures it needs.
 
 ## Adding an effect

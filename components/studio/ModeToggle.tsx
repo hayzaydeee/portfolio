@@ -1,5 +1,8 @@
 "use client";
 
+import { FxStage } from "@/components/fx/FxStage";
+import { cn } from "@/lib/utils";
+
 type Mode = "tracks" | "analysis";
 
 type Props = {
@@ -7,26 +10,45 @@ type Props = {
   onChange: (mode: Mode) => void;
 };
 
+/**
+ * The studio's view switch: one real role="switch" (on = analysis) drawn by the shader toggle,
+ * with each view's name either side. The captions are pointer conveniences that set their own
+ * view; the switch is the control assistive tech and the keyboard use.
+ */
 export function ModeToggle({ mode, onChange }: Props) {
+  const analysis = mode === "analysis";
   return (
-    <div
-      className="inline-flex rounded-full p-0.5"
-      style={{ background: "var(--studio-panel)", border: "1px solid var(--studio-border)" }}
-    >
-      {(["tracks", "analysis"] as Mode[]).map((m) => (
-        <button
-          key={m}
-          onClick={() => onChange(m)}
-          className="relative px-5 py-1.5 rounded-full text-sm font-medium transition-colors duration-200"
-          style={
-            mode === m
-              ? { background: "var(--studio-accent)", color: "var(--studio-text)" }
-              : { background: "transparent", color: "var(--studio-text-muted)" }
-          }
-        >
-          {m}
-        </button>
-      ))}
+    <div className="flex items-center gap-3 font-mono text-xs tracking-widest uppercase" data-studio-mode={mode}>
+      <span
+        aria-hidden="true"
+        className={cn("studio-mode__label", analysis ? "text-(--studio-text-muted)" : "text-(--studio-text)")}
+        onClick={() => onChange("tracks")}
+      >
+        tracks
+      </span>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={analysis}
+        aria-label="analysis view"
+        className="studio-switch"
+        onClick={() => onChange(analysis ? "tracks" : "analysis")}
+      >
+        <FxStage
+          effect="shader-toggle"
+          room="studio"
+          options={{ on: analysis }}
+          className="absolute inset-0 overflow-hidden rounded-full"
+          posterClassName={cn("studio-switch-poster", analysis && "is-on")}
+        />
+      </button>
+      <span
+        aria-hidden="true"
+        className={cn("studio-mode__label", analysis ? "text-(--studio-text)" : "text-(--studio-text-muted)")}
+        onClick={() => onChange("analysis")}
+      >
+        analysis
+      </span>
     </div>
   );
 }

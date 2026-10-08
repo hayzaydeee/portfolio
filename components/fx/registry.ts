@@ -26,4 +26,9 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "structure-flow": () => import("./effects/structure-flow/renderer") as unknown as ReturnType<Loader>,
   "orbital-sphere": () => import("./effects/orbital-sphere/renderer") as unknown as ReturnType<Loader>,
   "warp-keycaps": () => import("./effects/warp-keycaps/renderer") as unknown as ReturnType<Loader>,
+  "audio-wordmark": () => import("./effects/audio-wordmark/renderer") as unknown as ReturnType<Loader>,
+  "neon-sign": () => import("./effects/neon-sign/renderer") as unknown as ReturnType<Loader>,
+  "track-meter": () => import("./effects/track-meter/renderer") as unknown as ReturnType<Loader>,
+  "shader-toggle": () => import("./effects/shader-toggle/renderer") as unknown as ReturnType<Loader>,
+  "studio-gallery": () => import("./effects/studio-gallery/renderer") as unknown as ReturnType<Loader>,
 };

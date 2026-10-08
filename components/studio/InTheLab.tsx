@@ -1,139 +1,92 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "motion/react";
 import type { MusicProject } from "@/app/actions/studio";
+import { FxStage } from "@/components/fx/FxStage";
 
 type Props = {
   projects: MusicProject[];
 };
 
-type LabModal = {
-  title: string;
-  description: string | null;
-};
-
+/**
+ * Work in progress under a neon sign. Each card opens a native modal dialog (focus trapped,
+ * Escape closes, focus returns to the card), dismissed by its button or a click outside.
+ */
 export function InTheLab({ projects }: Props) {
-  const [modal, setModal] = useState<LabModal | null>(null);
+  const [open, setOpen] = useState<MusicProject | null>(null);
+  const dialogRef = useRef<HTMLDialogElement>(null);
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    if (!dialog) return;
+    if (open && !dialog.open) dialog.showModal();
+    if (!open && dialog.open) dialog.close();
+  }, [open]);
 
   if (!projects.length) return null;
 
   return (
-    <section className="max-w-6xl mx-auto px-6 pb-16">
-      <div
-        className="pt-8 mb-6"
-        style={{ borderTop: "1px solid var(--studio-border)" }}
-      >
-        <p
-          className="text-xs font-mono uppercase tracking-widest"
-          style={{ color: "var(--studio-text-muted)", letterSpacing: "0.15em" }}
-        >
+    <section className="mx-auto max-w-6xl px-6 pb-16" aria-labelledby="in-the-lab" data-in-the-lab="">
+      <div className="border-t border-(--studio-border) pt-6">
+        <h2 id="in-the-lab" className="sr-only">
           in the lab
-        </p>
+        </h2>
+        <FxStage effect="neon-sign" room="studio" options={{ text: "IN THE LAB" }} className="h-32 w-full md:h-44" />
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+      <div className="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
         {projects.map((p) => (
-          <motion.div
+          <button
             key={p.id}
-            className="rounded-xl overflow-hidden cursor-pointer"
-            style={{
-              background: "var(--studio-panel)",
-              border: "1px solid var(--studio-border)",
-              opacity: 0.75,
-            }}
-            whileHover={{ opacity: 1 }}
-            onClick={() =>
-              setModal({ title: p.title, description: p.description })
-            }
+            type="button"
+            onClick={() => setOpen(p)}
+            className="overflow-hidden rounded-xl border border-(--studio-border) bg-(--studio-panel) text-left opacity-75 transition-opacity hover:opacity-100 focus-visible:opacity-100"
           >
-            {/* Artwork with WIP badge */}
-            <div className="relative" style={{ aspectRatio: "1 / 1" }}>
+            <span className="relative block aspect-square">
               {p.artwork_path ? (
-                <Image
-                  src={p.artwork_path}
-                  alt={p.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 50vw, 25vw"
-                />
+                <Image src={p.artwork_path} alt="" fill className="object-cover" sizes="(max-width: 640px) 50vw, 25vw" />
               ) : (
-                <div
-                  className="w-full h-full flex items-center justify-center"
-                  style={{ background: "var(--studio-raised)" }}
-                >
-                  <span className="text-4xl opacity-20">♪</span>
-                </div>
+                <span className="flex size-full items-center justify-center bg-(--studio-raised) text-4xl text-(--studio-text-muted)" aria-hidden="true">
+                  ♪
+                </span>
               )}
-              {/* WIP label */}
-              <span
-                className="absolute top-2 right-2 text-[10px] font-mono px-1.5 py-0.5 rounded"
-                style={{ background: "var(--studio-accent-light)", color: "var(--studio-text)" }}
-              >
-                WIP
-              </span>
-            </div>
-            <div className="p-3">
-              <p className="text-sm truncate" style={{ color: "var(--studio-text)" }}>
-                {p.title}
-              </p>
-            </div>
-          </motion.div>
+              <span className="absolute top-2 right-2 rounded bg-(--studio-accent-light) px-1.5 py-0.5 font-mono text-[10px] text-(--studio-text)">WIP</span>
+            </span>
+            <span className="block truncate p-3 text-sm text-(--studio-text)">{p.title}</span>
+          </button>
         ))}
       </div>
 
-      {/* WIP modal */}
-      <AnimatePresence>
-        {modal && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-6"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={() => setModal(null)}
-          >
-            <div
-              className="absolute inset-0"
-              style={{ background: "rgba(18,7,9,0.7)", backdropFilter: "blur(6px)" }}
-            />
-            <motion.div
-              className="relative max-w-sm w-full rounded-2xl p-6 z-10"
-              style={{ background: "var(--studio-panel)", border: "1px solid var(--studio-border)" }}
-              initial={{ scale: 0.95, y: 8 }}
-              animate={{ scale: 1, y: 0 }}
-              exit={{ scale: 0.95, y: 8 }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <span
-                className="text-[10px] font-mono uppercase tracking-widest"
-                style={{ color: "var(--studio-accent-light)" }}
-              >
-                in the lab
-              </span>
-              <h3 className="text-lg font-medium mt-2 mb-3" style={{ color: "var(--studio-text)" }}>
-                {modal.title}
-              </h3>
-              {modal.description ? (
-                <p className="text-sm leading-relaxed" style={{ color: "var(--studio-text-muted)" }}>
-                  {modal.description}
-                </p>
-              ) : (
-                <p className="text-sm italic" style={{ color: "var(--studio-text-muted)" }}>
-                  Work in progress — details coming soon.
-                </p>
-              )}
-              <button
-                className="mt-5 text-xs"
-                style={{ color: "var(--studio-text-muted)" }}
-                onClick={() => setModal(null)}
-              >
-                close ✕
-              </button>
-            </motion.div>
-          </motion.div>
+      <dialog
+        ref={dialogRef}
+        aria-labelledby="lab-dialog-title"
+        className="studio-dialog m-auto w-full max-w-sm rounded-2xl border border-(--studio-border) bg-(--studio-panel) p-6 text-(--studio-text)"
+        onClose={() => setOpen(null)}
+        onClick={(e) => {
+          // A click on the backdrop lands on the dialog element itself, outside its box
+          const r = e.currentTarget.getBoundingClientRect();
+          const outside = e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom;
+          if (e.target === e.currentTarget && outside) setOpen(null);
+        }}
+      >
+        {open && (
+          <>
+            <span className="font-mono text-[10px] tracking-widest text-(--studio-accent-light) uppercase">in the lab</span>
+            <h3 id="lab-dialog-title" className="mt-2 mb-3 text-lg font-medium">
+              {open.title}
+            </h3>
+            {open.description ? (
+              <p className="text-sm leading-relaxed text-(--studio-text-muted)">{open.description}</p>
+            ) : (
+              <p className="text-sm text-(--studio-text-muted) italic">Work in progress. Details soon.</p>
+            )}
+            <button type="button" className="mt-5 font-mono text-xs text-(--studio-text-muted) hover:text-(--studio-text)" onClick={() => setOpen(null)}>
+              close
+            </button>
+          </>
         )}
-      </AnimatePresence>
+      </dialog>
     </section>
   );
 }
