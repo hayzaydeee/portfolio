@@ -60,7 +60,7 @@ export default async function ProjectPage({ params }: Props) {
   return (
     <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
       {/* Project content */}
-      <div className="flex-1 overflow-auto bg-(--workshop-panel)">
+      <div className="flex-1 overflow-auto bg-(--workshop-panel)/75">
         <ProjectFile project={project} />
       </div>
     </div>

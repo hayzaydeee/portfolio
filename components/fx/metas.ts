@@ -2,6 +2,14 @@ import type { FxMeta, FxOptions } from "./runtime/types";
 import { bellFieldMeta } from "./effects/bell-field/meta";
 import { dockGlassMeta } from "./effects/dock-glass/meta";
 import { dockRetroMeta } from "./effects/dock-retro/meta";
+import { dotMatrixMeta } from "./effects/dot-matrix/meta";
+import { condensationMeta } from "./effects/condensation/meta";
+import { ignitionMeta } from "./effects/ignition/meta";
+import { traceBorderMeta } from "./effects/trace-border/meta";
+import { crtBootMeta } from "./effects/crt-boot/meta";
+import { constellationFieldMeta } from "./effects/constellation-field/meta";
+import { warpFieldMeta } from "./effects/warp-field/meta";
+import { logicCoreMeta } from "./effects/logic-core/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
 import { generativeTreeMeta } from "./effects/generative-tree/meta";
 import { glyphBallMeta } from "./effects/glyph-ball/meta";
@@ -25,6 +33,14 @@ export const FX_METAS = {
   "glyph-ball": glyphBallMeta,
   "generative-tree": generativeTreeMeta,
   "outline-typeflow": outlineTypeflowMeta,
+  "dot-matrix": dotMatrixMeta,
+  "condensation": condensationMeta,
+  "ignition": ignitionMeta,
+  "trace-border": traceBorderMeta,
+  "crt-boot": crtBootMeta,
+  "constellation-field": constellationFieldMeta,
+  "warp-field": warpFieldMeta,
+  "logic-core": logicCoreMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

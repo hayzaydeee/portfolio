@@ -1,5 +1,5 @@
-import { RoomLoading } from "@/components/fx/ui/RoomLoading";
+import { UplinkLoader } from "@/components/workshop/UplinkLoader";
 
 export default function Loading() {
-  return <RoomLoading room="workshop" />;
+  return <UplinkLoader />;
 }

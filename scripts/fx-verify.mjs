@@ -101,6 +101,17 @@ const ROUTES = [
   { name: "generative-tree-source", path: "/fx-harness/generative-tree?room=lobby&source=1", maxLive: 0, canvas2d: true },
   { name: "outline-typeflow-lobby", path: "/fx-harness/outline-typeflow?room=lobby", maxLive: 0, canvas2d: true },
   { name: "outline-typeflow-notebook", path: "/fx-harness/outline-typeflow?room=notebook", maxLive: 0, canvas2d: true },
+  { name: "dot-matrix-workshop", path: "/fx-harness/dot-matrix?room=workshop", maxLive: 1 },
+  { name: "dot-matrix-source", path: "/fx-harness/dot-matrix?room=workshop&source=1", maxLive: 1 },
+  { name: "crt-boot-workshop", path: "/fx-harness/crt-boot?room=workshop", maxLive: 1 },
+  { name: "condensation-workshop", path: "/fx-harness/condensation?room=workshop", maxLive: 0, canvas2d: true },
+  { name: "ignition-workshop", path: "/fx-harness/ignition?room=workshop", maxLive: 0, canvas2d: true },
+  { name: "trace-border-workshop", path: "/fx-harness/trace-border?room=workshop", maxLive: 0, canvas2d: true },
+  { name: "constellation-field-workshop", path: "/fx-harness/constellation-field?room=workshop", maxLive: 0, canvas2d: true },
+  { name: "warp-field-workshop", path: "/fx-harness/warp-field?room=workshop", maxLive: 1 },
+  { name: "warp-field-source", path: "/fx-harness/warp-field?room=workshop&source=1", maxLive: 1 },
+  { name: "logic-core-workshop", path: "/fx-harness/logic-core?room=workshop", maxLive: 1 },
+  { name: "logic-core-source", path: "/fx-harness/logic-core?room=workshop&source=1", maxLive: 1 },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -208,6 +219,58 @@ const setHidden = (page, hidden) =>
 
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ headless: true, args: LAUNCH_ARGS });
+
+// Google Fonts is the suite's only third-party fetch. Through the sandbox proxy it can take 25s,
+// holding networkidle and stalling frames while it lands, so every context fails it fast and
+// renders in the fallback stack (no check depends on the face itself). Patched on the
+// prototype, so the strict-autoplay browser and browser.newPage get it too.
+{
+  const proto = Object.getPrototypeOf(browser);
+  const newContext = proto.newContext;
+  proto.newContext = async function (opts) {
+    const context = await newContext.call(this, opts);
+    await context.route(/^https:\/\/fonts\.(googleapis|gstatic)\.com\//, (route) => route.abort("blockedbyclient"));
+    return context;
+  };
+}
+
+// A navigation that times out names the requests the page was still waiting on, and is tried
+// once more: a paused sandbox VM stalls whichever load is in flight, server and page alike idle
+{
+  const probe = await browser.newPage();
+  const proto = Object.getPrototypeOf(probe);
+  await probe.close();
+  const goto = proto.goto;
+  proto.goto = async function (url, opts) {
+    try {
+      return await gotoOnce.call(this, url, opts);
+    } catch (e) {
+      if (e?.name !== "TimeoutError") throw e;
+      console.log(`NOTE  navigation timed out, retrying once: ${url}\n${e.message.slice(e.message.indexOf("still pending"))}`);
+      return await gotoOnce.call(this, url, opts);
+    }
+  };
+  async function gotoOnce(url, opts) {
+    const pending = new Map();
+    const start = Date.now();
+    const add = (r) => pending.set(r, Date.now() - start);
+    const done = (r) => pending.delete(r);
+    this.on("request", add);
+    this.on("requestfinished", done);
+    this.on("requestfailed", done);
+    try {
+      return await goto.call(this, url, opts);
+    } catch (e) {
+      const list = [...pending].map(([r, at]) => `${r.method()} ${r.url()} (sent +${at}ms)`);
+      e.message += `\nstill pending: ${JSON.stringify(list, null, 2)}`;
+      throw e;
+    } finally {
+      this.off("request", add);
+      this.off("requestfinished", done);
+      this.off("requestfailed", done);
+    }
+  }
+}
 
 // ── HZY reveal easing: one shared curve, continuous, and the bloom's inverse matches it ──
 {
@@ -730,9 +793,12 @@ const sampleDecode = (page, selector, ms) =>
     crumbs: document.querySelectorAll(".dock-retro-crumb").length,
     acquisitions: window.__fx.acquisitions(),
     field: document.querySelector(".dock-retro [data-fx]")?.dataset.fxState,
+    boot: document.querySelector("[data-workshop-boot]")?.dataset.workshopBoot ?? null,
   }));
   check("workshop-bar", "one bar with crumbs from the URL", deep.docks === 1 && deep.crumbs.join() === "/no-such-project" && top.docks === 1 && top.crumbs === 0, { deep, top });
   check("workshop-bar", "dock field survives moving between workshop pages", top.acquisitions === deep.acquisitions && top.field === "live", { deep, top });
+  // A visit that starts on a project has already entered the room: /work doesn't boot on it
+  check("workshop-boot", "no boot on reaching /work from a project page", top.boot === null, { boot: top.boot });
   await context.close();
 }
 
@@ -776,8 +842,9 @@ const sampleDecode = (page, selector, ms) =>
   const during = await page.evaluate(() => ({
     atReveal: window.__loadingAtReveal,
     loading: !!document.querySelector("[data-room-loading]"),
-    status: document.querySelector("[data-room-loading]")?.getAttribute("role"),
-    orb: document.querySelector("[data-room-loading] [data-fx]")?.dataset.fxState ?? null,
+    // The live line may be the container (RoomLoading) or an sr-only line inside it (UplinkLoader)
+    status: document.querySelector('[data-room-loading][role="status"], [data-room-loading] [role="status"]')?.textContent.trim() ?? null,
+    lit: document.querySelectorAll("[data-room-loading] .uplink__tick.is-on").length,
   }));
   await page.screenshot({ path: path.join(OUT, "room-loading-workshop.png") });
   await page.waitForFunction(() => !document.querySelector("[data-room-loading]"), null, { timeout: 10000 }).catch(() => {});
@@ -785,8 +852,8 @@ const sampleDecode = (page, selector, ms) =>
   const after = await page.evaluate(() => ({
     focused: document.activeElement?.tagName === "H1" ? document.activeElement.textContent : document.activeElement?.tagName,
   }));
-  check("room-loading", "slow room reveals onto its loading state", idle && during.atReveal === "workshop" && during.loading && during.status === "status", during);
-  check("room-loading", "loading orb draws while it waits", during.orb === "live", during);
+  check("room-loading", "slow room reveals onto its loading state", idle && during.atReveal === "workshop" && during.loading && !!during.status, during);
+  check("room-loading", "the workshop's uplink bar lights while it waits", during.lit > 0, during);
   check("room-loading", "heading takes focus once the content lands", after.focused === "workshop", after);
   check("room-loading", "no page errors", errors.length === 0, errors.slice(0, 3));
   await context.close();
@@ -1175,10 +1242,16 @@ const backdropFrames = (page) =>
   const afterWheel = await current();
   const stayed = await section();
 
-  // Wrapping back lands a padded copy in front: it must still take the click and link out
-  await page.mouse.wheel(-120, 0);
-  await page.mouse.wheel(-120, 0);
-  await page.waitForTimeout(1800);
+  // Wrapping back lands a padded copy in front: it must still take the click and link out.
+  // The pointer at the stage's left edge leans the wave two and a half cards back, onto copies
+  const frontCard = () =>
+    page.evaluate(() => {
+      const cards = [...document.querySelectorAll("[data-wave-card]")];
+      return cards.reduce((a, b) => (Number(b.style.getPropertyValue("--focus")) > Number(a.style.getPropertyValue("--focus")) ? b : a)).dataset.waveCard;
+    });
+  const stage = await page.locator("[data-project-wave]").boundingBox();
+  await page.mouse.move(stage.x + 4, stage.y + stage.height / 2, { steps: 4 });
+  for (let i = 0; i < 20 && (await frontCard()) !== "copy"; i++) await page.waitForTimeout(200);
   const front = await page.evaluate(() => {
     const cards = [...document.querySelectorAll("[data-wave-card]")];
     const card = cards.reduce((a, b) => (Number(b.style.getPropertyValue("--focus")) > Number(a.style.getPropertyValue("--focus")) ? b : a));
@@ -1288,6 +1361,196 @@ const backdropFrames = (page) =>
   check("lobby-mobile", "no horizontal scroll down the resting lobby at 390px", widest <= 390, { widest });
   check("lobby-mobile", "no page errors", errors.length === 0, errors.slice(0, 3));
   await context.close();
+}
+
+// ── Workshop (2): boot, backdrop, hidden files, life.log, the ask terminal, identity fields ──
+{
+  // First visit per session: the CRT boots, types the log and powers off into the IDE
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  const appeared = (sel, timeout) => page.waitForSelector(sel, { timeout }).then(() => true).catch(() => false);
+  const booted = await appeared("[data-workshop-boot]", 8000);
+  const crtLive = await appeared('[data-workshop-boot] [data-fx="crt-boot"][data-fx-state="live"]', 10000);
+  const typed = await appeared('[data-workshop-boot] canvas[data-typed="done"]', 15000);
+  await page.screenshot({ path: path.join(OUT, "workshop-boot.png") });
+  const gone = await page.waitForFunction(() => !document.querySelector("[data-workshop-boot]"), null, { timeout: 8000 }).then(() => true).catch(() => false);
+  await page.waitForTimeout(700);
+  const after = await page.evaluate(() => ({
+    flag: sessionStorage.getItem("hzy:workshop-booted"),
+    gl: window.__gl().live,
+    backdrop: document.querySelector("[data-workshop-backdrop] [data-fx]")?.dataset.fxState,
+  }));
+  check("workshop-boot", "first visit boots the CRT, types the log, powers off into the IDE", booted && crtLive && typed && gone && after.flag === "1", { booted, crtLive, typed, gone, ...after });
+  check("workshop-boot", "the CRT's context goes with it: dock field and backdrop remain", after.gl <= 2 && after.backdrop === "live", after);
+  await page.screenshot({ path: path.join(OUT, "workshop-ide.png") });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2500);
+  const again = await page.evaluate(() => !!document.querySelector("[data-workshop-boot]"));
+  check("workshop-boot", "same session: no second boot", !again, { again });
+  check("workshop-boot", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
+  // Any key skips the boot
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-workshop-boot] [data-fx-state="live"]', { timeout: 10000 }).catch(() => {});
+  await page.keyboard.press("Escape");
+  const skipped = await page.waitForFunction(() => !document.querySelector("[data-workshop-boot]"), null, { timeout: 3000 }).then(() => true).catch(() => false);
+  check("workshop-boot", "any key skips it", skipped, { skipped });
+  await context.close();
+}
+
+{
+  // While the glass is up, keyboard focus stays out of the IDE behind it (the dock stays reachable)
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-workshop-boot="running"] [data-fx-state="live"]', { timeout: 10000 }).catch(() => {});
+  const stops = [];
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press("Tab");
+    stops.push(
+      await page.evaluate(() => {
+        const a = document.activeElement;
+        if (!a || a === document.body) return "body";
+        if (a.closest(".dock-retro")) return "dock";
+        return a.closest("aside, main, [data-workshop-ide]") ? "ide" : a.tagName.toLowerCase();
+      })
+    );
+  }
+  const stillBooting = await page.evaluate(() => document.querySelector("[data-workshop-boot]")?.dataset.workshopBoot);
+  check("workshop-boot", "Tab never reaches the IDE behind the glass", stillBooting === "running" && !stops.includes("ide") && stops.includes("dock"), { stillBooting, stops });
+  await context.close();
+}
+
+{
+  // Leaving mid-boot still counts as having booted: coming back doesn't play it again
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-workshop-boot="running"]', { timeout: 10000 }).catch(() => {});
+  await page.goto(BASE + "/colophon", { waitUntil: "domcontentloaded" });
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForTimeout(2500);
+  const again = await page.evaluate(() => !!document.querySelector("[data-workshop-boot]"));
+  check("workshop-boot", "leaving mid-boot: no second boot on return", !again, { again });
+  await context.close();
+}
+
+{
+  // A skip whose power-off animation never ends (animationend missed) still clears the overlay
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/work", { waitUntil: "domcontentloaded" });
+  await page.waitForSelector('[data-workshop-boot="running"]', { timeout: 10000 }).catch(() => {});
+  await page.addStyleTag({ content: ".crt-boot { animation: none !important; }" });
+  await page.keyboard.press("Escape");
+  const cleared = await page.waitForFunction(() => !document.querySelector("[data-workshop-boot]"), null, { timeout: 3000 }).then(() => true).catch(() => false);
+  check("workshop-boot", "overlay clears even without animationend", cleared, { cleared });
+  await context.close();
+}
+
+{
+  // Reduced motion never boots
+  const { context, page } = await chromePage({ reducedMotion: "reduce" });
+  await page.goto(BASE + "/work", { waitUntil: "networkidle" });
+  await page.waitForTimeout(1500);
+  const boot = await page.evaluate(() => !!document.querySelector("[data-workshop-boot]"));
+  check("workshop-boot", "reduced motion: straight to the IDE", !boot, { boot });
+  await context.close();
+}
+
+{
+  const { context, page, errors } = await chromePage();
+  await context.addInitScript(() => {
+    try {
+      sessionStorage.setItem("hzy:workshop-booted", "1");
+    } catch {}
+  });
+  // A slow answer from a stub of the ask endpoint, carrying one follow-up
+  await page.route("**/api/ai/workshop", async (route) => {
+    await new Promise((r) => setTimeout(r, 2400));
+    const body = 'data: {"text":"a daemon that remembers what you build.\\n> what does it remember?"}\n\ndata: [DONE]\n\n';
+    await route.fulfill({ status: 200, headers: { "content-type": "text/event-stream" }, body });
+  });
+  await page.goto(BASE + "/work", { waitUntil: "networkidle" });
+  await page.waitForTimeout(800);
+
+  // Hidden files: a real switch with a springing thumb, and .debug appears
+  const sw = page.getByRole("switch", { name: "hidden files" });
+  const before = await sw.getAttribute("aria-checked");
+  await sw.click();
+  await page.waitForTimeout(800);
+  const toggled = await page.evaluate(() => ({
+    checked: document.querySelector('[role="switch"]')?.getAttribute("aria-checked"),
+    debug: [...document.querySelectorAll("button")].some((b) => b.textContent?.trim() === ".debug"),
+    thumb: getComputedStyle(document.querySelector(".toggle__thumb")).transform,
+  }));
+  const travelled = /matrix\(([^)]+)\)/.exec(toggled.thumb)?.[1].split(",").map(Number)[4] ?? 0;
+  check("workshop-files", "the switch flips, its thumb travels, and .debug appears", before === "false" && toggled.checked === "true" && toggled.debug && travelled > 4, { before, ...toggled, travelled });
+
+  // life.log decodes line by line over condensation, and every line keeps its left edge
+  await page.getByRole("button", { name: /life\.log/ }).click();
+  await page.waitForTimeout(3800);
+  const log = await page.evaluate(() => {
+    const lines = [...document.querySelectorAll("[data-life-log] pre > span")];
+    return {
+      count: lines.length,
+      // The visible layer, not the wrapper: the wrapper stays put even when the layers misstack
+      lefts: [...new Set(lines.map((l) => Math.round(l.querySelector(".decode__live")?.getBoundingClientRect().left ?? -1)))],
+      settled: lines.every((l) => l.querySelector(".decode__live")?.textContent === l.querySelector(".sr-only")?.textContent),
+      glass: document.querySelector("[data-life-log] [data-fx]")?.dataset.fxState,
+    };
+  });
+  check("workshop-lifelog", "life.log decodes in, settles, and stays aligned over the condensation", log.count === 8 && log.lefts.length === 1 && log.settled && log.glass === "live", log);
+  await page.screenshot({ path: path.join(OUT, "workshop-lifelog.png") });
+
+  // The ask terminal: the run key primes on hover, a comet laps the input while it streams
+  const run = page.locator("[data-life-log] [data-run-button]");
+  const ignition = await run.locator("[data-fx]").getAttribute("data-fx-state");
+  await run.hover();
+  await page.waitForTimeout(400);
+  const warp = await run.locator("canvas").first().getAttribute("data-warp");
+  await run.click();
+  const traced = await page.waitForSelector('[data-life-log] [data-fx="trace-border"][data-fx-state="live"]', { timeout: 2200 }).then(() => true).catch(() => false);
+  await page.screenshot({ path: path.join(OUT, "workshop-ask-streaming.png") });
+  const followed = await page.waitForSelector('[data-life-log] button:has-text("what does it remember?")', { timeout: 8000 }).then(() => true).catch(() => false);
+  await page.waitForTimeout(1200);
+  const done = await page.evaluate(() => ({
+    trace: !!document.querySelector('[data-life-log] [data-fx="trace-border"]'),
+    answer: document.querySelector("[data-life-log] pre.max-h-80")?.textContent ?? "",
+  }));
+  check("workshop-ask", "the run key's tunnel is live and primes on hover", ignition === "live" && warp === "1", { ignition, warp });
+  check("workshop-ask", "a comet laps the input while the answer streams, and leaves after", traced && !done.trace, { traced, trace: done.trace });
+  check("workshop-ask", "the answer lands and its follow-up decodes in", /remembers/.test(done.answer) && followed, { answer: done.answer, followed });
+  check("workshop-ask", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
+  // Identity fields: the chosen visual in its accent, an unported choice falls back, links are keycaps
+  for (const [variant, expect, maxGl] of [
+    ["constellation-field", "constellation-field", 0],
+    ["warp-field", "warp-field", 1],
+    ["logic-core", "logic-core", 1],
+    ["topo-field", "constellation-field", 0],
+  ]) {
+    const { context, page, errors } = await chromePage();
+    await page.goto(BASE + `/fx-harness/project?variant=${variant}&accent=notebook-fragments`, { waitUntil: "networkidle" });
+    await page.waitForSelector('[data-project-identity] [data-fx-state="live"]', { timeout: 15000 }).catch(() => {});
+    await page.waitForTimeout(600);
+    const id = await page.evaluate(() => ({
+      fx: document.querySelector("[data-project-identity] [data-fx]")?.dataset.fx,
+      state: document.querySelector("[data-project-identity] [data-fx]")?.dataset.fxState,
+      gl: window.__gl().live,
+    }));
+    const keycaps = await page.locator("a.cta--keycap").allTextContents();
+    const named = (await page.getByRole("link", { name: "live site" }).count()) === 1 && (await page.getByRole("link", { name: "source" }).count()) === 1;
+    check(`identity ${variant}`, `draws ${expect}, live, within budget`, id.fx === expect && id.state === "live" && id.gl <= maxGl, id);
+    check(`identity ${variant}`, "links are keycaps named once", keycaps.length === 2 && named, { keycaps, named });
+    check(`identity ${variant}`, "no page errors", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, `identity-${variant}.png`) });
+    await context.close();
+  }
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────

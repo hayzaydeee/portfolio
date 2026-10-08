@@ -1,3 +1,4 @@
+import { isFxId, type FxId } from "@/components/fx/metas";
 // Identity fields a project page can render (effect ids in components/fx/registry.ts).
 // The admin picker only offers ids whose effect is registered; the full list is accepted
 // here so saving a project never breaks while ports land in batches.
@@ -37,3 +38,17 @@ export const ACCENT_TOKENS = [
 ] as const;
 
 export type AccentToken = (typeof ACCENT_TOKENS)[number];
+
+/** The identity fields that have actually been ported (a registered effect); the rest land in batches */
+export const PORTED_VISUALS = PROJECT_VISUALS.filter((v): v is ProjectVisual & FxId => isFxId(v));
+
+export const DEFAULT_VISUAL: ProjectVisual & FxId = "constellation-field";
+
+/** What a project page draws: its chosen field if that one is ported, otherwise the default */
+export function resolveVisual(variant: string | null | undefined): ProjectVisual & FxId {
+  return PORTED_VISUALS.find((v) => v === variant) ?? DEFAULT_VISUAL;
+}
+
+export function isAccentToken(token: string | null | undefined): token is AccentToken {
+  return !!token && (ACCENT_TOKENS as readonly string[]).includes(token);
+}
