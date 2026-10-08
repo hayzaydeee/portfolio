@@ -83,8 +83,13 @@ All three lean toward the pointer. Rules on top of the ones below:
 | `track-meter` | the wordmark's bar idiom | The playing track's row: five bars on the analyser bands (`data-peak`) |
 | `shader-toggle` | Skeuomorphic Toggle (shader) | Draws the tracks/analysis switch behind a real `role="switch"`; option `on` springs the thumb (`data-on`) |
 | `neon-sign` | Neon Typography (Glassblown) | "IN THE LAB" in glass tubes over the works in progress. I, T, H and E are added to the original's glyphs in the same hand |
+| `liquid-metal` | Liquid Metal Button (play) | The player bar's play key on the studio's routes (`components/studio/LiquidKey.tsx`), raw WebGL2 in the original's five passes. The button sends `hover`, `focus`, `press {x, y}` and `release`; music lights the metal and kicks throw softer ripples (`data-lit`, `data-audio`, `data-ripples`). The studio claims the key with `useClaimStudioPlayer()` (`lib/audio/studioPlayer.ts`), since the bar lives in the root layout |
+| `player-glow` | the wordmark's analyser idiom | 2D light rising off the player bar on every route: five lobes on the analyser bands, brightness on the loudness (`data-loud`), a flare on each kick |
+| `stream-convergence` | Stream Convergence | A faint band behind an essay's header; each strand takes a room colour where the original used one channel each |
+| `dock-glass` | Animated Top Dock (glass) | The rail's field, now in three as the original was: glass spheres, an icosahedron and a torus over a bloom backdrop rendered to a target. The layout is drawn in the visible frame, so the tall rail and the phone's bar each get a full field (`data-shapes`) |
+| `liquid-form` | Liquid Form (Velox) | Slot `studio.about`, off until the lab switches it on: a chrome form behind the about, in three as a displaced icosphere where the original ray-marched; the music swells it |
 
-`/fx-harness/studio` renders the tracks view from fixtures (artwork from `public/fx-test/sleeve.png`, every track the kick fixture).
+`/fx-harness/studio` renders the tracks view from fixtures (artwork from `public/fx-test/sleeve.png`, every track the kick fixture, two essays), and `/fx-harness/essay` one essay. A slot entry with `off: true` in `lib/fx/slots.ts` starts dark: its stage shows the poster without loading the effect until a preset enables it.
 
 The lobby sections share one progress source (`components/lobby/sectionProgress.ts`): scroll in the resting page, a timed 0 to 1 per slide in the sequence. Each section poses the horizon (`components/lobby/poses.ts`), and `data-gesture-capture="x"` (or `"all"`) on an element keeps the sequence's wheel, swipe and arrow handling off the gestures it needs.
 

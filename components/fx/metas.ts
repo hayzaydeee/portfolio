@@ -18,6 +18,10 @@ import { neonSignMeta } from "./effects/neon-sign/meta";
 import { trackMeterMeta } from "./effects/track-meter/meta";
 import { shaderToggleMeta } from "./effects/shader-toggle/meta";
 import { studioGalleryMeta } from "./effects/studio-gallery/meta";
+import { liquidMetalMeta } from "./effects/liquid-metal/meta";
+import { playerGlowMeta } from "./effects/player-glow/meta";
+import { streamConvergenceMeta } from "./effects/stream-convergence/meta";
+import { liquidFormMeta } from "./effects/liquid-form/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
 import { generativeTreeMeta } from "./effects/generative-tree/meta";
 import { glyphBallMeta } from "./effects/glyph-ball/meta";
@@ -57,6 +61,10 @@ export const FX_METAS = {
   "track-meter": trackMeterMeta,
   "shader-toggle": shaderToggleMeta,
   "studio-gallery": studioGalleryMeta,
+  "liquid-metal": liquidMetalMeta,
+  "player-glow": playerGlowMeta,
+  "stream-convergence": streamConvergenceMeta,
+  "liquid-form": liquidFormMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

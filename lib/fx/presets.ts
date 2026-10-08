@@ -1,6 +1,6 @@
 import { FX_METAS } from "@/components/fx/metas";
 import type { FxControl, FxOptions, FxOptionValue } from "@/components/fx/runtime/types";
-import { FX_SLOTS, FX_SLOT_IDS, type FxSlotId } from "./slots";
+import { FX_SLOTS, FX_SLOT_IDS, slotOnByDefault, type FxSlotId } from "./slots";
 
 export type SlotPreset = {
   /** Kill switch: off renders the poster only, without loading any effect code */
@@ -45,7 +45,7 @@ export function resolvePresets(raw: unknown): FxPresets {
     const entry = source[slot];
     const obj = entry && typeof entry === "object" ? (entry as Record<string, unknown>) : {};
     presets[slot] = {
-      enabled: typeof obj.enabled === "boolean" ? obj.enabled : true,
+      enabled: typeof obj.enabled === "boolean" ? obj.enabled : slotOnByDefault(slot),
       values: sanitizeValues(slot, obj.values),
     };
   }

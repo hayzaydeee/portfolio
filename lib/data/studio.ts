@@ -1,4 +1,5 @@
 import { createPublicClient } from "@/lib/supabase/server";
+import { createAnonClient } from "@/lib/supabase/anon";
 import type { MusicProject, Track, AnalysisEssay } from "@/app/actions/studio";
 
 export async function getPublishedMusicProjects(): Promise<MusicProject[]> {
@@ -47,9 +48,12 @@ export async function getWipMusicProjects(): Promise<MusicProject[]> {
   }
 }
 
+// The essay reads use the cookie-less client: /music/analysis/[slug] is prebuilt from
+// getPublishedEssays, and an essay published after a deploy renders on demand, neither of
+// which can read cookies
 export async function getPublishedEssays(): Promise<AnalysisEssay[]> {
   try {
-    const supabase = await createPublicClient();
+    const supabase = createAnonClient();
     const { data, error } = await supabase
       .from("analysis_essays")
       .select("id, slug, title, subject, read_time_minutes, status, created_at, updated_at")
@@ -65,7 +69,7 @@ export async function getPublishedEssays(): Promise<AnalysisEssay[]> {
 
 export async function getEssayBySlug(slug: string): Promise<AnalysisEssay | null> {
   try {
-    const supabase = await createPublicClient();
+    const supabase = createAnonClient();
     const { data, error } = await supabase
       .from("analysis_essays")
       .select("*")

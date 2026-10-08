@@ -128,6 +128,13 @@ const ROUTES = [
   { name: "neon-sign-studio", path: "/fx-harness/neon-sign?room=studio", maxLive: 0, canvas2d: true },
   { name: "neon-sign-source", path: "/fx-harness/neon-sign?room=studio&source=1", maxLive: 0, canvas2d: true },
   { name: "track-meter-studio", path: "/fx-harness/track-meter?room=studio", maxLive: 0, canvas2d: true },
+  { name: "liquid-metal-studio", path: "/fx-harness/liquid-metal?room=studio", maxLive: 1 },
+  { name: "liquid-metal-source", path: "/fx-harness/liquid-metal?room=studio&source=1", maxLive: 1 },
+  { name: "player-glow-studio", path: "/fx-harness/player-glow?room=studio", maxLive: 0, canvas2d: true },
+  { name: "stream-convergence-studio", path: "/fx-harness/stream-convergence?room=studio", maxLive: 1 },
+  { name: "stream-convergence-source", path: "/fx-harness/stream-convergence?room=studio&source=1", maxLive: 1 },
+  { name: "liquid-form-studio", path: "/fx-harness/liquid-form?room=studio", maxLive: 1 },
+  { name: "liquid-form-source", path: "/fx-harness/liquid-form?room=studio&source=1", maxLive: 1 },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -1727,7 +1734,7 @@ const backdropFrames = (page) =>
   await sw.click();
   // The views swap through a wait-mode exit and enter, which a busy main thread can stretch
   const analysis = await page
-    .getByText("No essays published yet.")
+    .getByRole("heading", { name: "the room is an instrument" })
     .waitFor({ state: "visible", timeout: 4000 })
     .then(() => true)
     .catch(() => false);
@@ -1790,6 +1797,162 @@ const backdropFrames = (page) =>
   const lostWork = await page.evaluate(() => window.__lostWork);
   check("studio-gallery", "removed before its fonts load, it does no work after dispose", created && removed && lostWork === 0 && errors.length === 0, { created, removed, lostWork, errors: errors.slice(0, 2) });
   await context.close();
+}
+
+// ── Studio (3b): the player, the analysis view, the essay, the dock field ────────
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/studio", { waitUntil: "networkidle" });
+  await page.waitForSelector('[data-fx="studio-gallery"][data-fx-state="live"]', { timeout: 20000 }).catch(() => {});
+  const keyData = (k) => page.evaluate((key) => document.querySelector('[data-liquid-key] [data-fx="liquid-metal"] canvas')?.dataset[key] ?? null, k);
+  const waitKey = (k, v, timeout = 6000) =>
+    page
+      .waitForFunction(([key, val]) => document.querySelector('[data-liquid-key] [data-fx="liquid-metal"] canvas')?.dataset[key] === val, [k, v], { timeout })
+      .then(() => true)
+      .catch(() => false);
+
+  // The lab's liquid form stays dark until it's switched on, without loading its code
+  const about = await page.evaluate(() => ({
+    state: document.querySelector("[data-artist-about] [data-fx]")?.dataset.fxState ?? null,
+    canvas: !!document.querySelector("[data-artist-about] canvas"),
+  }));
+  check("studio-player", "the liquid form slot is off by default and draws nothing", about.state === "disabled" && !about.canvas, about);
+
+  // Playing a track brings the bar up with the studio's liquid metal key, lit by the music
+  await page.getByRole("button", { name: /^northbound/ }).click();
+  await page.getByRole("button", { name: "Play platform 4" }).click();
+  const keyLive = await page
+    .waitForSelector('[data-liquid-key] [data-fx="liquid-metal"][data-fx-state="live"]', { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  const playing = (await waitKey("audio", "1")) && (await waitKey("lit", "1"));
+  const label = await page.locator("[data-liquid-key] button").getAttribute("aria-label");
+  const glowLoud = await page
+    .waitForFunction(() => Number(document.querySelector('[data-fx="player-glow"] canvas')?.dataset.loud ?? 0) > 0, null, { timeout: 6000 })
+    .then(() => true)
+    .catch(() => false);
+  const gl = await page.evaluate(() => window.__gl());
+  check("studio-player", "in the studio the play key is liquid metal, lit while music plays", keyLive && playing && label === "Pause", { keyLive, playing, label });
+  check("studio-player", "light rises off the bar with the music", glowLoud, { glowLoud });
+  check("studio-player", "contexts within budget with the player up", gl.live <= 5, gl);
+
+  // Paused, the metal dims; the mouse lights it and a press throws a ripple (the press is a
+  // click too, so it also plays again)
+  await page.locator("[data-liquid-key] button").click();
+  await page.mouse.move(5, 5);
+  const dimmed = await waitKey("lit", "0");
+  const paused = await page.locator("[data-liquid-key] button").getAttribute("aria-label");
+  const kb = await page.locator("[data-liquid-key] button").boundingBox();
+  await page.mouse.move(kb.x + kb.width / 2, kb.y + kb.height / 2, { steps: 4 });
+  const hovered = await waitKey("lit", "1", 3000);
+  const before = Number((await keyData("ripples")) ?? 0);
+  await page.mouse.down();
+  await page.waitForTimeout(120);
+  await page.mouse.up();
+  const after = Number((await keyData("ripples")) ?? 0);
+  await page.mouse.move(5, 5);
+  check("studio-player", "paused, the metal dims; hover lights it, a press ripples it", dimmed && paused === "Play" && hovered && after > before, { dimmed, paused, hovered, before, after });
+
+  // Keyboard: Tab from Previous lands on the key with visible focus, and Enter flips it
+  await page.getByRole("button", { name: "Previous" }).focus();
+  await page.keyboard.press("Tab");
+  const focusedKey = await page.evaluate(() => document.activeElement?.closest("[data-liquid-key]") !== null);
+  const focusLit = await waitKey("lit", "1", 3000);
+  const was = await page.locator("[data-liquid-key] button").getAttribute("aria-label");
+  await page.keyboard.press("Enter");
+  const flipped = await page
+    .waitForFunction((w) => document.querySelector("[data-liquid-key] button")?.getAttribute("aria-label") !== w, was, { timeout: 4000 })
+    .then(() => true)
+    .catch(() => false);
+  check("studio-player", "keyboard: the key takes focus, lights, and Enter plays or pauses", focusedKey && focusLit && flipped, { focusedKey, focusLit, was, flipped });
+
+  // Loop is a toggle that announces its state
+  const loop = page.getByRole("button", { name: "Loop" });
+  const loopOff = await loop.getAttribute("aria-pressed");
+  await loop.click();
+  const loopOn = await loop.getAttribute("aria-pressed");
+  await loop.click();
+  check("studio-player", "loop announces its state as pressed", loopOff === "false" && loopOn === "true", { loopOff, loopOn });
+
+  // The analysis view: essay titles decode into place and read as headings throughout
+  await page.evaluate(() => scrollTo(0, 0));
+  await page.getByRole("switch", { name: "analysis view" }).click();
+  const titles = await page
+    .waitForFunction(() => document.querySelectorAll("[data-essay-list] h3").length === 2, null, { timeout: 5000 })
+    .then(() => page.locator("[data-essay-list]").getByRole("heading").allTextContents())
+    .catch(() => []);
+  const settled = await page
+    .waitForFunction(
+      () => [...document.querySelectorAll("[data-essay-list] [data-decode-live]")].every((el) => el.textContent === el.closest("[data-decode-text]")?.getAttribute("data-decode-text")),
+      null,
+      { timeout: 5000 }
+    )
+    .then(() => true)
+    .catch(() => false);
+  const named = await page.getByRole("heading", { name: "platform 4, 6:52" }).count();
+  check("studio-analysis", "essay titles decode into place, named as headings", titles.length === 2 && settled && named === 1, { titles, settled, named });
+  check("studio-player", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+}
+
+{
+  // Off the studio's routes the play key is a glass circle button
+  const { context, page } = await chromePage();
+  await page.goto(BASE + "/fx-harness/studio?backdrop=0", { waitUntil: "networkidle" });
+  await page.getByRole("button", { name: /^northbound/ }).click();
+  await page.getByRole("button", { name: "Play platform 4" }).click();
+  await page.locator("[data-player-bar]").waitFor({ timeout: 6000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  const plain = await page.evaluate(() => ({
+    liquid: !!document.querySelector("[data-liquid-key]"),
+    glass: document.querySelector('[data-player-bar] button[aria-label="Pause"]')?.classList.contains("cbtn--glass") ?? false,
+  }));
+  check("studio-player", "off the studio the play key is a glass circle button", !plain.liquid && plain.glass, plain);
+  await context.close();
+}
+
+{
+  // One essay: the header's stream of light, the decoded title, no sideways scroll on a phone
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/essay", { waitUntil: "networkidle" });
+  const stream = await page
+    .waitForSelector('[data-essay-stream] [data-fx="stream-convergence"][data-fx-state="live"]', { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  const title = await page.getByRole("heading", { level: 1, name: "the room is an instrument" }).count();
+  const back = await page.getByRole("link", { name: /back to studio/ }).getAttribute("href");
+  check("studio-essay", "the header's stream is live and the title reads as the page heading", stream && title === 1 && back === "/music", { stream, title, back });
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(400);
+  const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
+  check("studio-essay", "no sideways scroll on a phone", scrollW <= 390, { scrollW });
+  check("studio-essay", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await context.close();
+
+  // An essay that wasn't prebuilt renders on demand (its not-found page here, without a
+  // database) instead of failing as a static page that turned dynamic
+  const statuses = {};
+  for (const slug of ["room-tone", "not-built-yet"]) statuses[slug] = (await fetch(BASE + "/music/analysis/" + slug)).status;
+  check("studio-essay", "an essay route not built at deploy time never 500s", Object.values(statuses).every((s) => s !== 500), statuses);
+}
+
+{
+  // The rail's glass field, in three: a full field in the tall rail and the phone's bar
+  for (const [name, opts] of [
+    ["rail", { viewport: { width: 1440, height: 900 } }],
+    ["phone bar", { viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true }],
+  ]) {
+    const { context, page, errors } = await chromePage(opts);
+    await page.goto(BASE + "/fx-harness/dock?room=studio", { waitUntil: "networkidle" });
+    const live = await page
+      .waitForSelector('[data-fx="dock-glass"][data-fx-state="live"]', { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    const shapes = await page.evaluate(() => document.querySelector('[data-fx="dock-glass"] canvas')?.dataset.shapes ?? null);
+    const gl = await page.evaluate(() => window.__gl());
+    check("dock-glass", `${name}: the glass field is live with its shapes, one context`, live && shapes === "18" && gl.live === 1 && errors.length === 0, { live, shapes, gl, errors: errors.slice(0, 2) });
+    await context.close();
+  }
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────
