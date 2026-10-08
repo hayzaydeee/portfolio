@@ -1754,6 +1754,44 @@ const backdropFrames = (page) =>
   await context.close();
 }
 
+// ── Studio gallery: a stage removed while its fonts load does no work after dispose ──
+{
+  // Fonts that take 3 s to load, and a count of draws and uploads made on lost contexts
+  const SLOW_FONTS_AND_LOST_DRAWS = `
+    (() => {
+      const fonts = Object.getPrototypeOf(document.fonts);
+      const load = fonts.load;
+      fonts.load = function (...args) {
+        return new Promise((resolve) => setTimeout(() => resolve(load.apply(this, args)), 3000));
+      };
+      window.__lostWork = 0;
+      for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
+        for (const name of ["drawArrays", "drawElements", "texImage2D", "texSubImage2D", "clear"]) {
+          const fn = C.prototype[name];
+          C.prototype[name] = function (...args) {
+            if (this.isContextLost()) window.__lostWork++;
+            return fn.apply(this, args);
+          };
+        }
+      }
+    })();
+  `;
+  const { context, page, errors } = await chromePage({ reducedMotion: "reduce" });
+  await context.addInitScript(SLOW_FONTS_AND_LOST_DRAWS);
+  await page.goto(BASE + "/fx-harness/studio-gallery?room=studio&count=2", { waitUntil: "domcontentloaded" });
+  const created = await page
+    .waitForFunction(() => document.querySelectorAll('[data-fx="studio-gallery"] canvas').length === 2, null, { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  await page.getByTestId("remove-two").click();
+  const removed = await page.evaluate(() => document.querySelectorAll('[data-fx="studio-gallery"]').length === 0);
+  // The fonts land after the stages are gone
+  await page.waitForTimeout(4000);
+  const lostWork = await page.evaluate(() => window.__lostWork);
+  check("studio-gallery", "removed before its fonts load, it does no work after dispose", created && removed && lostWork === 0 && errors.length === 0, { created, removed, lostWork, errors: errors.slice(0, 2) });
+  await context.close();
+}
+
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────
 if (STRICT_DEV) {
   const context = await browser.newContext(CONTEXT_OPTS);

@@ -165,7 +165,9 @@ export function create(ctx: FxContext, initial: AudioWordmarkOptions): FxInstanc
 
     still() {
       still = true;
-      idle(16.2 * opts.speed);
+      // Through t, so the render that follows a still (with dt 0) keeps this pose
+      t = 16.2 * opts.speed;
+      idle(t);
       draw();
     },
 

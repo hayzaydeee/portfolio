@@ -82,6 +82,8 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
   let items: GalleryItem[] = [];
   let strips: Strip[] = [];
   let still = false;
+  // Fonts and artwork can land after the stage is gone; nothing paints or draws once it is
+  let disposed = false;
   let spin = 0;
   let bob = 0;
   // The bob settles while a focused panel holds the front, so it rests where it can be clicked
@@ -186,7 +188,7 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
         img.crossOrigin = "anonymous";
         img.decoding = "async";
         img.onload = () => {
-          if (strips[i] !== strip) return;
+          if (disposed || strips[i] !== strip) return;
           strip.loaded = true;
           paintStrip(strip, item, i);
           if (still) draw();
@@ -242,6 +244,7 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
   };
 
   const draw = () => {
+    if (disposed) return;
     helix.rotation.y = spin;
     helix.position.y = Math.sin(bob) * 1.5 * bobAmp + lift;
     helix.scale.setScalar(Math.min(1.35, Math.max(0.7, opts.scale)));
@@ -250,6 +253,7 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
   };
 
   const ready = Promise.all([loadFont(400, 72, sans), loadFont(500, 28, mono)]).then(() => {
+    if (disposed) return;
     repaint();
     if (still) draw();
   });
@@ -350,11 +354,13 @@ export function create(ctx: FxContext, initial: StudioGalleryOptions): FxInstanc
     },
 
     dispose() {
+      disposed = true;
       for (const key of ["items", "hover", "focus", "spin"]) delete canvas.dataset[key];
       for (const s of strips) {
         s.texture.dispose();
         if (s.image) s.image.onload = null;
       }
+      strips = [];
       materials.forEach((m) => m.dispose());
       geometry.dispose();
       renderer.dispose();
