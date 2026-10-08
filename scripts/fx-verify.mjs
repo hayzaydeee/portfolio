@@ -119,6 +119,15 @@ const ROUTES = [
   { name: "orbital-sphere-source", path: "/fx-harness/orbital-sphere?room=workshop&source=1", maxLive: 1 },
   { name: "warp-keycaps-workshop", path: "/fx-harness/warp-keycaps?room=workshop", maxLive: 1 },
   { name: "warp-keycaps-source", path: "/fx-harness/warp-keycaps?room=workshop&source=1", maxLive: 1 },
+  // Studio (3a)
+  { name: "studio-gallery-studio", path: "/fx-harness/studio-gallery?room=studio", maxLive: 1 },
+  { name: "shader-toggle-studio", path: "/fx-harness/shader-toggle?room=studio", maxLive: 1 },
+  { name: "shader-toggle-source", path: "/fx-harness/shader-toggle?room=studio&source=1", maxLive: 1 },
+  { name: "audio-wordmark-studio", path: "/fx-harness/audio-wordmark?room=studio", maxLive: 0, canvas2d: true },
+  { name: "audio-wordmark-source", path: "/fx-harness/audio-wordmark?room=studio&source=1", maxLive: 0, canvas2d: true },
+  { name: "neon-sign-studio", path: "/fx-harness/neon-sign?room=studio", maxLive: 0, canvas2d: true },
+  { name: "neon-sign-source", path: "/fx-harness/neon-sign?room=studio&source=1", maxLive: 0, canvas2d: true },
+  { name: "track-meter-studio", path: "/fx-harness/track-meter?room=studio", maxLive: 0, canvas2d: true },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -1222,7 +1231,10 @@ const backdropFrames = (page) =>
 
   // Tech words resolve into icon orbs (2D: no WebGL beyond the horizon)
   await page.click('button[aria-label="Go to techstack section"]');
-  await page.waitForTimeout(5000);
+  // The slide mounts after the seedling's exit, then each orb loads and draws: 4 to 8 s on SwiftShader
+  await page
+    .waitForFunction(() => document.querySelectorAll('[data-icon-orb] [data-fx-state="live"]').length === 8, null, { timeout: 15000 })
+    .catch(() => {});
   const orbs = await page.evaluate(() => ({
     live: document.querySelectorAll('[data-icon-orb] [data-fx-state="live"]').length,
     total: document.querySelectorAll("[data-icon-orb]").length,
@@ -1591,6 +1603,8 @@ const backdropFrames = (page) =>
     const r = await loadsThree(`/fx-harness/project?variant=${variant}`);
     check("three-chunk", `${variant}: three loads with it`, r.three, r);
   }
+  const studio = await loadsThree("/fx-harness/studio");
+  check("three-chunk", "studio: three loads with the gallery", studio.three, studio);
 }
 
 {
@@ -1628,6 +1642,153 @@ const backdropFrames = (page) =>
   await page.waitForTimeout(400);
   const surge = await page.evaluate(() => document.querySelector('[data-fx="warp-keycaps"] canvas')?.dataset.surge ?? null);
   check("warp-keycaps", "reduced motion: a click doesn't surge", surge === null, { surge });
+  await context.close();
+}
+
+// ── Studio (3a): tracks view from fixtures ──────────────────────────────────────
+{
+  const { context, page, errors } = await chromePage();
+  await page.goto(BASE + "/fx-harness/studio", { waitUntil: "networkidle" });
+  const live = (fx) => page.waitForSelector(`[data-fx="${fx}"][data-fx-state="live"]`, { timeout: 20000 }).then(() => true).catch(() => false);
+  const stages = {};
+  for (const fx of ["bell-field", "shader-toggle", "audio-wordmark", "studio-gallery", "neon-sign"]) stages[fx] = await live(fx);
+  const gl = await page.evaluate(() => window.__gl());
+  const items = await page.evaluate(() => document.querySelector('[data-fx="studio-gallery"] canvas')?.dataset.items);
+  check("studio", "backdrop, switch, wordmark, gallery and sign all live", Object.values(stages).every(Boolean), stages);
+  check("studio", "the gallery holds every project; contexts within budget", items === "3" && gl.live <= 4, { items, gl });
+
+  const canvasData = (fx, key) => page.evaluate(([f, k]) => document.querySelector(`[data-fx="${f}"] canvas`)?.dataset[k] ?? null, [fx, key]);
+  const detail = () => page.evaluate(() => document.querySelector("[data-project-detail]")?.getAttribute("data-project-detail") ?? null);
+
+  // The list twin: a button per project; choosing one opens its tracklist and turns the helix to it
+  const list = page.getByRole("list", { name: "projects" }).getByRole("button");
+  const names = await list.allTextContents();
+  await page.getByRole("button", { name: /^glasshouse/ }).click();
+  const focused = await page
+    .waitForFunction(() => document.querySelector('[data-fx="studio-gallery"] canvas')?.dataset.focus === "1", null, { timeout: 6000 })
+    .then(() => true)
+    .catch(() => false);
+  const pressed = await page.getByRole("button", { name: /^glasshouse/ }).getAttribute("aria-pressed");
+  const tracks = await page.locator("[data-project-detail] ol button").count();
+  check("studio", "list twin: choosing a project opens its tracklist and turns the helix to it", names.length === 3 && pressed === "true" && (await detail()) === "glasshouse" && tracks === 4 && focused, { names, pressed, tracks, focused });
+
+  // Keyboard: Tab onto another project and Enter
+  await page.getByRole("button", { name: /^northbound/ }).focus();
+  await page.keyboard.press("Enter");
+  await page.waitForTimeout(300);
+  check("studio", "keyboard: Enter on a project opens it", (await detail()) === "northbound", { detail: await detail() });
+
+  // A click on the front panel opens that project (the bob has settled on the focused one)
+  await page.getByRole("button", { name: /^glasshouse/ }).click();
+  await page.waitForFunction(() => document.querySelector('[data-fx="studio-gallery"] canvas')?.dataset.focus === "1", null, { timeout: 6000 }).catch(() => {});
+  await page.waitForTimeout(1500);
+  await page.getByRole("button", { name: /^glasshouse/ }).click(); // closes it again
+  await page.locator("[data-studio-gallery]").scrollIntoViewIfNeeded();
+  const box = await page.locator("[data-studio-gallery]").boundingBox();
+  await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+  await page.waitForTimeout(400);
+  check("studio", "clicking the front panel opens its project", (await detail()) === "glasshouse", { detail: await detail() });
+
+  // A drag spins the helix the way the pointer went; a drag never opens a project
+  await page.getByRole("button", { name: /^glasshouse/ }).click(); // close
+  await page.waitForTimeout(6500); // the focus hold ends and the helix turns on its own again
+  // Opening by a click scrolled the tracklist into view: bring the helix back and measure it again
+  await page.locator("[data-studio-gallery]").scrollIntoViewIfNeeded();
+  await page.waitForTimeout(400);
+  const stage = await page.locator("[data-studio-gallery]").boundingBox();
+  const before = Number(await canvasData("studio-gallery", "spin"));
+  await page.mouse.move(stage.x + stage.width * 0.3, stage.y + stage.height / 2);
+  await page.mouse.down();
+  for (let i = 1; i <= 10; i++) await page.mouse.move(stage.x + stage.width * 0.3 + i * 40, stage.y + stage.height / 2, { steps: 2 });
+  await page.mouse.up();
+  await page.waitForTimeout(200);
+  const after = Number(await canvasData("studio-gallery", "spin"));
+  check("studio", "dragging right spins the helix, and opens nothing", after - before > 60 && (await detail()) === null, { before, after, detail: await detail() });
+
+  // Playing a track: its row shows the live meter, and the wordmark follows the spectrum
+  await page.getByRole("button", { name: /^northbound/ }).click();
+  await page.getByRole("button", { name: "Play platform 4" }).click();
+  const metered = await page
+    .waitForFunction(() => Number(document.querySelector('[data-fx="track-meter"] canvas')?.dataset.peak ?? 0) > 0.3, null, { timeout: 6000 })
+    .then(() => true)
+    .catch(() => false);
+  const current = await page.locator('[data-project-detail] button[aria-current="true"]').getAttribute("aria-label");
+  check("studio", "the playing row shows a live meter and offers pause", metered && current === "Pause platform 4", { metered, current });
+  await page.locator("[data-studio-hero]").scrollIntoViewIfNeeded();
+  const following = await page
+    .waitForFunction(() => document.querySelector('[data-fx="audio-wordmark"] canvas')?.dataset.audio === "1", null, { timeout: 4000 })
+    .then(() => true)
+    .catch(() => false);
+  check("studio", "the hero wordmark follows the music", following, { following });
+
+  // The view switch: a real switch drawn by the shader toggle
+  const sw = page.getByRole("switch", { name: "analysis view" });
+  const off = await sw.getAttribute("aria-checked");
+  await sw.click();
+  // The views swap through a wait-mode exit and enter, which a busy main thread can stretch
+  const analysis = await page
+    .getByText("No essays published yet.")
+    .waitFor({ state: "visible", timeout: 4000 })
+    .then(() => true)
+    .catch(() => false);
+  const on = await sw.getAttribute("aria-checked");
+  const drawn = await canvasData("shader-toggle", "on");
+  await page.keyboard.press("Space");
+  await page.waitForTimeout(500);
+  const back = await sw.getAttribute("aria-checked");
+  check("studio", "the switch flips the view both ways, drawn state following", off === "false" && on === "true" && drawn === "1" && analysis && back === "false", { off, on, drawn, analysis, back });
+
+  // The lab: a card opens a modal dialog; Escape closes it and focus returns to the card
+  const card = page.getByRole("button", { name: /untitled sketch/ });
+  await card.click();
+  const dialog = page.getByRole("dialog", { name: "untitled sketch" });
+  const opened = await dialog.isVisible();
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(300);
+  const closed = !(await dialog.isVisible());
+  const returned = await page.evaluate(() => document.activeElement?.textContent?.includes("untitled sketch") ?? false);
+  check("studio", "lab dialog opens, Escape closes it, focus returns to the card", opened && closed && returned, { opened, closed, returned });
+
+  check("studio", "no page errors", errors.length === 0, errors.slice(0, 3));
+  await page.screenshot({ path: path.join(OUT, "studio-tracks.png") });
+  await context.close();
+}
+
+// ── Studio gallery: a stage removed while its fonts load does no work after dispose ──
+{
+  // Fonts that take 3 s to load, and a count of draws and uploads made on lost contexts
+  const SLOW_FONTS_AND_LOST_DRAWS = `
+    (() => {
+      const fonts = Object.getPrototypeOf(document.fonts);
+      const load = fonts.load;
+      fonts.load = function (...args) {
+        return new Promise((resolve) => setTimeout(() => resolve(load.apply(this, args)), 3000));
+      };
+      window.__lostWork = 0;
+      for (const C of [WebGLRenderingContext, WebGL2RenderingContext]) {
+        for (const name of ["drawArrays", "drawElements", "texImage2D", "texSubImage2D", "clear"]) {
+          const fn = C.prototype[name];
+          C.prototype[name] = function (...args) {
+            if (this.isContextLost()) window.__lostWork++;
+            return fn.apply(this, args);
+          };
+        }
+      }
+    })();
+  `;
+  const { context, page, errors } = await chromePage({ reducedMotion: "reduce" });
+  await context.addInitScript(SLOW_FONTS_AND_LOST_DRAWS);
+  await page.goto(BASE + "/fx-harness/studio-gallery?room=studio&count=2", { waitUntil: "domcontentloaded" });
+  const created = await page
+    .waitForFunction(() => document.querySelectorAll('[data-fx="studio-gallery"] canvas').length === 2, null, { timeout: 15000 })
+    .then(() => true)
+    .catch(() => false);
+  await page.getByTestId("remove-two").click();
+  const removed = await page.evaluate(() => document.querySelectorAll('[data-fx="studio-gallery"]').length === 0);
+  // The fonts land after the stages are gone
+  await page.waitForTimeout(4000);
+  const lostWork = await page.evaluate(() => window.__lostWork);
+  check("studio-gallery", "removed before its fonts load, it does no work after dispose", created && removed && lostWork === 0 && errors.length === 0, { created, removed, lostWork, errors: errors.slice(0, 2) });
   await context.close();
 }
 

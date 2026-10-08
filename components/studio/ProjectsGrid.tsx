@@ -1,295 +1,271 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Image from "next/image";
-import { motion, AnimatePresence } from "motion/react";
-import { Play, Pause } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import type { MusicProject, Track } from "@/app/actions/studio";
 import { useAudio, buildPlaylist } from "@/lib/audio/AudioContext";
+import { FxStage, type FxHandle } from "@/components/fx/FxStage";
+import type { GalleryItem } from "@/components/fx/effects/studio-gallery/meta";
+import { Cta } from "@/components/fx/ui/Cta";
+import { cn } from "@/lib/utils";
 
-function WaveformIcon() {
-  return (
-    <motion.div className="flex items-end gap-px h-4" aria-label="playing">
-      {[3, 5, 4, 6, 3].map((h, i) => (
-        <motion.span
-          key={i}
-          className="w-px rounded-full"
-          style={{ background: "var(--studio-player-accent)" }}
-          animate={{ height: ["40%", "100%", "40%"] }}
-          transition={{
-            duration: 0.8,
-            repeat: Infinity,
-            delay: i * 0.12,
-            ease: "easeInOut",
-          }}
-        />
-      ))}
-    </motion.div>
-  );
+/** A press that moves less than this, and lets go sooner, is a click on a panel, not a drag */
+const CLICK_PX = 6;
+const CLICK_MS = 250;
+
+function formatDur(s: number | null) {
+  if (!s) return "";
+  return `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, "0")}`;
 }
 
-function TrackRow({
-  track,
-  index,
-  project,
-  allTracks,
-}: {
-  track: Track;
-  index: number;
-  project: MusicProject;
-  allTracks: Track[];
-}) {
+function metaOf(p: MusicProject) {
+  const n = p.tracks?.length ?? 0;
+  return [p.release_year, n ? `${n} ${n === 1 ? "track" : "tracks"}` : null].filter(Boolean).join(" · ");
+}
+
+function TrackRow({ track, index, project }: { track: Track; index: number; project: MusicProject }) {
   const { currentTrack, isPlaying, play, pause, resume } = useAudio();
   const isActive = currentTrack?.id === track.id;
+  const sounding = isActive && isPlaying;
 
   const handleClick = () => {
     if (isActive) {
-      isPlaying ? pause() : resume();
+      if (isPlaying) pause();
+      else resume();
     } else {
       const playlist = buildPlaylist(project);
       play(playlist[index], playlist);
     }
   };
 
-  const formatDur = (s: number | null) => {
-    if (!s) return "";
-    const m = Math.floor(s / 60);
-    const sec = s % 60;
-    return `${m}:${sec.toString().padStart(2, "0")}`;
-  };
-
   return (
-    <motion.div
-      className="group flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer"
-      style={{ background: isActive ? "var(--studio-raised)" : "transparent" }}
-      whileHover={{ background: "var(--studio-raised)" } as never}
-      onClick={handleClick}
-    >
-      {/* Track number / play state */}
-      <div className="w-6 flex items-center justify-center shrink-0">
-        {isActive && isPlaying ? (
-          <WaveformIcon />
-        ) : isActive ? (
-          <Play size={12} fill="currentColor" style={{ color: "var(--studio-player-accent)" }} />
-        ) : (
-          <>
-            <span
-              className="group-hover:hidden text-xs font-mono"
-              style={{ color: "var(--studio-text-muted)" }}
-            >
-              {index + 1}
-            </span>
-            <Play
-              size={12}
-              fill="currentColor"
-              className="hidden group-hover:block"
-              style={{ color: "var(--studio-text)" }}
-            />
-          </>
+    <li>
+      <button
+        type="button"
+        onClick={handleClick}
+        aria-label={`${sounding ? "Pause" : "Play"} ${track.title}`}
+        aria-current={isActive ? "true" : undefined}
+        className={cn(
+          "group flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left transition-colors hover:bg-(--studio-raised) focus-visible:bg-(--studio-raised)",
+          isActive && "bg-(--studio-raised)"
         )}
-      </div>
-
-      {/* Title */}
-      <span
-        className="flex-1 text-sm truncate"
-        style={{ color: isActive ? "var(--studio-text)" : "var(--studio-text-muted)" }}
       >
-        {track.title}
-      </span>
-
-      {/* Duration */}
-      {track.duration_seconds && (
-        <span className="text-xs font-mono shrink-0" style={{ color: "var(--studio-text-muted)" }}>
-          {formatDur(track.duration_seconds)}
+        <span className="flex w-6 shrink-0 items-center justify-center" aria-hidden="true">
+          {sounding ? (
+            <FxStage effect="track-meter" room="studio" options={{ accent: "studio-player-accent" }} className="size-4" />
+          ) : isActive ? (
+            <Play size={12} fill="currentColor" className="text-(--studio-player-accent)" />
+          ) : (
+            <>
+              <span className="font-mono text-xs text-(--studio-text-muted) group-hover:hidden group-focus-visible:hidden">{index + 1}</span>
+              <Play size={12} fill="currentColor" className="hidden text-(--studio-text) group-hover:block group-focus-visible:block" />
+            </>
+          )}
         </span>
-      )}
-    </motion.div>
+        <span className={cn("flex-1 truncate text-sm", isActive ? "text-(--studio-text)" : "text-(--studio-text-muted)")}>{track.title}</span>
+        {track.duration_seconds ? (
+          <span className="shrink-0 font-mono text-xs text-(--studio-text-muted)">{formatDur(track.duration_seconds)}</span>
+        ) : null}
+      </button>
+    </li>
   );
 }
 
-function ProjectCard({ project }: { project: MusicProject }) {
-  const [expanded, setExpanded] = useState(false);
+function ProjectDetail({ project, onClose }: { project: MusicProject; onClose: () => void }) {
   const { play, pause, isPlaying, currentTrack } = useAudio();
   const tracks = project.tracks ?? [];
-  const isProjectPlaying = tracks.some((t) => t.id === currentTrack?.id) && isPlaying;
+  const sounding = tracks.some((t) => t.id === currentTrack?.id) && isPlaying;
 
-  const handleArtworkClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const playAll = () => {
     if (!tracks.length) return;
-    if (isProjectPlaying) {
-      pause();
-    } else {
+    if (sounding) pause();
+    else {
       const playlist = buildPlaylist(project);
       play(playlist[0], playlist);
     }
   };
 
   return (
-    <motion.div
-      layout
-      className="rounded-xl overflow-hidden cursor-pointer"
-      style={{ background: "var(--studio-panel)", border: "1px solid var(--studio-border)" }}
-      onClick={() => setExpanded((e) => !e)}
+    <section
+      aria-labelledby={`project-${project.id}`}
+      className="rounded-xl border border-(--studio-border) bg-(--studio-panel)/90 p-4 backdrop-blur-sm md:p-6"
+      data-project-detail={project.slug}
     >
-      <AnimatePresence mode="wait" initial={false}>
-        {!expanded ? (
-          /* Collapsed card */
-          <motion.div
-            key="collapsed"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-          >
-            {/* Artwork */}
-            <div
-              className="relative group"
-              style={{ aspectRatio: "1 / 1" }}
-              onClick={handleArtworkClick}
-            >
-              {project.artwork_path ? (
-                <Image
-                  src={project.artwork_path}
-                  alt={project.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 640px) 50vw, 25vw"
-                />
-              ) : (
-                <div
-                  className="w-full h-full flex items-center justify-center"
-                  style={{ background: "var(--studio-raised)" }}
-                >
-                  <span className="text-4xl opacity-20">♪</span>
-                </div>
-              )}
-              {/* Play overlay on artwork hover */}
-              {tracks.length > 0 && (
-                <div
-                  className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-150"
-                  style={{ background: "rgba(18,7,9,0.55)" }}
-                >
-                  {isProjectPlaying ? (
-                    <Pause size={28} fill="currentColor" style={{ color: "var(--studio-text)" }} />
-                  ) : (
-                    <Play
-                      size={28}
-                      fill="currentColor"
-                      style={{ color: "var(--studio-text)", marginLeft: 3 }}
-                    />
-                  )}
-                </div>
-              )}
-            </div>
-            {/* Metadata */}
-            <div className="p-3">
-              <p
-                className="text-sm font-medium truncate"
-                style={{ color: "var(--studio-text)" }}
-              >
-                {project.title}
-              </p>
-              <div
-                className="text-xs font-mono mt-1 flex gap-2"
-                style={{ color: "var(--studio-text-muted)" }}
-              >
-                {project.release_year && <span>{project.release_year}</span>}
-                {tracks.length > 0 && (
-                  <span>
-                    {tracks.length} {tracks.length === 1 ? "track" : "tracks"}
-                  </span>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        ) : (
-          /* Expanded card */
-          <motion.div
-            key="expanded"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.15 }}
-            className="p-4"
-          >
-            <div className="flex gap-4 mb-4">
-              {/* Small artwork */}
-              <div
-                className="relative w-16 h-16 rounded-lg shrink-0 overflow-hidden"
-                style={{ background: "var(--studio-raised)" }}
-              >
-                {project.artwork_path && (
-                  <Image
-                    src={project.artwork_path}
-                    alt={project.title}
-                    fill
-                    className="object-cover"
-                    sizes="64px"
-                  />
-                )}
-              </div>
-              <div className="min-w-0">
-                <p className="font-medium text-sm" style={{ color: "var(--studio-text)" }}>
-                  {project.title}
-                </p>
-                {project.release_year && (
-                  <p className="text-xs font-mono mt-0.5" style={{ color: "var(--studio-text-muted)" }}>
-                    {project.release_year}
-                  </p>
-                )}
-                {project.description && (
-                  <p
-                    className="text-xs mt-1 leading-relaxed"
-                    style={{ color: "var(--studio-text-muted)" }}
-                  >
-                    {project.description}
-                  </p>
-                )}
-              </div>
-            </div>
+      <div className="mb-4 flex gap-4">
+        <div className="relative grid size-20 shrink-0 place-items-center overflow-hidden rounded-lg bg-(--studio-raised)">
+          {project.artwork_path ? (
+            <Image src={project.artwork_path} alt="" fill className="object-cover" sizes="80px" />
+          ) : (
+            // Drawn like the gallery's strips for projects without artwork: the initial
+            <span className="font-sans text-3xl text-(--studio-text-muted)" aria-hidden="true">
+              {project.title.charAt(0).toUpperCase()}
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 id={`project-${project.id}`} className="text-lg text-(--studio-text)">
+            {project.title}
+          </h3>
+          <p className="mt-0.5 font-mono text-xs text-(--studio-text-muted)">{metaOf(project)}</p>
+          {project.description && <p className="mt-2 text-sm leading-relaxed text-(--studio-text-muted)">{project.description}</p>}
+        </div>
+      </div>
 
-            {/* Tracklist */}
-            {tracks.length > 0 ? (
-              <div
-                className="rounded-lg overflow-hidden"
-                style={{ background: "var(--studio-base)" }}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {tracks.map((track, i) => (
-                  <TrackRow key={track.id} track={track} index={i} project={project} allTracks={tracks} />
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-center py-4" style={{ color: "var(--studio-text-muted)" }}>
-                No tracks yet
-              </p>
-            )}
+      {tracks.length > 0 ? (
+        <ol className="overflow-hidden rounded-lg bg-(--studio-base)/70">
+          {tracks.map((track, i) => (
+            <TrackRow key={track.id} track={track} index={i} project={project} />
+          ))}
+        </ol>
+      ) : (
+        <p className="py-4 text-center text-xs text-(--studio-text-muted)">No tracks yet</p>
+      )}
 
-            <button
-              className="mt-3 text-xs w-full text-center"
-              style={{ color: "var(--studio-text-muted)" }}
-            >
-              ↑ collapse
-            </button>
-          </motion.div>
+      <div className="mt-4 flex items-center gap-3">
+        {tracks.length > 0 && (
+          <Cta
+            variant="slide"
+            room="studio"
+            size="sm"
+            label={sounding ? "pause" : "play all"}
+            icon={sounding ? <Pause size={12} fill="currentColor" /> : <Play size={12} fill="currentColor" />}
+            onClick={playAll}
+          />
         )}
-      </AnimatePresence>
-    </motion.div>
+        <button type="button" onClick={onClose} className="ml-auto font-mono text-xs text-(--studio-text-muted) hover:text-(--studio-text)">
+          close
+        </button>
+      </div>
+    </section>
   );
 }
 
+/**
+ * The projects as a helix (ThreeUI's Gallery in three) that turns on its own: drag it to spin,
+ * click a panel to open that project. Below it, the same projects as a list of buttons, the
+ * twin for keyboards and assistive tech; choosing either way turns the helix to that project
+ * and opens its tracklist under the list as ordinary DOM.
+ */
 export function ProjectsGrid({ projects }: { projects: MusicProject[] }) {
+  const gallery = useRef<FxHandle>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const detailRef = useRef<HTMLDivElement>(null);
+  const [selected, setSelected] = useState<number | null>(null);
+  const press = useRef<{ x: number; y: number; t: number; lastX: number; lastT: number; vx: number; dragging: boolean } | null>(null);
+
+  const items = useMemo<GalleryItem[]>(
+    () => projects.map((p) => ({ title: p.title, meta: metaOf(p), artwork: p.artwork_path })),
+    [projects]
+  );
+
+  useEffect(() => {
+    gallery.current?.command("items", items);
+  }, [items]);
+
+  const clear = () => {
+    setSelected(null);
+    gallery.current?.command("select", -1);
+  };
+
+  const choose = (index: number, from: "gallery" | "list") => {
+    setSelected(index);
+    gallery.current?.command("select", index);
+    gallery.current?.command("focus", index);
+    if (from === "gallery") requestAnimationFrame(() => detailRef.current?.scrollIntoView({ block: "nearest", behavior: "smooth" }));
+  };
+
+  // A panel picked in the helix arrives as an event from its canvas
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el) return;
+    const onPick = (e: Event) => {
+      const index = (e as CustomEvent<{ index: number }>).detail?.index;
+      if (typeof index === "number") choose(index, "gallery");
+    };
+    el.addEventListener("fx:pick", onPick);
+    return () => el.removeEventListener("fx:pick", onPick);
+  });
+
   if (!projects.length) return null;
 
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.button !== 0) return;
+    press.current = { x: e.clientX, y: e.clientY, t: e.timeStamp, lastX: e.clientX, lastT: e.timeStamp, vx: 0, dragging: false };
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const p = press.current;
+    if (!p) return;
+    if (!p.dragging && Math.hypot(e.clientX - p.x, e.clientY - p.y) >= CLICK_PX) p.dragging = true;
+    if (!p.dragging) return;
+    const dx = e.clientX - p.lastX;
+    const dt = Math.max(1, e.timeStamp - p.lastT);
+    p.vx = p.vx * 0.6 + (dx / dt) * 0.4;
+    p.lastX = e.clientX;
+    p.lastT = e.timeStamp;
+    gallery.current?.command("drag", { dx });
+  };
+
+  const onPointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    const p = press.current;
+    press.current = null;
+    if (!p) return;
+    if (!p.dragging && e.timeStamp - p.t < CLICK_MS) {
+      const r = e.currentTarget.getBoundingClientRect();
+      gallery.current?.command("pick", { x: e.clientX - r.left, y: e.clientY - r.top });
+    } else {
+      gallery.current?.command("release", { vx: p.dragging ? p.vx : 0 });
+    }
+  };
+
+  const current = selected !== null ? projects[selected] : null;
+
   return (
-    <section className="max-w-6xl mx-auto px-6 py-8">
-      <h2 className="text-xs font-mono uppercase tracking-widest mb-6" style={{ color: "var(--studio-text-muted)" }}>
+    <section className="mx-auto max-w-6xl px-6 py-8" aria-labelledby="studio-projects">
+      <h2 id="studio-projects" className="mb-2 font-mono text-xs tracking-widest text-(--studio-text-muted) uppercase">
         projects
       </h2>
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-        {projects.map((p) => (
-          <ProjectCard key={p.id} project={p} />
+
+      <div
+        ref={stageRef}
+        className="studio-gallery -mx-6"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={() => {
+          press.current = null;
+          gallery.current?.command("release", { vx: 0 });
+        }}
+        data-studio-gallery=""
+      >
+        <FxStage effect="studio-gallery" room="studio" handle={gallery} className="absolute inset-0" />
+      </div>
+
+      <ul className="mt-6 flex flex-wrap gap-2" aria-label="projects">
+        {projects.map((p, i) => (
+          <li key={p.id}>
+            <button
+              type="button"
+              aria-pressed={selected === i}
+              onClick={() => (selected === i ? clear() : choose(i, "list"))}
+              className={cn(
+                "rounded-full border px-3 py-1.5 text-sm transition-colors",
+                selected === i
+                  ? "border-(--studio-accent-light) bg-(--studio-accent) text-(--studio-text)"
+                  : "border-(--studio-border) bg-(--studio-panel)/80 text-(--studio-text-muted) hover:text-(--studio-text)"
+              )}
+            >
+              {p.title}
+              {p.release_year && <span className="ml-2 font-mono text-xs opacity-70">{p.release_year}</span>}
+            </button>
+          </li>
         ))}
+      </ul>
+
+      <div ref={detailRef} className="mt-4">
+        {current && <ProjectDetail key={current.id} project={current} onClose={clear} />}
       </div>
     </section>
   );

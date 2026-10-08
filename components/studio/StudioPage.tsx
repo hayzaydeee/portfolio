@@ -22,7 +22,7 @@ export function StudioPage({ projects, wipProjects, essays, featured }: Props) {
   return (
     <div className="min-h-screen flex flex-col">
       {/* Studio header: the glass dock handles navigation, this bar only switches modes */}
-      <header className="sticky top-16 md:top-0 z-30 flex items-center justify-center px-6 py-4 bg-(--studio-base) border-b border-(--studio-border)">
+      <header className="sticky top-16 z-30 flex items-center justify-center border-b border-(--studio-border) bg-(--studio-base)/85 px-6 py-3 backdrop-blur-md md:top-0">
         <h1 className="sr-only">studio</h1>
         <ModeToggle mode={mode} onChange={setMode} />
       </header>

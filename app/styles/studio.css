@@ -1,0 +1,87 @@
+/*
+ * Studio pieces that need more than utilities: the mode switch's drawn fallback (shown until
+ * the shader toggle is live, or when it can't be), the gallery's drag surface, and the lab's
+ * dialog backdrop.
+ */
+@layer components {
+  /* ── Mode switch ──────────────────────────────────────────────────── */
+  .studio-switch {
+    position: relative;
+    display: block;
+    width: 4.75rem;
+    height: 2.5rem;
+    border-radius: 9999px;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .studio-switch:focus-visible {
+    outline: 2px solid var(--studio-accent-light);
+    outline-offset: 3px;
+  }
+
+  /* The poster: a trough and a thumb in CSS, in the shader's place (FxStage positions it) */
+  .studio-switch-poster {
+    border-radius: 9999px;
+    background: linear-gradient(180deg, var(--studio-player-bg), var(--studio-panel));
+    box-shadow: inset 0 0 0 1px var(--studio-border);
+  }
+
+  .studio-switch-poster::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0.2rem;
+    width: 1.4rem;
+    height: 1.4rem;
+    border-radius: 9999px;
+    background: radial-gradient(circle at 35% 30%, var(--studio-text), color-mix(in srgb, var(--studio-text) 55%, var(--studio-base)));
+    transform: translateY(-50%);
+    transition: left 0.3s ease;
+  }
+
+  .studio-switch-poster.is-on {
+    background: linear-gradient(90deg, var(--studio-accent), var(--studio-accent-light));
+  }
+
+  .studio-switch-poster.is-on::after {
+    left: calc(100% - 1.6rem);
+  }
+
+  .studio-mode__label {
+    cursor: pointer;
+    transition: color 0.2s ease;
+  }
+
+  /* ── Gallery ──────────────────────────────────────────────────────── */
+  .studio-gallery {
+    position: relative;
+    height: clamp(22rem, 62vh, 38rem);
+    cursor: grab;
+    /* vertical swipes still scroll the page; horizontal ones spin the helix */
+    touch-action: pan-y;
+    user-select: none;
+    /* the helix runs on past the stage: its ends fade out instead of being cut off */
+    mask-image: linear-gradient(to bottom, transparent, black 14%, black 86%, transparent);
+  }
+
+  .studio-gallery:active {
+    cursor: grabbing;
+  }
+
+  .studio-gallery:has(canvas[data-hover]) {
+    cursor: pointer;
+  }
+
+  /* ── Lab dialog ───────────────────────────────────────────────────── */
+  .studio-dialog::backdrop {
+    background: color-mix(in srgb, var(--studio-base) 72%, transparent);
+    backdrop-filter: blur(6px);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .studio-switch-poster::after {
+      transition: none;
+    }
+  }
+}
