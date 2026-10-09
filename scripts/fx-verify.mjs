@@ -1165,7 +1165,8 @@ const backdropFrames = (page) =>
     : Infinity;
   check("splash", "dock is inert under the splash", inertDuring === true, { inertDuring });
   check("splash", "logo lands on the dock mark (within 2px)", off <= 2, { ...rects, off });
-  await page.waitForTimeout(1500);
+  // The dock's fade ends on the lobby's software-rendered frames, so wait for it rather than sample at a fixed time
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".dock-anchor")).opacity === "1", null, { timeout: 6000 }).catch(() => {});
   const after = await page.evaluate(() => {
     const a = document.querySelector(".dock-anchor");
     return { splash: a?.dataset.splash, inert: a?.hasAttribute("inert"), opacity: a && getComputedStyle(a).opacity };
@@ -2159,19 +2160,27 @@ const backdropFrames = (page) =>
     await page.getByRole("button", { name: "Next page" }).click();
     await shelfIs(page, "page", "1");
     const before = await page.evaluate(() => window.__fx.attempts());
-    // Each frame until the stage is back: whenever the stage isn't live, nothing of the volume is reachable
+    // Each frame until the stage is back: while the stage isn't live, nothing of the volume stays
+    // reachable. The page hears the stage's status one commit after the stage shows it, so a
+    // single frame between the two is expected; two frames in a row is the volume left behind
     const strays = await page.evaluate(async (sel) => {
       document.querySelector(sel)?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
       const seen = [];
+      let previous = "";
       const t0 = performance.now();
       while (performance.now() - t0 < 2000) {
         await new Promise((r) => requestAnimationFrame(r));
-        if (document.querySelector('[data-fx="bookshelf"]')?.dataset.fxState === "live") continue;
-        const reachable = ["[data-shelf-panel]", "[data-shelf-book-controls]"].filter((s) => {
-          const el = document.querySelector(s);
-          return el && !el.closest("[inert]");
-        });
-        if (reachable.length) seen.push(reachable.join());
+        let reachable = "";
+        if (document.querySelector('[data-fx="bookshelf"]')?.dataset.fxState !== "live") {
+          reachable = ["[data-shelf-panel]", "[data-shelf-book-controls]"]
+            .filter((s) => {
+              const el = document.querySelector(s);
+              return el && !el.closest("[inert]");
+            })
+            .join();
+        }
+        if (reachable && previous) seen.push(reachable);
+        previous = reachable;
       }
       return seen;
     }, SHELF);
