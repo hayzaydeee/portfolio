@@ -1,21 +1,12 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import type { Journal } from "@/lib/data/notebook";
 import {
   getEntryBySlug,
   getAllPublishedEntries,
   getJournalEntries,
 } from "@/lib/data/notebook";
+import { isJournal } from "@/lib/notebook/journals";
 import { EntryPage } from "@/components/notebook/EntryPage";
-
-const VALID_JOURNALS = new Set<string>([
-  "reflections",
-  "fragments",
-  "annotations",
-  "responses",
-  "buildlog",
-  "cookbook",
-]);
 
 type Props = { params: Promise<{ journal: string; entry: string }> };
 
@@ -26,8 +17,8 @@ export async function generateStaticParams() {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { journal, entry } = await params;
-  if (!VALID_JOURNALS.has(journal)) return {};
-  const data = await getEntryBySlug(journal as Journal, entry);
+  if (!isJournal(journal)) return {};
+  const data = await getEntryBySlug(journal, entry);
   if (!data) return {};
   return {
     title: data.title
@@ -41,11 +32,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EntryRoute({ params }: Props) {
   const { journal, entry } = await params;
-  if (!VALID_JOURNALS.has(journal)) notFound();
+  if (!isJournal(journal)) notFound();
 
   const [data, allEntries] = await Promise.all([
-    getEntryBySlug(journal as Journal, entry),
-    getJournalEntries(journal as Journal),
+    getEntryBySlug(journal, entry),
+    getJournalEntries(journal),
   ]);
 
   if (!data) notFound();
@@ -58,7 +49,7 @@ export default async function EntryRoute({ params }: Props) {
   return (
     <EntryPage
       entry={data}
-      journal={journal as Journal}
+      journal={journal}
       prevSlug={prevEntry?.slug ?? null}
       nextSlug={nextEntry?.slug ?? null}
     />

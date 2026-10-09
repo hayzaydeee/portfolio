@@ -4,6 +4,7 @@
 @import "./styles/lobby.css";
 @import "./styles/workshop.css";
 @import "./styles/studio.css";
+@import "./styles/notebook.css";
 
 /* ── Design tokens ─────────────────────────────────────────────────── */
 @theme inline {
