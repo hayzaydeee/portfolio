@@ -2146,12 +2146,35 @@ const backdropFrames = (page) =>
 
   {
     // A lost context rebuilds the shelf on a fresh canvas: it comes back with the page's
-    // journals and its interaction surface, not the sample volumes it holds for the lab
+    // journals and its interaction surface, not the sample volumes it holds for the lab. The
+    // context goes with a volume out and open, as on a phone backgrounded mid-read: the panel
+    // and the book's controls leave with the volume, and the next one taken down starts closed
     const { context, page, errors } = await chromePage({ ...DESK, reducedMotion: "reduce" });
     await page.goto(BASE + "/fx-harness/notebook", { waitUntil: "networkidle" });
     await shelfLive(page);
+    await page.getByRole("button", { name: "look inside" }).click();
+    await shelfMode(page, "detail");
+    await page.keyboard.press("Enter");
+    await shelfIs(page, "open", "1");
+    await page.getByRole("button", { name: "Next page" }).click();
+    await shelfIs(page, "page", "1");
     const before = await page.evaluate(() => window.__fx.attempts());
-    await page.evaluate((sel) => document.querySelector(sel)?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext(), SHELF);
+    // Each frame until the stage is back: whenever the stage isn't live, nothing of the volume is reachable
+    const strays = await page.evaluate(async (sel) => {
+      document.querySelector(sel)?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+      const seen = [];
+      const t0 = performance.now();
+      while (performance.now() - t0 < 2000) {
+        await new Promise((r) => requestAnimationFrame(r));
+        if (document.querySelector('[data-fx="bookshelf"]')?.dataset.fxState === "live") continue;
+        const reachable = ["[data-shelf-panel]", "[data-shelf-book-controls]"].filter((s) => {
+          const el = document.querySelector(s);
+          return el && !el.closest("[inert]");
+        });
+        if (reachable.length) seen.push(reachable.join());
+      }
+      return seen;
+    }, SHELF);
     const rebuilt = await page
       .waitForFunction(
         ([sel, n]) => window.__fx.attempts() > n && document.querySelector('[data-fx="bookshelf"]')?.dataset.fxState === "live" && document.querySelector(sel)?.dataset.ready === "1",
@@ -2161,13 +2184,25 @@ const backdropFrames = (page) =>
       .then(() => true)
       .catch(() => false);
     const d = await shelfData(page);
+    const home = await shelfMode(page, "shelf", 5000);
     await page.getByRole("button", { name: "Next journal" }).click();
     const steps = await shelfIs(page, "selected", "1", 20000);
     check(
       "notebook-shelf",
       "after a lost context the shelf comes back with the page's journals and its surface",
-      rebuilt && d.source === "page" && d.surface === "1" && steps,
-      { rebuilt, source: d.source, surface: d.surface, steps }
+      rebuilt && d.source === "page" && d.surface === "1" && home && steps,
+      { rebuilt, source: d.source, surface: d.surface, home, steps }
+    );
+    await page.getByRole("button", { name: "look inside" }).click();
+    const out = await shelfMode(page, "detail");
+    await page.waitForTimeout(300);
+    const said = await page.locator('[data-shelf] [role="status"]').innerText();
+    const toggle = await page.locator("[data-shelf-toggle]").innerText();
+    check(
+      "notebook-shelf",
+      "a volume out when the context went leaves with it, and the next one taken down starts closed",
+      strays.length === 0 && out && /is out/.test(said) && toggle === "open the book",
+      { strays: strays.slice(0, 3), out, said, toggle }
     );
     check("notebook-shelf", "no page errors (context loss)", errors.length === 0, errors.slice(0, 3));
     await context.close();
@@ -2190,6 +2225,46 @@ const backdropFrames = (page) =>
     check("notebook-phone", "no sideways scroll, and the open spread fits the stage", scrollW <= 390 && inside, { scrollW, box, stageWidth: stage?.width });
     check("notebook-phone", "no page errors", errors.length === 0, errors.slice(0, 3));
     await page.screenshot({ path: path.join(OUT, "notebook-phone-open.png") });
+    await context.close();
+  }
+
+  {
+    // The same with motion, where the spread's slide is damped frame by frame: it has to survive
+    // the runtime lowering the pixel ratio on slow frames (which SwiftShader always triggers)
+    // and a real size change (a rotation, the URL bar) after the shelf has come to rest
+    const { context, page, errors } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(BASE + "/fx-harness/notebook", { waitUntil: "networkidle" });
+    await shelfLive(page);
+    const rest = async () => {
+      for (let i = 0; i < 40; i++) {
+        const a = (await shelfData(page)).draws;
+        await page.waitForTimeout(2500);
+        if (a !== undefined && a === (await shelfData(page)).draws) return true;
+      }
+      return false;
+    };
+    const fits = async () => {
+      const box = (await shelfData(page)).bookBox?.split(",").map(Number);
+      const stage = await page.locator('[data-fx="bookshelf"]').boundingBox();
+      return { box, width: stage?.width, inside: !!box && !!stage && box[0] >= 0 && box[2] <= stage.width };
+    };
+    await page.getByRole("button", { name: "look inside" }).click();
+    await shelfMode(page, "detail", 120000);
+    await page.getByRole("button", { name: "open the book" }).last().click();
+    await shelfIs(page, "open", "1");
+    const settled = await rest();
+    const atRest = await fits();
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.waitForTimeout(500);
+    const resettled = await rest();
+    const resized = await fits();
+    check(
+      "notebook-phone",
+      "with motion, the open spread stays inside the stage at rest and after a resize",
+      settled && atRest.inside && resettled && resized.inside,
+      { settled, atRest, resettled, resized }
+    );
+    check("notebook-phone", "no page errors (motion)", errors.length === 0, errors.slice(0, 3));
     await context.close();
   }
 

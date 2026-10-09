@@ -832,6 +832,9 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
     return gesture.active && gesture.kind === "cover-close" ? 1 - smooth(gesture.progress) : 1;
   };
 
+  /** Centred, the volume slides right as it opens, so the spread rather than the closed book sits in the middle */
+  const spreadShift = () => (active && !beside() ? active.base.width * 0.5 * active.root.scale.x * openness() : 0);
+
   // Picking ------------------------------------------------------------------
 
   const pointerAt = (e: PointerEvent | MouseEvent) => {
@@ -1324,11 +1327,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
       if (gesture.active) gesture.velocity = damp(gesture.velocity, 0, 9, dt);
       if (controls.update()) wake(400);
       poseBook(active, dt, openness());
-      // Centred, the volume slides right as it opens, so the spread rather than the closed book sits in the middle
-      if (!beside()) {
-        const shift = active.base.width * 0.5 * active.root.scale.x * openness();
-        active.root.position.x = damp(active.root.position.x, detailBook.x + shift, reduced ? 1000 : 8, dt);
-      }
+      if (!beside()) active.root.position.x = damp(active.root.position.x, detailBook.x + spreadShift(), reduced ? 1000 : 8, dt);
     }
     renderer.render(scene, camera);
     canvas.dataset.draws = String(++draws);
@@ -1394,8 +1393,9 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
       applyViewOffset();
       camera.lookAt(heroTarget);
     } else if (mode === "detail" && active) {
-      active.root.position.copy(detailBook);
       active.root.scale.setScalar(detailFit());
+      active.root.position.copy(detailBook);
+      active.root.position.x += spreadShift();
       lookAt.copy(detailTarget);
       viewOffset = viewOffsetTarget;
       applyViewOffset();
@@ -1454,9 +1454,17 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
     ready,
 
     resize(cssW, cssH, pr) {
-      width = Math.max(1, cssW);
-      height = Math.max(1, cssH);
+      const w = Math.max(1, cssW);
+      const h = Math.max(1, cssH);
       renderer.setPixelRatio(pr);
+      // The runtime lowers the pixel ratio when frames run slow: same layout, same pose, one frame at the new resolution
+      if (w === width && h === height) {
+        renderer.setSize(width, height, false);
+        kick(1);
+        return;
+      }
+      width = w;
+      height = h;
       resize();
     },
 

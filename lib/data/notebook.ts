@@ -97,7 +97,8 @@ export function openingWords(html: string | null, max = 64): string {
     .replace(/&(#\d+|#x[\da-f]+|[a-z]+);/gi, (m, code: string) => {
       if (code[0] !== "#") return ENTITIES[code.toLowerCase()] ?? m;
       const n = code[1] === "x" || code[1] === "X" ? parseInt(code.slice(2), 16) : parseInt(code.slice(1), 10);
-      return Number.isFinite(n) ? String.fromCodePoint(n) : m;
+      // fromCodePoint throws past U+10FFFF; surrogates alone aren't characters either
+      return n >= 0 && n <= 0x10ffff && (n < 0xd800 || n > 0xdfff) ? String.fromCodePoint(n) : m;
     })
     .replace(/\s+/g, " ")
     .trim();

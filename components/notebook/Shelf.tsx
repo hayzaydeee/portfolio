@@ -128,6 +128,8 @@ export function Shelf({ shelf, options }: { shelf: ShelfJournal[]; options?: Par
           break;
         case "mode":
           setMode(detail.mode);
+          // A volume back on the shelf is closed, including one whose stage was rebuilt (a lost context) while it was out
+          if (detail.mode === "shelf") setBook((b) => ({ ...b, open: false, page: 0 }));
           if (detail.mode === "opening") setAnnounce(`Taking down ${label}.`);
           else if (detail.mode === "detail") setAnnounce(`${label} is out. Open the book, or drag its cover.`);
           else if (detail.mode === "closing") setAnnounce(`Putting ${label} back.`);
@@ -192,7 +194,9 @@ export function Shelf({ shelf, options }: { shelf: ShelfJournal[]; options?: Par
     }
   };
 
-  const out = mode === "detail" || mode === "opening";
+  // A volume is out only on a live stage: between a lost context and its rebuild there is just the poster
+  const out = live && (mode === "detail" || mode === "opening");
+  const inspecting = live && mode === "detail";
   const pageText = book.open ? `page ${book.page + 1} of ${book.spreads}` : "closed";
 
   const bookControls = (
@@ -309,8 +313,8 @@ export function Shelf({ shelf, options }: { shelf: ShelfJournal[]; options?: Par
           </div>
 
           <div
-            className={cn("transition-opacity duration-300", mode === "detail" ? "opacity-100" : "pointer-events-none opacity-0")}
-            inert={mode !== "detail"}
+            className={cn("transition-opacity duration-300", inspecting ? "opacity-100" : "pointer-events-none opacity-0")}
+            inert={!inspecting}
           >
             {bookControls}
           </div>
@@ -320,7 +324,7 @@ export function Shelf({ shelf, options }: { shelf: ShelfJournal[]; options?: Par
         <aside
           ref={panelRef}
           aria-labelledby="shelf-panel-title"
-          inert={mode !== "detail"}
+          inert={!inspecting}
           data-shelf-panel=""
           className={cn(
             "z-10 flex flex-col gap-4 border-(--notebook-border) bg-(--notebook-surface)/92 p-6 transition-opacity duration-300",
