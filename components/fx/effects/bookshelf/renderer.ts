@@ -23,6 +23,8 @@ import {
   Vector2,
   Vector3,
   WebGLRenderer,
+  type Material,
+  type Texture,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { RoomEnvironment } from "three/addons/environments/RoomEnvironment.js";
@@ -259,6 +261,8 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
   // Counted in frame time, not wall time, so a slow device still finishes every settle
   let awake = 0;
   let draws = 0;
+  // Set once the programs are compiled and the textures uploaded; nothing draws before
+  let warmed = false;
   const ndc = new Vector2(3, 3);
   const raycaster = new Raycaster();
 
@@ -1307,7 +1311,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
    * still when you are, and the GPU rests.
    */
   const frame = (now: number, dt: number, force = false) => {
-    if (disposed || !books.length) return;
+    if (disposed || !books.length || !warmed) return;
     const busy = mode === "opening" || mode === "closing" || gesture.active || drag.active || tinting || awake > 0;
     if (!busy && !force) return;
     awake -= dt;
@@ -1417,15 +1421,31 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
     // A page sends its volumes as the stage goes live, long before the fonts land; the lab sends none
     if (!volumes.length) volumes = SAMPLE_VOLUMES;
     buildBooks();
-    // Compile every program before the first frame, off the main thread where the driver
-    // allows, so the room's arrival doesn't stall on the cloth's shaders
+    // Nothing draws until every program is compiled (off the main thread where the driver
+    // allows) and every texture is on the GPU, a few at a time, so the room's arrival keeps
+    // moving instead of stalling on one long first frame
     try {
       await renderer.compileAsync(scene, camera);
     } catch {
       // the first frame compiles whatever is left
     }
+    const textures = new Set<Texture>();
+    scene.traverse((o) => {
+      const material = (o as Mesh).material as Material | Material[] | undefined;
+      for (const m of Array.isArray(material) ? material : material ? [material] : []) {
+        for (const value of Object.values(m)) if ((value as Texture | null)?.isTexture) textures.add(value as Texture);
+      }
+    });
+    let uploaded = 0;
+    for (const t of textures) {
+      if (disposed) return;
+      renderer.initTexture(t);
+      if (++uploaded % 6 === 0) await new Promise((resolve) => setTimeout(resolve, 0));
+    }
     if (disposed) return;
+    warmed = true;
     canvas.dataset.ready = "1";
+    kick(1);
   });
 
   setMode("hero");

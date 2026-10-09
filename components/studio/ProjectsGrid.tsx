@@ -159,9 +159,8 @@ export function ProjectsGrid({ projects }: { projects: MusicProject[] }) {
     [projects]
   );
 
-  useEffect(() => {
-    gallery.current?.command("items", items);
-  }, [items]);
+  // The projects reach whichever gallery instance is live, a rebuilt one included
+  const gallerySetup = useMemo(() => ({ items }), [items]);
 
   const clear = () => {
     setSelected(null);
@@ -240,7 +239,7 @@ export function ProjectsGrid({ projects }: { projects: MusicProject[] }) {
         }}
         data-studio-gallery=""
       >
-        <FxStage effect="studio-gallery" room="studio" handle={gallery} className="absolute inset-0" />
+        <FxStage effect="studio-gallery" room="studio" handle={gallery} setup={gallerySetup} className="absolute inset-0" />
       </div>
 
       <ul className="mt-6 flex flex-wrap gap-2" aria-label="projects">

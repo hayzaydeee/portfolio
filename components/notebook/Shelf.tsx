@@ -38,7 +38,6 @@ export function Shelf({ shelf, options }: { shelf: ShelfJournal[]; options?: Par
   const fx = useRef<FxHandle>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<HTMLDivElement>(null);
-  const surfaceRef = useRef<HTMLDivElement>(null);
   const panelRef = useRef<HTMLElement>(null);
   const labelRef = useRef<HTMLDivElement>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
@@ -77,26 +76,19 @@ export function Shelf({ shelf, options }: { shelf: ShelfJournal[]; options?: Par
     [shelf]
   );
 
-  useEffect(() => {
-    fx.current?.command("volumes", volumes);
-  }, [volumes]);
-
-  useEffect(() => {
-    fx.current?.command("surface", surfaceRef.current);
-  }, []);
-
   // The renderer sets the volume left of the panel on a wide stage; below lg the panel sits under the stage
+  const [panelLeft, setPanelLeft] = useState<number | null>(null);
+  const [surface, setSurface] = useState<HTMLDivElement | null>(null);
+  // What the shelf needs whichever instance is live (a rebuilt one after a lost context too)
+  const setup = useMemo(() => ({ volumes, surface, panel: panelLeft }), [volumes, surface, panelLeft]);
+
   useEffect(() => {
     const stage = stageRef.current;
     const panel = panelRef.current;
     if (!stage || !panel) return;
     const wide = window.matchMedia("(min-width: 1024px)");
     const send = () => {
-      if (!wide.matches) {
-        fx.current?.command("panel", null);
-        return;
-      }
-      fx.current?.command("panel", panel.getBoundingClientRect().left - stage.getBoundingClientRect().left);
+      setPanelLeft(wide.matches ? Math.round(panel.getBoundingClientRect().left - stage.getBoundingClientRect().left) : null);
     };
     const ro = new ResizeObserver(send);
     ro.observe(stage);
@@ -240,12 +232,13 @@ export function Shelf({ shelf, options }: { shelf: ShelfJournal[]; options?: Par
             slot="notebook.shelf"
             handle={fx}
             options={options}
+            setup={setup}
             className="shelf-stage absolute inset-0"
             posterClassName="bg-(--notebook-surface)"
             onStatusChange={setStatus}
           />
           <div
-            ref={surfaceRef}
+            ref={setSurface}
             className="shelf-surface absolute inset-0"
             aria-hidden="true"
             onPointerMove={(e) => {
