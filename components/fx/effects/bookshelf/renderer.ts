@@ -249,6 +249,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
   let selected = 0;
   let hovered = -1;
   let wheelSnap = 0;
+  let following = false;
   let active: Book | null = null;
   let open = false;
   let coverHover = false;
@@ -535,6 +536,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
 
   const goTo = (index: number) => {
     if (mode !== "hero") return;
+    following = false;
     const base = Math.round(carouselTarget);
     let delta = index - wrapIndex(base, n());
     if (delta > n() / 2) delta -= n();
@@ -546,6 +548,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
 
   const step = (direction: number) => {
     if (mode !== "hero") return;
+    following = false;
     carouselTarget = Math.round(carouselTarget) + direction;
     select(wrapIndex(Math.round(carouselTarget), n()));
     kick();
@@ -1124,6 +1127,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
     if (surface && drag.pointerId >= 0 && surface.hasPointerCapture?.(drag.pointerId)) surface.releasePointerCapture(drag.pointerId);
     drag.pointerId = -1;
     if (moved) {
+      following = false;
       carouselTarget = Math.round(carouselTarget);
       select(wrapIndex(carouselTarget, n()));
       setCursor("");
@@ -1172,6 +1176,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
     e.preventDefault();
     carouselTarget += clamp(e.deltaX * 0.0022, -0.72, 0.72);
     wheelSnap = 0.14;
+    following = true;
     kick();
   };
 
@@ -1226,8 +1231,10 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
         wheelSnap -= dt;
         if (wheelSnap <= 0) carouselTarget = Math.round(carouselTarget);
       }
+      // The selection follows the loop only while a wheel or drag moves it; a commanded move
+      // has already chosen its volume, and passing others on the way mustn't flip it back
       const centred = wrapIndex(Math.round(carousel), n());
-      if (centred !== selected && !drag.moved) select(centred);
+      if (following && centred !== selected && !drag.moved) select(centred);
     }
     books.forEach((book, i) => {
       if (book.root.parent !== shelf) return;
@@ -1410,6 +1417,14 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
     // A page sends its volumes as the stage goes live, long before the fonts land; the lab sends none
     if (!volumes.length) volumes = SAMPLE_VOLUMES;
     buildBooks();
+    // Compile every program before the first frame, off the main thread where the driver
+    // allows, so the room's arrival doesn't stall on the cloth's shaders
+    try {
+      await renderer.compileAsync(scene, camera);
+    } catch {
+      // the first frame compiles whatever is left
+    }
+    if (disposed) return;
     canvas.dataset.ready = "1";
   });
 
@@ -1482,7 +1497,7 @@ export function create(ctx: FxContext, initial: BookshelfOptions): FxInstance<Bo
       else if (name === "book") setOpen(typeof arg === "boolean" ? arg : !open);
       else if (name === "page" && typeof arg === "number") turn(Math.sign(arg));
       else if (name === "reset") resetView();
-      kick();
+      // Each action wakes the shelf itself; state (volumes, surface, panel) needs at most one frame
     },
 
     dispose() {
