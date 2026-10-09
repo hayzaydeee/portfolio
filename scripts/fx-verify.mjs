@@ -975,9 +975,11 @@ for (const [when, expect] of [
   for (let lap = 0; lap < 3; lap++) {
     for (const href of ["/music", "/notebook", "/wall", "/work"]) {
       await page.click(`.dock a[href="${href}"]`);
-      // SwiftShader has no parallel shader compile, so the shelf's programs compile on the
-      // main thread for several seconds before the notebook's trip can settle
-      const ok = await portalIdleAt(page, href, href === "/notebook" ? 40000 : 12000);
+      // Under SwiftShader the notebook's shelf costs seconds at both ends of a trip: its
+      // programs compile on the main thread (no parallel shader compile), and losing its
+      // context on the way out waits for the software GPU to free every texture. Arrival
+      // returns at once; the ceiling only stops a slow renderer reading as a lost trip
+      const ok = await portalIdleAt(page, href, 40000);
       await page.waitForTimeout(600);
       const gl = await page.evaluate(() => window.__gl());
       const leases = await page.evaluate(() => window.__fx.live());
