@@ -17,7 +17,9 @@ export function Noren({ journal }: { journal: Journal }) {
   }, [journal]);
 
   return (
-    <div className="noren-stage relative h-[clamp(240px,46vh,440px)] w-full" aria-hidden="true">
+    // The cloth fills a stage about 1.7 times as wide as it is tall; on a narrow screen the stage
+    // stops at that shape instead of leaving empty shoji above and below it
+    <div className="noren-stage relative h-[clamp(200px,min(46vh,64vw),440px)] w-full" aria-hidden="true">
       <FxStage slot="notebook.noren" options={options} className="absolute inset-0" posterClassName="bg-(--notebook-surface)" />
     </div>
   );
