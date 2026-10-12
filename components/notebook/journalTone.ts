@@ -10,6 +10,16 @@ export const JOURNAL_SWATCH: Record<Journal, string> = {
   cookbook: "bg-(--notebook-cookbook)",
 };
 
+/** …as an underline colour only, for links set in the page's own ink */
+export const JOURNAL_DECOR: Record<Journal, string> = {
+  reflections: "decoration-(--notebook-reflections)",
+  fragments: "decoration-(--notebook-fragments)",
+  annotations: "decoration-(--notebook-annotations)",
+  responses: "decoration-(--notebook-responses)",
+  buildlog: "decoration-(--notebook-buildlog)",
+  cookbook: "decoration-(--notebook-cookbook)",
+};
+
 /** …and as a text and decoration colour, for accents on the cream page */
 export const JOURNAL_INK: Record<Journal, string> = {
   reflections: "text-(--notebook-reflections) decoration-(--notebook-reflections)",

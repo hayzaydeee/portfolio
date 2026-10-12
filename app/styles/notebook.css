@@ -40,4 +40,231 @@
   .cloth-surface:active {
     cursor: grabbing;
   }
+
+  /* The noren's shoji is the page's own paper; its foot fades into the page */
+  .noren-stage {
+    mask-image: linear-gradient(to bottom, black 86%, transparent);
+  }
+
+  /* A journal's entries come in one after another */
+  .list-rise {
+    animation: list-rise 0.32s ease-out both;
+    animation-delay: calc(var(--i, 0) * 45ms);
+  }
+
+  @keyframes list-rise {
+    from {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+  }
+
+  /* ── The page turn (components/notebook/PageCurl.tsx), after ThreeUI's Sketchbook leaf ── */
+  .curl-root {
+    position: fixed;
+    inset: 0;
+    z-index: calc(var(--z-dock) - 1);
+    perspective: 2200px;
+    perspective-origin: 50% 50%;
+    pointer-events: none;
+    overflow: hidden;
+  }
+
+  .curl-root.curl-lifting {
+    opacity: 0;
+    transition: opacity 0.26s ease;
+  }
+
+  /* The neighbour's head, waiting under the leaf */
+  .curl-under {
+    position: absolute;
+    inset: 0;
+    background: var(--notebook-surface);
+  }
+
+  /* The lifting leaf's shadow on the page beneath, falling away from the spine */
+  .curl-shade {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: calc(var(--lw) * 0.6);
+    opacity: calc(var(--shade, 0) * 0.55);
+  }
+
+  .curl-shade.next {
+    background: linear-gradient(90deg, color-mix(in srgb, var(--notebook-text) 22%, transparent), transparent);
+  }
+
+  .curl-shade.prev {
+    background: linear-gradient(270deg, color-mix(in srgb, var(--notebook-text) 22%, transparent), transparent);
+  }
+
+  .curl {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: var(--lw);
+    transform-style: preserve-3d;
+  }
+
+  .curl.next {
+    transform-origin: left center;
+    transform: rotateY(calc(-1 * var(--tt, 0deg)));
+  }
+
+  .curl.prev {
+    transform-origin: right center;
+    transform: rotateY(var(--tt, 0deg));
+  }
+
+  .curl .strip {
+    position: absolute;
+    top: 0;
+    height: 100%;
+    width: calc(var(--lw) / var(--n));
+    transform-style: preserve-3d;
+  }
+
+  .curl.next .strip {
+    transform-origin: left center;
+  }
+
+  .curl.prev .strip {
+    transform-origin: right center;
+  }
+
+  .curl.next > .strip {
+    left: 0;
+  }
+
+  .curl.prev > .strip {
+    right: 0;
+  }
+
+  .curl.next .strip .strip {
+    left: 100%;
+    transform: rotateY(var(--td, 0deg));
+  }
+
+  .curl.prev .strip .strip {
+    right: 100%;
+    transform: rotateY(calc(-1 * var(--td, 0deg)));
+  }
+
+  .curl .face {
+    position: absolute;
+    inset: 0 -1.1px 0 0;
+    overflow: hidden;
+    backface-visibility: hidden;
+    background: var(--notebook-surface);
+  }
+
+  .curl .face.back {
+    transform: rotateY(180deg);
+  }
+
+  .curl-slice {
+    position: absolute;
+    top: 0;
+    width: var(--vw);
+    height: 100%;
+  }
+
+  .curl .face .sh,
+  .curl .face .gl {
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+  }
+
+  .curl.next .face.front .sh,
+  .curl.prev .face.back .sh {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--notebook-text) calc(var(--a1, 0) * 100%), transparent),
+      color-mix(in srgb, var(--notebook-text) calc(var(--a2, 0) * 100%), transparent)
+    );
+  }
+
+  .curl.next .face.back .sh,
+  .curl.prev .face.front .sh {
+    background: linear-gradient(
+      90deg,
+      color-mix(in srgb, var(--notebook-text) calc(var(--a2, 0) * 100%), transparent),
+      color-mix(in srgb, var(--notebook-text) calc(var(--a1, 0) * 100%), transparent)
+    );
+  }
+
+  .curl .face .gl {
+    background: color-mix(in srgb, var(--notebook-surface) 40%, white);
+    opacity: calc(var(--shade, 0) * var(--lit, 1) * var(--lit, 1) * 0.2);
+  }
+
+  /* The corner you take hold of to turn the page: a dog-ear that lifts as you reach for it */
+  .curl-corner {
+    --fold: 26px;
+    position: fixed;
+    bottom: 0;
+    z-index: calc(var(--z-dock) - 2);
+    width: 72px;
+    height: 72px;
+    cursor: grab;
+    touch-action: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .curl-corner.next {
+    right: 0;
+  }
+
+  .curl-corner.prev {
+    left: 0;
+  }
+
+  .curl-corner::before {
+    content: "";
+    position: absolute;
+    bottom: 0;
+    width: var(--fold);
+    height: var(--fold);
+    transition:
+      width 0.18s ease,
+      height 0.18s ease;
+    filter: drop-shadow(-2px -2px 3px color-mix(in srgb, var(--notebook-text) 18%, transparent));
+  }
+
+  .curl-corner.next::before {
+    right: 0;
+    background: linear-gradient(
+      315deg,
+      var(--notebook-shadow) 0 48%,
+      color-mix(in srgb, var(--notebook-surface) 55%, white) 50%,
+      var(--notebook-surface) 100%
+    );
+  }
+
+  .curl-corner.prev::before {
+    left: 0;
+    background: linear-gradient(
+      45deg,
+      var(--notebook-shadow) 0 48%,
+      color-mix(in srgb, var(--notebook-surface) 55%, white) 50%,
+      var(--notebook-surface) 100%
+    );
+  }
+
+  .curl-corner:hover,
+  .curl-corner:active {
+    --fold: 44px;
+  }
+
+  .curl-corner:active {
+    cursor: grabbing;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .list-rise {
+      animation: none;
+    }
+  }
 }

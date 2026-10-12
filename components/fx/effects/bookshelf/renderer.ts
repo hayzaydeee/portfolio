@@ -33,7 +33,8 @@ import type { FxContext, FxInstance, RGB, RoomPalette } from "@/components/fx/ru
 import { mixRGB, resolveToken, rgbToCss } from "@/components/fx/runtime/palette";
 import { loadFont, resolveFontFamily } from "@/components/fx/runtime/fonts";
 import { LEAVES, SPREADS, buildBook, createShared, shelfMaterials, texture, type Book, type Flex, type Shared } from "./book";
-import { paintWalnut, type Fonts, type Look, type Motif } from "./textures";
+import { paintWalnut, type Fonts, type Look } from "./textures";
+import { JOURNAL_MOTIFS, MOTIF_ORDER, type Motif } from "../journal-motifs";
 import { SAMPLE_VOLUMES, type BookshelfOptions, type ShelfEvent, type ShelfVolume } from "./meta";
 
 /**
@@ -64,15 +65,7 @@ const OPEN_SECONDS = 0.92;
 const CLOSE_SECONDS = 0.92;
 const NARROW = 820;
 
-const MOTIFS: Record<string, Motif> = {
-  reflections: "paths",
-  fragments: "modules",
-  annotations: "frames",
-  responses: "orbits",
-  buildlog: "brackets",
-  cookbook: "bowl",
-};
-const MOTIF_ORDER: Motif[] = ["paths", "modules", "frames", "orbits", "brackets", "bowl"];
+const MOTIFS: Record<string, Motif> = JOURNAL_MOTIFS;
 
 /** Each volume's board size, so the shelf reads as six different books */
 const SIZES = [

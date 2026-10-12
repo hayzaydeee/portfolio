@@ -1,142 +1,96 @@
-"use client";
-
 import Link from "next/link";
-import DOMPurify from "isomorphic-dompurify";
-import type { Journal, NotebookEntry } from "@/lib/data/notebook";
-import { PageCurl } from "@/components/notebook/PageCurl";
+import { cn } from "@/lib/utils";
+import { openingWords, type ShelfEntry } from "@/lib/data/notebook";
+import { journalInfo, type Journal } from "@/lib/notebook/journals";
+import { formatEntryDate, formatReadTime } from "@/lib/notebook/format";
+import { JOURNAL_SWATCH } from "./journalTone";
+import { EntryPlate } from "./EntryPlate";
+import { PageCurl } from "./PageCurl";
 
-const JOURNAL_COLOR: Record<Journal, string> = {
-  reflections: "var(--notebook-reflections)",
-  fragments:   "var(--notebook-fragments)",
-  annotations: "var(--notebook-annotations)",
-  responses:   "var(--notebook-responses)",
-  buildlog:    "var(--notebook-buildlog)",
-  cookbook:    "var(--notebook-cookbook)",
+export type EntryHead = { slug: string; title: string | null; date: string; readTime: number | null; tags: string[] };
+
+const PROSE: Record<Journal, string> = {
+  reflections: "prose-notebook",
+  fragments: "prose-notebook prose-notebook--fragments",
+  annotations: "prose-notebook",
+  responses: "prose-notebook",
+  buildlog: "prose-notebook prose-notebook--buildlog",
+  cookbook: "prose-notebook prose-notebook--cookbook",
 };
 
-const JOURNAL_LABEL: Record<Journal, string> = {
-  reflections: "Reflections",
-  fragments:   "Fragments",
-  annotations: "Annotations",
-  responses:   "Responses",
-  buildlog:    "Build log",
-  cookbook:    "Cookbook",
-};
+/** What drifts behind a build log entry */
+const CODE_GLYPHS = "{}[]()<>=/;:+-*&|!?#$_.,01";
 
-function formatDate(dateStr: string | null): string {
-  if (!dateStr) return "";
-  return new Date(dateStr).toLocaleDateString("en-US", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+/** The entry's own letters, for a drift plate: its title and its opening words */
+function letters(title: string | null, html: string) {
+  return Array.from(new Set(Array.from(`${title ?? ""}${openingWords(html, 240)}`).filter((c) => /\p{L}|\p{N}/u.test(c)))).join("");
 }
 
-type Props = {
-  entry: NotebookEntry;
+/**
+ * One entry, rendered on the server from HTML already sanitized there. Its plate and the page
+ * turn to its neighbours are the only islands.
+ */
+export function EntryPage({
+  journal,
+  entry,
+  html,
+  older,
+  newer,
+  base = "/notebook",
+}: {
   journal: Journal;
-  prevSlug: string | null;
-  nextSlug: string | null;
-};
-
-export function EntryPage({ entry, journal, prevSlug, nextSlug }: Props) {
-  const color = JOURNAL_COLOR[journal];
-  const safeHtml = DOMPurify.sanitize(entry.body_html ?? "");
-
-  // Class variant for prose styles
-  const proseVariant =
-    journal === "buildlog"
-      ? "prose-notebook prose-notebook--buildlog"
-      : journal === "fragments"
-      ? "prose-notebook prose-notebook--fragments"
-      : journal === "cookbook"
-      ? "prose-notebook prose-notebook--cookbook"
-      : "prose-notebook";
+  entry: EntryHead;
+  html: string;
+  older: ShelfEntry | null;
+  newer: ShelfEntry | null;
+  /** Where the notebook lives (the harness serves its fixtures under its own path) */
+  base?: string;
+}) {
+  const info = journalInfo(journal);
+  const date = formatEntryDate(entry.date);
+  const readTime = formatReadTime(entry.readTime);
 
   return (
-    <div className="min-h-screen bg-(--notebook-surface) text-(--notebook-text)">
-      <div className="max-w-2xl mx-auto px-6 pt-32 pb-12">
-        {/* Nav row */}
-        <div className="flex items-center justify-between mb-10">
-          <Link
-            href={`/notebook/${journal}`}
-            className="text-xs font-mono transition-colors duration-150"
-            style={{ color: "var(--notebook-text-muted)" }}
-          >
-            ← {JOURNAL_LABEL[journal]}
-          </Link>
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 rounded-sm" style={{ background: color }} />
-            <span className="text-xs font-mono" style={{ color: "var(--notebook-text-muted)" }}>
-              {JOURNAL_LABEL[journal]}
-            </span>
-          </div>
-        </div>
+    <main className="mx-auto max-w-2xl px-6 pt-28 pb-32" data-entry-page="">
+      <nav aria-label="Breadcrumb" className="mb-8 flex items-center justify-between">
+        <Link href={`${base}/${journal}`} className="font-mono text-xs text-(--notebook-text-muted) hover:text-(--notebook-text) hover:underline">
+          ← {info.label}
+        </Link>
+        <span className="flex items-center gap-2 font-mono text-xs text-(--notebook-text-muted)">
+          <span className={cn("size-2 rounded-sm", JOURNAL_SWATCH[journal])} aria-hidden="true" />
+          volume {info.roman}
+        </span>
+      </nav>
 
-        {/* Entry header */}
-        <header className="mb-8">
-          {/* Date — handwritten-style font */}
-          <p
-            className="font-script text-sm mb-3"
-            style={{ color: "var(--notebook-text-muted)" }}
-          >
-            {formatDate(entry.published_at ?? entry.created_at)}
-            {entry.read_time_minutes != null && (
-              <span className="font-mono text-xs ml-3">
-                {entry.read_time_minutes < 1
-                  ? "< 1 min"
-                  : `${entry.read_time_minutes} min read`}
-              </span>
-            )}
+      <EntryPlate journal={journal} slug={entry.slug} glyphs={journal === "buildlog" ? CODE_GLYPHS : letters(entry.title, html)}>
+        <header>
+          <p className="font-script text-base text-(--notebook-text-muted)">
+            <time dateTime={entry.date}>{date}</time>
+            {readTime && <span className="ml-3 font-mono text-xs">{readTime}</span>}
           </p>
-
-          {entry.title && (
-            <h1
-              className="font-serif text-2xl leading-snug"
-              style={{ color: "var(--notebook-text)" }}
-            >
-              {entry.title}
+          {entry.title ? (
+            <h1 className="mt-3 font-serif text-3xl leading-snug text-(--notebook-text)">{entry.title}</h1>
+          ) : (
+            <h1 className="sr-only">
+              {info.label}, {date}
             </h1>
           )}
-
-          {/* Divider */}
-          <div
-            className="mt-6 h-px"
-            style={{ background: "var(--notebook-border)" }}
-          />
         </header>
+      </EntryPlate>
 
-        {/* Entry body */}
-        <article
-          className={proseVariant}
-          dangerouslySetInnerHTML={{ __html: safeHtml }}
-        />
+      <article className={PROSE[journal]} dangerouslySetInnerHTML={{ __html: html }} />
 
-        {/* Tags */}
-        {entry.tags && entry.tags.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-12 pt-6 border-t" style={{ borderColor: "var(--notebook-border)" }}>
-            {entry.tags.map((tag) => (
-              <span
-                key={tag}
-                className="text-[11px] font-mono px-2 py-0.5 rounded-sm"
-                style={{
-                  background: "rgba(28,26,22,0.06)",
-                  color: "var(--notebook-text-muted)",
-                }}
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        )}
-      </div>
+      {entry.tags.length > 0 && (
+        <ul className="mt-12 flex flex-wrap gap-2 border-t border-(--notebook-border) pt-6" aria-label="Tags">
+          {entry.tags.map((tag) => (
+            <li key={tag} className="rounded-sm bg-(--notebook-text)/6 px-2 py-0.5 font-mono text-[11px] text-(--notebook-text-muted)">
+              {tag}
+            </li>
+          ))}
+        </ul>
+      )}
 
-      {/* Page curl navigation */}
-      <PageCurl
-        journal={journal}
-        prevSlug={prevSlug}
-        nextSlug={nextSlug}
-      />
-    </div>
+      <PageCurl journal={journal} older={older} newer={newer} base={base} />
+    </main>
   );
 }

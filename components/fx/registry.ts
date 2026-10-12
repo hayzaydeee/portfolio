@@ -37,4 +37,7 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "liquid-form": () => import("./effects/liquid-form/renderer") as unknown as ReturnType<Loader>,
   "bookshelf": () => import("./effects/bookshelf/renderer") as unknown as ReturnType<Loader>,
   "cloth-study": () => import("./effects/cloth-study/renderer") as unknown as ReturnType<Loader>,
+  "woven-cloth": () => import("./effects/woven-cloth/renderer") as unknown as ReturnType<Loader>,
+  "engraved-plate": () => import("./effects/engraved-plate/renderer") as unknown as ReturnType<Loader>,
+  "particle-drift": () => import("./effects/particle-drift/renderer") as unknown as ReturnType<Loader>,
 };

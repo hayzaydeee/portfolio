@@ -1,6 +1,6 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { getJournalEntries } from "@/lib/data/notebook";
+import { getJournalList } from "@/lib/data/notebook";
 import { JOURNAL_IDS, isJournal, journalInfo } from "@/lib/notebook/journals";
 import { JournalList } from "@/components/notebook/JournalList";
 
@@ -24,8 +24,6 @@ export default async function JournalPage({ params }: Props) {
   const { journal } = await params;
   if (!isJournal(journal)) notFound();
 
-  const entries = await getJournalEntries(journal);
-  const meta = journalInfo(journal);
-
-  return <JournalList journal={journal} label={meta.label} description={meta.description} entries={entries} />;
+  const entries = await getJournalList(journal);
+  return <JournalList journal={journal} entries={entries} />;
 }

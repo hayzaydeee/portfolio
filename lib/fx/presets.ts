@@ -1,5 +1,6 @@
 import { FX_METAS } from "@/components/fx/metas";
 import type { FxControl, FxOptions, FxOptionValue } from "@/components/fx/runtime/types";
+import { JOURNAL_IDS, type Journal } from "@/lib/notebook/journals";
 import { FX_SLOTS, FX_SLOT_IDS, slotOnByDefault, type FxSlotId } from "./slots";
 
 export type SlotPreset = {
@@ -62,17 +63,45 @@ export const TRANSITION_STYLES = [
 
 export type TransitionStyle = (typeof TRANSITION_STYLES)[number]["value"];
 
-export type FxGlobals = { transition: TransitionStyle };
+/** The plate behind an entry's header, chosen per journal (each plate effect is tuned in its own slot) */
+export const PLATE_STYLES = [
+  { value: "engraved", label: "engraved plate" },
+  { value: "drift", label: "particle drift" },
+  { value: "none", label: "none" },
+] as const;
+
+export type PlateStyle = (typeof PLATE_STYLES)[number]["value"];
+
+export const DEFAULT_PLATES: Record<Journal, PlateStyle> = {
+  reflections: "engraved",
+  fragments: "drift",
+  annotations: "engraved",
+  responses: "drift",
+  buildlog: "drift",
+  cookbook: "engraved",
+};
+
+export type FxGlobals = { transition: TransitionStyle; plates: Record<Journal, PlateStyle> };
 
 export const GLOBALS_KEY = "__global";
-export const DEFAULT_GLOBALS: FxGlobals = { transition: "field" };
+export const DEFAULT_GLOBALS: FxGlobals = { transition: "field", plates: DEFAULT_PLATES };
 
 export function isTransitionStyle(v: unknown): v is TransitionStyle {
   return TRANSITION_STYLES.some((s) => s.value === v);
 }
 
+export function isPlateStyle(v: unknown): v is PlateStyle {
+  return PLATE_STYLES.some((s) => s.value === v);
+}
+
 export function resolveGlobals(raw: unknown): FxGlobals {
   const source = raw && typeof raw === "object" ? (raw as Record<string, unknown>)[GLOBALS_KEY] : null;
   const obj = source && typeof source === "object" ? (source as Record<string, unknown>) : {};
-  return { transition: isTransitionStyle(obj.transition) ? obj.transition : DEFAULT_GLOBALS.transition };
+  const plates = obj.plates && typeof obj.plates === "object" ? (obj.plates as Record<string, unknown>) : {};
+  return {
+    transition: isTransitionStyle(obj.transition) ? obj.transition : DEFAULT_GLOBALS.transition,
+    plates: Object.fromEntries(
+      JOURNAL_IDS.map((j) => [j, isPlateStyle(plates[j]) ? plates[j] : DEFAULT_PLATES[j]])
+    ) as Record<Journal, PlateStyle>,
+  };
 }

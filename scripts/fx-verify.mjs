@@ -137,6 +137,9 @@ const ROUTES = [
   { name: "liquid-form-source", path: "/fx-harness/liquid-form?room=studio&source=1", maxLive: 1 },
   { name: "bookshelf-notebook", path: "/fx-harness/bookshelf?room=notebook", maxLive: 1 },
   { name: "cloth-study-notebook", path: "/fx-harness/cloth-study?room=notebook", maxLive: 0, canvas2d: true },
+  { name: "woven-cloth-notebook", path: "/fx-harness/woven-cloth?room=notebook", maxLive: 1 },
+  { name: "engraved-plate-notebook", path: "/fx-harness/engraved-plate?room=notebook", maxLive: 0, canvas2d: true },
+  { name: "particle-drift-notebook", path: "/fx-harness/particle-drift?room=notebook", maxLive: 0, canvas2d: true },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -1621,6 +1624,10 @@ const backdropFrames = (page) =>
   check("three-chunk", "studio: three loads with the gallery", studio.three, studio);
   const desk = await loadsThree("/fx-harness/notebook");
   check("three-chunk", "notebook: three loads with the shelf", desk.three, desk);
+  const journal = await loadsThree("/fx-harness/notebook/annotations");
+  check("three-chunk", "a journal: three loads with its noren", journal.three, journal);
+  const entry = await loadsThree("/fx-harness/notebook/annotations/annotations-1");
+  check("three-chunk", "an entry: three never loads (its plates are 2D)", entry.chunks > 0 && !entry.three, entry);
 }
 
 {
@@ -2300,6 +2307,231 @@ const backdropFrames = (page) =>
       ["/notebook/reflections/not-built-yet", "/notebook/not-a-journal"].every((r) => routes[r].status !== 500 && routes[r].missing),
     routes
   );
+}
+
+// ── Notebook (4b): a journal's noren, an entry's plate, server-side sanitizing, the page turn ──
+{
+  const H = "/fx-harness/notebook";
+  const live = (page, sel, timeout = 90000) =>
+    page
+      .waitForSelector(`${sel}[data-fx-state="live"]`, { timeout })
+      .then(() => true)
+      .catch(() => false);
+
+  {
+    // A journal: its noren on one context, its heading and copy, its entries as links
+    const { context, page, errors } = await chromePage({ viewport: { width: 1280, height: 860 } });
+    await page.goto(BASE + `${H}/annotations`, { waitUntil: "networkidle" });
+    const noren = await live(page, '[data-fx="woven-cloth"]');
+    const gl = await page.evaluate(() => window.__gl());
+    const heading = await page.getByRole("heading", { level: 1, name: "Annotations" }).count();
+    const links = await page.locator("[data-journal-entries] a").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+    check(
+      "notebook-journal",
+      "the noren hangs on one context over the journal's heading and its entries",
+      noren && gl.live === 1 && heading === 1 && JSON.stringify(links) === JSON.stringify(["/notebook/annotations/annotations-1", "/notebook/annotations/annotations-2", "/notebook/annotations/annotations-3"]),
+      { noren, gl, heading, links }
+    );
+    // The cloth keeps moving: two frames a moment apart differ
+    const shot = async () => (await page.locator('[data-fx="woven-cloth"]').screenshot()).toString("base64");
+    const a = await shot();
+    await page.waitForTimeout(1200);
+    const b = await shot();
+    check("notebook-journal", "the noren sways", a !== b);
+    await page.goto(BASE + `${H}/fragments`, { waitUntil: "networkidle" });
+    const untitled = await page.locator("[data-journal-entries] a").first().innerText();
+    check("notebook-journal", "an untitled entry is listed by its opening words", /the train was late again/.test(untitled), { untitled });
+    check("notebook-journal", "no page errors", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, "notebook-journal.png") });
+    await context.close();
+  }
+
+  {
+    // A phone: the journal page doesn't scroll sideways
+    const { context, page, errors } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(BASE + `${H}/buildlog`, { waitUntil: "networkidle" });
+    await live(page, '[data-fx="woven-cloth"]');
+    const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
+    check("notebook-journal", "no sideways scroll on a phone", scrollW <= 390, { scrollW });
+    check("notebook-journal", "no page errors (phone)", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, "notebook-journal-phone.png") });
+    await context.close();
+  }
+
+  {
+    // Entries: each journal's plate, drawn in 2D behind the page's own header
+    for (const [journal, slug, plate, named] of [
+      ["annotations", "annotations-1", "engraved", "psalm 46 in a loud week"],
+      ["fragments", "fragments-2", "drift", "Fragments, March 22, 2026"],
+      ["buildlog", "buildlog-1", "drift", "shipping the shelf"],
+    ]) {
+      const { context, page, errors } = await chromePage({ viewport: { width: 1280, height: 860 } });
+      await page.goto(BASE + `${H}/${journal}/${slug}`, { waitUntil: "networkidle" });
+      const effect = plate === "engraved" ? "engraved-plate" : "particle-drift";
+      const ok = await live(page, `[data-entry-plate="${plate}"] [data-fx="${effect}"]`, 30000);
+      const gl = await page.evaluate(() => window.__gl());
+      const heading = await page.getByRole("heading", { level: 1, name: named }).count();
+      check("notebook-entry", `${journal}: its ${plate} plate is live behind the header, with no WebGL`, ok && gl.created === 0 && heading === 1, { ok, gl, heading });
+      check("notebook-entry", `${journal}: no page errors`, errors.length === 0, errors.slice(0, 3));
+      await page.screenshot({ path: path.join(OUT, `notebook-entry-${journal}.png`) });
+      await context.close();
+    }
+  }
+
+  {
+    // The body is sanitized on the server: the page arrives without the script or the handler,
+    // and the browser never downloads DOMPurify
+    const html = await (await fetch(BASE + `${H}/annotations/annotations-1`)).text();
+    const served = { script: html.includes("window.__xss=2"), handler: /onerror=/i.test(html), image: html.includes("data:image/gif") };
+    const { context, page, errors } = await chromePage();
+    const bodies = [];
+    page.on("response", (r) => {
+      if (/\/_next\/static\/chunks\/.+\.js/.test(r.url())) bodies.push(r.text().catch(() => ""));
+    });
+    await page.goto(BASE + `${H}/annotations/annotations-1`, { waitUntil: "networkidle" });
+    await page.waitForTimeout(800);
+    const xss = await page.evaluate(() => window.__xss ?? null);
+    const texts = await Promise.all(bodies);
+    const purify = texts.some((t) => t.includes("RETURN_DOM_FRAGMENT"));
+    check("notebook-entry", "the body arrives sanitized: no script, no handler, the image kept", !served.script && !served.handler && served.image && xss === null, { ...served, xss });
+    check("notebook-entry", "DOMPurify never ships to the browser", texts.length > 0 && !purify, { chunks: texts.length, purify });
+    check("notebook-entry", "no page errors (sanitizing)", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+  }
+
+  {
+    // The page turn. From the second reflection: newer is reflections-1, older reflections-3
+    const at = (page, slug) =>
+      page
+        .waitForURL(new RegExp(`/reflections/${slug}$`), { timeout: 15000 })
+        .then(() => true)
+        .catch(() => false);
+    const overlays = (page) => page.evaluate(() => document.querySelectorAll(".curl-root").length);
+    const settledOverlay = async (page) => {
+      for (let i = 0; i < 20; i++) {
+        if ((await overlays(page)) === 0) return 0;
+        await page.waitForTimeout(150);
+      }
+      return overlays(page);
+    };
+    const { context, page, errors } = await chromePage({ viewport: { width: 1280, height: 860 } });
+    const open = async () => {
+      await page.goto(BASE + `${H}/reflections/reflections-2`, { waitUntil: "networkidle" });
+      await live(page, '[data-fx="engraved-plate"]', 30000);
+    };
+
+    // Keys: a modified arrow does nothing; a plain one turns the page, the leaf a real bent chain
+    await open();
+    await page.locator("body").press("Shift+ArrowRight");
+    await page.waitForTimeout(600);
+    const stayed = /reflections-2$/.test(page.url()) && (await overlays(page)) === 0;
+    const sample = page.evaluate(
+      () =>
+        new Promise((resolve) => {
+          // bentMs: how long from the key until the leaf is visibly bending (a slow build or a
+          // canvas that's costly to copy shows up here, as a turn that hangs before it moves)
+          const seen = { strips: 0, bent: false, carried: false, bentMs: null };
+          const t0 = performance.now();
+          const look = () => {
+            const root = document.querySelector(".curl-root");
+            if (root) {
+              seen.strips = Math.max(seen.strips, root.querySelectorAll(".strip").length);
+              if (!seen.bent && parseFloat(root.style.getPropertyValue("--td")) > 0.5) {
+                seen.bent = true;
+                seen.bentMs = Math.round(performance.now() - t0);
+              }
+              seen.carried ||= !!root.querySelector(".face.front")?.textContent?.includes("the long obedience");
+            }
+            if (seen.bent && seen.carried) resolve(seen);
+            else requestAnimationFrame(look);
+          };
+          look();
+          setTimeout(() => resolve(seen), 4000);
+        })
+    );
+    await page.locator("body").press("ArrowRight");
+    const leaf = await sample;
+    const keyed = await at(page, "reflections-1");
+    const lifted = await settledOverlay(page);
+    check("notebook-turn", "a modified arrow key is left alone", stayed);
+    check(
+      "notebook-turn",
+      "the arrow key turns the page: a bent leaf carrying the entry, moving within moments, then the newer entry",
+      keyed && leaf.strips === 14 && leaf.bent && leaf.bentMs < 1500 && leaf.carried && lifted === 0,
+      { keyed, leaf, lifted }
+    );
+
+    // The link at the end turns it too
+    await open();
+    await page.locator('[data-curl-link="prev"]').click();
+    const linked = await at(page, "reflections-3");
+    check("notebook-turn", "the older link turns to the older entry", linked && (await settledOverlay(page)) === 0, { linked });
+
+    // The corner: a short drag falls back; a long one goes over
+    await open();
+    const corner = await page.locator('[data-curl-corner="next"]').boundingBox();
+    const drag = async (fraction) => {
+      await page.mouse.move(corner.x + corner.width - 8, corner.y + corner.height - 8);
+      await page.mouse.down();
+      await page.mouse.move(corner.x + corner.width - 8 - 1280 * 0.9 * fraction, corner.y + corner.height - 30, { steps: 8 });
+      await page.waitForTimeout(150);
+      await page.mouse.up();
+    };
+    await drag(0.18);
+    await page.waitForTimeout(1500);
+    const fellBack = /reflections-2$/.test(page.url()) && (await overlays(page)) === 0;
+    await drag(0.6);
+    const draggedOver = await at(page, "reflections-1");
+    check("notebook-turn", "a short drag on the corner falls back; a long one turns the page", fellBack && draggedOver && (await settledOverlay(page)) === 0, { fellBack, draggedOver });
+    check("notebook-turn", "no page errors", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+  }
+
+  {
+    // Reduced motion: the keys go straight to the neighbour, with no leaf at all
+    const { context, page, errors } = await chromePage({ viewport: { width: 1280, height: 860 }, reducedMotion: "reduce" });
+    await page.goto(BASE + `${H}/reflections/reflections-2`, { waitUntil: "networkidle" });
+    await page.evaluate(() => {
+      window.__leaf = false;
+      new MutationObserver(() => {
+        if (document.querySelector(".curl-root")) window.__leaf = true;
+      }).observe(document.body, { childList: true });
+    });
+    const corners = await page.locator("[data-curl-corner]").count();
+    await page.locator("body").press("ArrowLeft");
+    const went = await page
+      .waitForURL(/reflections-3$/, { timeout: 10000 })
+      .then(() => true)
+      .catch(() => false);
+    const leaf = await page.evaluate(() => window.__leaf ?? false);
+    check("notebook-turn", "reduced motion: no corners, and the arrow key navigates with no leaf", went && corners === 0 && leaf === false, { went, corners, leaf });
+    check("notebook-turn", "no page errors (reduced)", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+  }
+
+  {
+    // A sideways swipe over a wide code block scrolls it and stays on the entry (the old page
+    // listened for swipes on the whole window and turned)
+    const { context, page, errors } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(BASE + `${H}/buildlog/buildlog-1`, { waitUntil: "networkidle" });
+    const pre = await page.locator(".prose-notebook pre").boundingBox();
+    const client = await context.newCDPSession(page);
+    const y = pre.y + pre.height / 2;
+    await client.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: pre.x + pre.width - 20, y }] });
+    for (let i = 1; i <= 6; i++) await client.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x: pre.x + pre.width - 20 - i * 40, y }] });
+    await client.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await page.waitForTimeout(1500);
+    const url = page.url();
+    check("notebook-turn", "a sideways swipe on a code block stays on the entry", /buildlog-1$/.test(url), { url });
+    check("notebook-turn", "no page errors (swipe)", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, "notebook-entry-phone.png") });
+    await context.close();
+  }
+
+  // The real journal route renders with its noren's stage
+  const res = await fetch(BASE + "/notebook/annotations");
+  const page = await res.text();
+  check("notebook-routes", "a journal's route renders its heading and its noren", res.status === 200 && page.includes("noren-stage") && !page.includes("NEXT_HTTP_ERROR_FALLBACK;404"), { status: res.status });
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────

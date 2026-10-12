@@ -21,6 +21,9 @@ export const FX_SLOTS = {
   "studio.about": { effect: "liquid-form", room: "studio", label: "Studio · liquid form behind the about", off: true },
   "notebook.shelf": { effect: "bookshelf", room: "notebook", label: "Notebook · the shelf" },
   "notebook.cloth": { effect: "cloth-study", room: "notebook", label: "Notebook · cloth heading" },
+  "notebook.noren": { effect: "woven-cloth", room: "notebook", label: "Notebook · a journal's noren" },
+  "notebook.plate.engraved": { effect: "engraved-plate", room: "notebook", label: "Notebook · engraved entry plate" },
+  "notebook.plate.drift": { effect: "particle-drift", room: "notebook", label: "Notebook · drifting entry plate" },
 } as const satisfies Record<string, { effect: FxId; room: RoomKey; label: string; off?: true }>;
 
 export type FxSlotId = keyof typeof FX_SLOTS;
