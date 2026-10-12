@@ -41,19 +41,80 @@ export const SHELF_LATEST = 6;
 // them to published rows, and reading no cookies keeps the routes static (prebuilt, then
 // revalidated on publish) instead of turning a static page dynamic at request time.
 
-export async function getJournalEntries(journal: Journal): Promise<NotebookEntry[]> {
-  try {
-    const { data, error } = await createAnonClient()
-      .from("notebook_entries")
-      .select("id, slug, journal, title, body_html, read_time_minutes, tags, created_at, published_at")
-      .eq("journal", journal)
-      .eq("status", "published")
-      .order("published_at", { ascending: false });
+/** One entry as its journal's page lists it */
+export type ListEntry = ShelfEntry & { tags: string[] };
 
-    if (error || !data) return [];
-    return data as NotebookEntry[];
+type LightRow = {
+  id: string;
+  slug: string;
+  journal: Journal;
+  title: string | null;
+  read_time_minutes: number | null;
+  tags?: string[] | null;
+  created_at: string;
+  published_at: string | null;
+};
+
+const dateOf = (r: LightRow) => r.published_at ?? r.created_at;
+
+/** The bodies of just the untitled rows given, for their opening words */
+async function untitledBodies(rows: LightRow[]): Promise<Map<string, string | null>> {
+  const bodies = new Map<string, string | null>();
+  const ids = rows.filter((r) => !r.title?.trim()).map((r) => r.id);
+  if (!ids.length) return bodies;
+  const { data } = await createAnonClient().from("notebook_entries").select("id, body_html").in("id", ids);
+  for (const b of (data ?? []) as { id: string; body_html: string | null }[]) bodies.set(b.id, b.body_html);
+  return bodies;
+}
+
+function toEntry(r: LightRow, bodies: Map<string, string | null>, max = 64): ShelfEntry {
+  const title = r.title?.trim();
+  return {
+    slug: r.slug,
+    title: title || openingWords(bodies.get(r.id) ?? null, max) || "Untitled entry",
+    untitled: !title,
+    date: dateOf(r),
+    readTime: r.read_time_minutes,
+  };
+}
+
+/** A journal's published rows, newest first, without their bodies */
+async function lightRows(journal: Journal): Promise<LightRow[]> {
+  const { data, error } = await createAnonClient()
+    .from("notebook_entries")
+    .select("id, slug, journal, title, read_time_minutes, tags, created_at, published_at")
+    .eq("journal", journal)
+    .eq("status", "published")
+    .order("published_at", { ascending: false });
+  return error || !data ? [] : (data as LightRow[]);
+}
+
+/**
+ * A journal's entries, newest first, without their bodies: the list needs titles and dates,
+ * not every essay in full. Untitled entries carry their opening words.
+ */
+export async function getJournalList(journal: Journal): Promise<ListEntry[]> {
+  try {
+    const rows = await lightRows(journal);
+    const bodies = await untitledBodies(rows);
+    return rows.map((r) => ({ ...toEntry(r, bodies, 96), tags: r.tags ?? [] }));
   } catch {
     return [];
+  }
+}
+
+/** An entry's neighbours in its journal; only those two are read for opening words */
+export async function getNeighbours(journal: Journal, slug: string): Promise<{ older: ShelfEntry | null; newer: ShelfEntry | null }> {
+  try {
+    const rows = await lightRows(journal);
+    const idx = rows.findIndex((r) => r.slug === slug);
+    if (idx < 0) return { older: null, newer: null };
+    const older = rows[idx + 1] ?? null;
+    const newer = idx > 0 ? rows[idx - 1] : null;
+    const bodies = await untitledBodies([older, newer].filter((r): r is LightRow => r !== null));
+    return { older: older && toEntry(older, bodies, 96), newer: newer && toEntry(newer, bodies, 96) };
+  } catch {
+    return { older: null, newer: null };
   }
 }
 
@@ -114,49 +175,26 @@ export function openingWords(html: string | null, max = 64): string {
  * the shelf prints, for their opening words.
  */
 export async function getShelf(): Promise<ShelfJournal[]> {
-  type Row = { id: string; slug: string; journal: Journal; title: string | null; read_time_minutes: number | null; created_at: string; published_at: string | null };
-  let rows: Row[] = [];
-  const bodies = new Map<string, string | null>();
+  let rows: LightRow[] = [];
+  let bodies = new Map<string, string | null>();
   try {
-    const supabase = createAnonClient();
-    const { data, error } = await supabase
+    const { data, error } = await createAnonClient()
       .from("notebook_entries")
       .select("id, slug, journal, title, read_time_minutes, created_at, published_at")
       .eq("status", "published")
       .order("published_at", { ascending: false });
-    if (!error && data) rows = data as Row[];
-
-    const untitled = JOURNAL_IDS.flatMap((j) =>
-      rows
-        .filter((r) => r.journal === j)
-        .slice(0, SHELF_LATEST)
-        .filter((r) => !r.title?.trim())
-        .map((r) => r.id)
-    );
-    if (untitled.length) {
-      const { data: bodyRows } = await supabase.from("notebook_entries").select("id, body_html").in("id", untitled);
-      for (const b of (bodyRows ?? []) as { id: string; body_html: string | null }[]) bodies.set(b.id, b.body_html);
-    }
+    if (!error && data) rows = data as LightRow[];
+    bodies = await untitledBodies(JOURNAL_IDS.flatMap((j) => rows.filter((r) => r.journal === j).slice(0, SHELF_LATEST)));
   } catch {
     // An unreachable database shows six empty journals rather than no desk
   }
 
   return JOURNAL_IDS.map((journal) => {
     const mine = rows.filter((r) => r.journal === journal);
-    const dateOf = (r: Row) => r.published_at ?? r.created_at;
     return {
       journal,
       count: mine.length,
-      latest: mine.slice(0, SHELF_LATEST).map((r) => {
-        const title = r.title?.trim();
-        return {
-          slug: r.slug,
-          title: title || openingWords(bodies.get(r.id) ?? null) || "Untitled entry",
-          untitled: !title,
-          date: dateOf(r),
-          readTime: r.read_time_minutes,
-        };
-      }),
+      latest: mine.slice(0, SHELF_LATEST).map((r) => toEntry(r, bodies)),
       since: mine.length ? dateOf(mine[mine.length - 1]) : null,
     };
   });

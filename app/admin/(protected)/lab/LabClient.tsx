@@ -7,8 +7,9 @@ import { FX_METAS } from "@/components/fx/metas";
 import { ROOM_POSTER_CLASS } from "@/components/fx/posters";
 import { ROOM_KEYS } from "@/components/fx/runtime/palette";
 import type { FxControl, FxOptions, FxOptionValue, RoomKey } from "@/components/fx/runtime/types";
-import { saveFxPreset, saveTransitionStyle } from "@/app/actions/fx";
-import { TRANSITION_STYLES, type FxGlobals, type FxPresets, type SlotPreset, type TransitionStyle } from "@/lib/fx/presets";
+import { saveFxPreset, savePlateStyle, saveTransitionStyle } from "@/app/actions/fx";
+import { PLATE_STYLES, TRANSITION_STYLES, type FxGlobals, type FxPresets, type PlateStyle, type SlotPreset, type TransitionStyle } from "@/lib/fx/presets";
+import { JOURNALS } from "@/lib/notebook/journals";
 import { FX_SLOTS, FX_SLOT_IDS, type FxSlotId } from "@/lib/fx/slots";
 import { cn } from "@/lib/utils";
 
@@ -120,6 +121,64 @@ function TransitionPicker({ saved }: { saved: FxGlobals }) {
   );
 }
 
+/** Per journal: which plate sits behind an entry's header (the plates themselves are tuned in their slots) */
+function PlatePicker({ saved }: { saved: FxGlobals }) {
+  const router = useRouter();
+  const [plates, setPlates] = useState(saved.plates);
+  const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [saving, startSaving] = useTransition();
+  const changed = JOURNALS.filter((j) => plates[j.id] !== saved.plates[j.id]);
+
+  const save = () =>
+    startSaving(async () => {
+      for (const j of changed) {
+        const result = await savePlateStyle(j.id, plates[j.id]);
+        if (!result.success) {
+          setMessage({ ok: false, text: result.error ?? "failed" });
+          return;
+        }
+      }
+      setMessage({ ok: true, text: "saved" });
+      router.refresh();
+    });
+
+  return (
+    <div className="space-y-2 rounded-xl bg-white p-4">
+      <p className="text-sm text-base-dark">journal plates</p>
+      <p className="text-[11px] leading-snug text-text-muted">the plate behind each journal&apos;s entry headers.</p>
+      {JOURNALS.map((j) => (
+        <label key={j.id} className="flex items-center justify-between gap-2 text-xs text-base-dark">
+          {j.label.toLowerCase()}
+          <select
+            value={plates[j.id]}
+            onChange={(e) => setPlates((p) => ({ ...p, [j.id]: e.target.value as PlateStyle }))}
+            className="rounded-md border border-black/10 px-2 py-1 text-xs"
+          >
+            {PLATE_STYLES.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      ))}
+      <button
+        type="button"
+        onClick={save}
+        disabled={saving || changed.length === 0}
+        className="rounded-md bg-accent px-3 py-1.5 text-sm text-white disabled:opacity-40"
+      >
+        {saving ? "saving…" : "save"}
+      </button>
+      {message && (
+        <p className={cn("text-xs", message.ok ? "text-accent" : "text-red-600")} role="status">
+          {message.text}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function LabClient({ saved, savedGlobals }: { saved: FxPresets; savedGlobals: FxGlobals }) {
   const router = useRouter();
   const [slot, setSlot] = useState<FxSlotId>(FX_SLOT_IDS[0]);
@@ -167,6 +226,7 @@ export function LabClient({ saved, savedGlobals }: { saved: FxPresets; savedGlob
         {/* Slots */}
         <div className="space-y-4">
           <TransitionPicker saved={savedGlobals} />
+          <PlatePicker saved={savedGlobals} />
           <nav className="flex flex-col gap-1" aria-label="effect slots">
             {FX_SLOT_IDS.map((id) => (
               <button
