@@ -27,6 +27,9 @@ import { clothStudyMeta } from "./effects/cloth-study/meta";
 import { wovenClothMeta } from "./effects/woven-cloth/meta";
 import { engravedPlateMeta } from "./effects/engraved-plate/meta";
 import { particleDriftMeta } from "./effects/particle-drift/meta";
+import { galleryRingMeta } from "./effects/gallery-ring/meta";
+import { dustMotesMeta } from "./effects/dust-motes/meta";
+import { emberSealMeta } from "./effects/ember-seal/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
 import { generativeTreeMeta } from "./effects/generative-tree/meta";
 import { glyphBallMeta } from "./effects/glyph-ball/meta";
@@ -75,6 +78,9 @@ export const FX_METAS = {
   "woven-cloth": wovenClothMeta,
   "engraved-plate": engravedPlateMeta,
   "particle-drift": particleDriftMeta,
+  "gallery-ring": galleryRingMeta,
+  "dust-motes": dustMotesMeta,
+  "ember-seal": emberSealMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

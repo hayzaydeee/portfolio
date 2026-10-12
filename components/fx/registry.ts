@@ -40,4 +40,7 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "woven-cloth": () => import("./effects/woven-cloth/renderer") as unknown as ReturnType<Loader>,
   "engraved-plate": () => import("./effects/engraved-plate/renderer") as unknown as ReturnType<Loader>,
   "particle-drift": () => import("./effects/particle-drift/renderer") as unknown as ReturnType<Loader>,
+  "gallery-ring": () => import("./effects/gallery-ring/renderer") as unknown as ReturnType<Loader>,
+  "dust-motes": () => import("./effects/dust-motes/renderer") as unknown as ReturnType<Loader>,
+  "ember-seal": () => import("./effects/ember-seal/renderer") as unknown as ReturnType<Loader>,
 };
