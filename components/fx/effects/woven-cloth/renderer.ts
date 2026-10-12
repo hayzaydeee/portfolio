@@ -6,6 +6,7 @@ import {
   CylinderGeometry,
   DirectionalLight,
   DoubleSide,
+  LinearFilter,
   Mesh,
   MeshBasicMaterial,
   MeshPhysicalMaterial,
@@ -35,9 +36,10 @@ import type { WovenClothOptions } from "./meta";
  * on a wooden rod before a lit shoji. One sheet, 60 by 40 cells on a verlet step with three
  * passes of structural and shear links, the horizontal links cut below the sleeve at two slits
  * so the three panels hang and sway as their own pieces of cloth, each catching an indoor draft
- * on its own beat. The paper is a transmissive physical material with sheen, so the lantern
- * behind the shoji shows through it; its torn lower edge and feathered sides are one alpha mask
- * shared with the shading. Physics, lights, camera sway and paper painting follow the original.
+ * on its own beat. The paper is a physical material with sheen, and the lantern behind the shoji
+ * shows through it as the original's transmission showed it (see makeBacklight); its torn lower
+ * edge and feathered sides are one alpha mask shared with the shading. Physics, lights, camera
+ * sway and paper painting follow the original.
  *
  * Changed for the notebook: the cloth is dyed in the journal's colour instead of indigo, and
  * what is resisted out of it is the journal's: its mark as the crest, "note" and "book" down the
@@ -357,6 +359,62 @@ function makeShojiTexture(paper: RGB, ink: RGB) {
   return tex;
 }
 
+/**
+ * The shoji as the paper passes its light: blurred, in linear light, as far as a rough sheet
+ * scatters it. three's transmission found this by rendering the scene behind the cloth every
+ * frame and sampling a mip about seven levels down (a blur near 5% of the view's width); the
+ * shoji never changes, so it's blurred once here and the cloth looks it up through one sample.
+ */
+function makeBacklight(shoji: HTMLCanvasElement) {
+  const W = 128;
+  const H = 86;
+  const SIGMA = 6;
+  const s = surface(W, H);
+  s.ctx.imageSmoothingQuality = "high";
+  s.ctx.drawImage(shoji, 0, 0, W, H);
+  const img = s.ctx.getImageData(0, 0, W, H);
+  const lin = new Float32Array(W * H * 3);
+  for (let i = 0; i < W * H; i++) for (let c = 0; c < 3; c++) lin[i * 3 + c] = (img.data[i * 4 + c] / 255) ** 2.2;
+  const R = Math.ceil(SIGMA * 3);
+  const kernel = Array.from({ length: R * 2 + 1 }, (_, k) => Math.exp(-((k - R) ** 2) / (2 * SIGMA * SIGMA)));
+  const sum = kernel.reduce((a, b) => a + b, 0);
+  const pass = (src: Float32Array, horizontal: boolean) => {
+    const out = new Float32Array(src.length);
+    for (let y = 0; y < H; y++) {
+      for (let x = 0; x < W; x++) {
+        for (let c = 0; c < 3; c++) {
+          let acc = 0;
+          for (let k = -R; k <= R; k++) {
+            const sx = horizontal ? Math.min(W - 1, Math.max(0, x + k)) : x;
+            const sy = horizontal ? y : Math.min(H - 1, Math.max(0, y + k));
+            acc += src[(sy * W + sx) * 3 + c] * kernel[k + R];
+          }
+          out[(y * W + x) * 3 + c] = acc / sum;
+        }
+      }
+    }
+    return out;
+  };
+  const blurred = pass(pass(lin, true), false);
+  for (let i = 0; i < W * H; i++) {
+    for (let c = 0; c < 3; c++) img.data[i * 4 + c] = Math.round(blurred[i * 3 + c] ** (1 / 2.2) * 255);
+    img.data[i * 4 + 3] = 255;
+  }
+  s.ctx.putImageData(img, 0, 0);
+  const tex = new CanvasTexture(s.canvas);
+  tex.colorSpace = SRGBColorSpace;
+  tex.generateMipmaps = false;
+  tex.minFilter = LinearFilter;
+  return tex;
+}
+
+/** How much of the paper's diffuse light comes through it from behind (the original's transmission) */
+const TRANSMISSION = 0.82;
+/** The shoji stands this far behind the cloth */
+const SHOJI_Z = -2.4;
+/** The paper's thickness over its attenuation distance, as the original set them (0.1 and 3) */
+const THROUGH = 0.1 / 3;
+
 export function create(ctx: FxContext, initial: WovenClothOptions): FxInstance<WovenClothOptions> {
   let opts = { ...initial };
   let palette = ctx.palette;
@@ -365,7 +423,9 @@ export function create(ctx: FxContext, initial: WovenClothOptions): FxInstance<W
   let disposed = false;
   let built = false;
 
-  const renderer = new WebGLRenderer({ canvas, antialias: true, alpha: true, powerPreference: "high-performance" });
+  // No MSAA: the noren's edges (the torn foot, the slits, the feathered sides) are alpha-tested,
+  // which multisampling never smooths, and it cost a quarter of the frame for the rod's two knobs
+  const renderer = new WebGLRenderer({ canvas, antialias: false, alpha: true, powerPreference: "high-performance" });
   renderer.outputColorSpace = SRGBColorSpace;
   renderer.toneMapping = ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.22 * opts.exposure;
@@ -377,7 +437,7 @@ export function create(ctx: FxContext, initial: WovenClothOptions): FxInstance<W
 
   const shojiMat = new MeshBasicMaterial({ toneMapped: false });
   const shoji = new Mesh(new PlaneGeometry(1, 1), shojiMat);
-  shoji.position.set(0, 0, -2.4);
+  shoji.position.set(0, 0, SHOJI_Z);
   scene.add(shoji);
 
   const geo = new PlaneGeometry(BW, BH, GX, GY);
@@ -390,13 +450,41 @@ export function create(ctx: FxContext, initial: WovenClothOptions): FxInstance<W
     side: DoubleSide,
     roughness: 0.92,
     metalness: 0,
-    transmission: 0.82,
-    thickness: 0.1,
     ior: 1.36,
-    attenuationDistance: 3,
     sheen: 0.9,
     sheenRoughness: 0.85,
   });
+  // The light through the paper, as three's transmission mixes it in, (1 - F) x the paper's colour
+  // x the light behind, but read from the blurred shoji along the view ray instead of a pass
+  // that re-renders the scene every frame (which made each frame three to four times as slow)
+  const backlight = {
+    norenBacklight: { value: null as Texture | null },
+    norenShojiSize: { value: new Vector2(1, 1) },
+    norenShojiZ: { value: SHOJI_Z },
+    norenAttenuation: { value: new Color(1, 1, 1) },
+  };
+  mat.onBeforeCompile = (shader) => {
+    Object.assign(shader.uniforms, backlight);
+    shader.vertexShader = shader.vertexShader
+      .replace("#include <common>", "#include <common>\nvarying vec3 vNorenWorld;")
+      .replace("#include <project_vertex>", "#include <project_vertex>\nvNorenWorld = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;");
+    shader.fragmentShader = shader.fragmentShader
+      .replace(
+        "#include <common>",
+        "#include <common>\nvarying vec3 vNorenWorld;\nuniform sampler2D norenBacklight;\nuniform vec2 norenShojiSize;\nuniform float norenShojiZ;\nuniform vec3 norenAttenuation;"
+      )
+      .replace(
+        "#include <transmission_fragment>",
+        `{
+          vec3 toEye = normalize( cameraPosition - vNorenWorld );
+          vec2 onShoji = vNorenWorld.xy - toEye.xy * ( vNorenWorld.z - norenShojiZ ) / max( toEye.z, 1e-3 );
+          vec3 behind = texture2D( norenBacklight, onShoji / norenShojiSize + 0.5 ).rgb;
+          vec3 F = EnvironmentBRDF( transformNormalByInverseViewMatrix( normal, viewMatrix ), toEye, material.specularColorBlended, material.specularF90, material.roughness );
+          totalDiffuse = mix( totalDiffuse, ( 1.0 - F ) * material.diffuseContribution * norenAttenuation * behind, ${TRANSMISSION.toFixed(2)} );
+        }`
+      );
+  };
+  mat.customProgramCacheKey = () => "noren-backlight";
   const noren = new Mesh(geo, mat);
   scene.add(noren);
 
@@ -587,6 +675,7 @@ export function create(ctx: FxContext, initial: WovenClothOptions): FxInstance<W
     const dist = camera.position.z - shoji.position.z;
     const viewH = 2 * tanHalf * dist * 1.2;
     shoji.scale.set(viewH * aspect, viewH, 1);
+    backlight.norenShojiSize.value.set(viewH * aspect, viewH);
   };
 
   const draw = () => {
@@ -608,13 +697,17 @@ export function create(ctx: FxContext, initial: WovenClothOptions): FxInstance<W
     albedo.anisotropy = maxAniso;
     mat.map?.dispose();
     mat.map = albedo;
-    mat.attenuationColor = new Color().setRGB(...mixRGB(dye, [1, 1, 1], 0.55), SRGBColorSpace);
+    // Light crossing the sheet is tinted as the original's attenuation tinted it
+    const tint = new Color().setRGB(...mixRGB(dye, [1, 1, 1], 0.55), SRGBColorSpace);
+    backlight.norenAttenuation.value.setRGB(tint.r ** THROUGH, tint.g ** THROUGH, tint.b ** THROUGH);
     mat.sheenColor = new Color().setRGB(...mixRGB(dye, [1, 1, 1], 0.8), SRGBColorSpace);
     mat.needsUpdate = true;
     const shojiTex = makeShojiTexture(palette.base, palette.text);
     shojiMat.map?.dispose();
     shojiMat.map = shojiTex;
     shojiMat.needsUpdate = true;
+    backlight.norenBacklight.value?.dispose();
+    backlight.norenBacklight.value = makeBacklight(shojiTex.image as HTMLCanvasElement);
   };
 
   const ready = (async () => {
@@ -689,6 +782,7 @@ export function create(ctx: FxContext, initial: WovenClothOptions): FxInstance<W
       textures.forEach((tex) => tex.dispose());
       mat.map?.dispose();
       shojiMat.map?.dispose();
+      backlight.norenBacklight.value?.dispose();
       const materials = new Set<Material>([mat, shojiMat, wood, cordMat]);
       scene.traverse((o) => {
         const m = o as Mesh;

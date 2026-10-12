@@ -24,7 +24,7 @@ export const wovenClothMeta: FxMeta<WovenClothOptions> = {
   source: { name: "ThreeUI · Woven Cloth (washi noren)", url: "https://github.com/MengTo/threeui", license: "MIT" },
   kind: "webgl2",
   priority: 1,
-  pixelBudget: 1.2,
+  pixelBudget: 1,
   rooms: ["notebook"],
   defaults: { title: "Reflections", numeral: "I", motif: "paths", dye: "notebook-reflections", breeze: 1, exposure: 1 },
   controls: [
