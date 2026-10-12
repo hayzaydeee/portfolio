@@ -19,6 +19,8 @@ export const FX_SLOTS = {
   "lobby.seedling": { effect: "generative-tree", room: "lobby", label: "Lobby · seedling tree" },
   "site.emblem": { effect: "outline-typeflow", room: "lobby", label: "Footer · HZY emblem" },
   "studio.about": { effect: "liquid-form", room: "studio", label: "Studio · liquid form behind the about", off: true },
+  "notebook.shelf": { effect: "bookshelf", room: "notebook", label: "Notebook · the shelf" },
+  "notebook.cloth": { effect: "cloth-study", room: "notebook", label: "Notebook · cloth heading" },
 } as const satisfies Record<string, { effect: FxId; room: RoomKey; label: string; off?: true }>;
 
 export type FxSlotId = keyof typeof FX_SLOTS;

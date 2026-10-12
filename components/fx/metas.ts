@@ -22,6 +22,8 @@ import { liquidMetalMeta } from "./effects/liquid-metal/meta";
 import { playerGlowMeta } from "./effects/player-glow/meta";
 import { streamConvergenceMeta } from "./effects/stream-convergence/meta";
 import { liquidFormMeta } from "./effects/liquid-form/meta";
+import { bookshelfMeta } from "./effects/bookshelf/meta";
+import { clothStudyMeta } from "./effects/cloth-study/meta";
 import { emeraldHorizonMeta } from "./effects/emerald-horizon/meta";
 import { generativeTreeMeta } from "./effects/generative-tree/meta";
 import { glyphBallMeta } from "./effects/glyph-ball/meta";
@@ -65,6 +67,8 @@ export const FX_METAS = {
   "player-glow": playerGlowMeta,
   "stream-convergence": streamConvergenceMeta,
   "liquid-form": liquidFormMeta,
+  "bookshelf": bookshelfMeta,
+  "cloth-study": clothStudyMeta,
 } as const satisfies Record<string, FxMeta<FxOptions>>;
 
 export type FxId = keyof typeof FX_METAS;

@@ -54,6 +54,12 @@ type FxStageProps = {
   fade?: boolean;
   /** Hold the last frame while something opaque covers the stage. The first frame still draws, so the stage goes live */
   paused?: boolean;
+  /**
+   * State the effect needs whichever instance is live, as commands: sent to every new
+   * instance before anything else (including one rebuilt after an eviction or a lost
+   * context), and again when a value changes. Memoise it; one-off actions go through `handle`.
+   */
+  setup?: Record<string, unknown>;
   onStatusChange?: (status: StageStatus | "disabled") => void;
 };
 
@@ -79,6 +85,7 @@ export function FxStage({
   label,
   fade = true,
   paused = false,
+  setup,
   onStatusChange,
 }: FxStageProps) {
   const effect: FxId = slot ? FX_SLOTS[slot].effect : (effectProp ?? "emerald-horizon");
@@ -109,6 +116,20 @@ export function FxStage({
   useEffect(() => {
     optionsRef.current = resolved;
   }, [resolved]);
+
+  // Setup: the latest values, and what the live instance has been sent of them
+  const setupRef = useRef(setup);
+  const setupSent = useRef<Record<string, unknown>>({});
+  useEffect(() => {
+    setupRef.current = setup;
+    const inst = instanceRef.current;
+    if (!inst?.command || !setup) return;
+    for (const [name, arg] of Object.entries(setup)) {
+      if (setupSent.current[name] === arg) continue;
+      setupSent.current[name] = arg;
+      inst.command(name, arg);
+    }
+  }, [setup]);
 
   const pausedRef = useRef(paused);
   useEffect(() => {
@@ -322,6 +343,8 @@ export function FxStage({
       size = { w: r.width, h: r.height };
       resize();
 
+      setupSent.current = { ...(setupRef.current ?? {}) };
+      for (const [name, arg] of Object.entries(setupRef.current ?? {})) created.command?.(name, arg);
       pendingRef.current.forEach((arg, name) => created.command?.(name, arg));
       pendingRef.current.clear();
 

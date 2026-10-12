@@ -10,7 +10,7 @@ type ContentType =
 
 const REVALIDATION_MAP: Record<ContentType, string[]> = {
   project: ["/", "/work", "/work/[project]"],
-  notebook: ["/notebook", "/notebook/[slug]"],
+  notebook: ["/notebook", "/notebook/[journal]", "/notebook/[journal]/[entry]"],
   wall: ["/wall", "/wall/[piece]"],
   music: ["/music", "/music/analysis/[slug]"],
   currently: ["/", "/now"],

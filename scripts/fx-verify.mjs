@@ -135,6 +135,8 @@ const ROUTES = [
   { name: "stream-convergence-source", path: "/fx-harness/stream-convergence?room=studio&source=1", maxLive: 1 },
   { name: "liquid-form-studio", path: "/fx-harness/liquid-form?room=studio", maxLive: 1 },
   { name: "liquid-form-source", path: "/fx-harness/liquid-form?room=studio&source=1", maxLive: 1 },
+  { name: "bookshelf-notebook", path: "/fx-harness/bookshelf?room=notebook", maxLive: 1 },
+  { name: "cloth-study-notebook", path: "/fx-harness/cloth-study?room=notebook", maxLive: 0, canvas2d: true },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -973,7 +975,11 @@ for (const [when, expect] of [
   for (let lap = 0; lap < 3; lap++) {
     for (const href of ["/music", "/notebook", "/wall", "/work"]) {
       await page.click(`.dock a[href="${href}"]`);
-      const ok = await portalIdleAt(page, href);
+      // Under SwiftShader the notebook's shelf costs seconds at both ends of a trip: its
+      // programs compile on the main thread (no parallel shader compile), and losing its
+      // context on the way out waits for the software GPU to free every texture. Arrival
+      // returns at once; the ceiling only stops a slow renderer reading as a lost trip
+      const ok = await portalIdleAt(page, href, 40000);
       await page.waitForTimeout(600);
       const gl = await page.evaluate(() => window.__gl());
       const leases = await page.evaluate(() => window.__fx.live());
@@ -1159,7 +1165,8 @@ const backdropFrames = (page) =>
     : Infinity;
   check("splash", "dock is inert under the splash", inertDuring === true, { inertDuring });
   check("splash", "logo lands on the dock mark (within 2px)", off <= 2, { ...rects, off });
-  await page.waitForTimeout(1500);
+  // The dock's fade ends on the lobby's software-rendered frames, so wait for it rather than sample at a fixed time
+  await page.waitForFunction(() => getComputedStyle(document.querySelector(".dock-anchor")).opacity === "1", null, { timeout: 6000 }).catch(() => {});
   const after = await page.evaluate(() => {
     const a = document.querySelector(".dock-anchor");
     return { splash: a?.dataset.splash, inert: a?.hasAttribute("inert"), opacity: a && getComputedStyle(a).opacity };
@@ -1612,6 +1619,8 @@ const backdropFrames = (page) =>
   }
   const studio = await loadsThree("/fx-harness/studio");
   check("three-chunk", "studio: three loads with the gallery", studio.three, studio);
+  const desk = await loadsThree("/fx-harness/notebook");
+  check("three-chunk", "notebook: three loads with the shelf", desk.three, desk);
 }
 
 {
@@ -1993,6 +2002,304 @@ const backdropFrames = (page) =>
     check("dock-glass", `${name}: the glass field is live with its shapes, one context`, live && shapes === "18" && gl.live === 1 && errors.length === 0, { live, shapes, gl, errors: errors.slice(0, 2) });
     await context.close();
   }
+}
+
+// ── Notebook (4a): the desk's shelf, the cloth banner, the notebook routes ────────────
+{
+  const SHELF = '[data-fx="bookshelf"] canvas';
+  const shelfData = (page) => page.evaluate((sel) => ({ ...(document.querySelector(sel)?.dataset ?? {}) }), SHELF);
+  const shelfLive = (page) =>
+    page
+      .waitForSelector('[data-fx="bookshelf"][data-fx-state="live"]', { timeout: 90000 })
+      .then(() => true)
+      .catch(() => false);
+  const shelfMode = (page, mode, timeout = 60000) =>
+    page
+      .waitForFunction((m) => document.querySelector("[data-shelf]")?.dataset.shelfMode === m, mode, { timeout })
+      .then(() => true)
+      .catch(() => false);
+  const shelfIs = (page, key, value, timeout = 60000) =>
+    page
+      .waitForFunction(([sel, k, v]) => document.querySelector(sel)?.dataset[k] === v, [SHELF, key, value], { timeout })
+      .then(() => true)
+      .catch(() => false);
+  // Under SwiftShader a frame of the shelf costs seconds, so the desk runs at 1024 wide (the side panel's breakpoint)
+  const DESK = { viewport: { width: 1024, height: 768 } };
+
+  {
+    // The desk with motion: both live within budget; the shelf rests once nothing moves; the
+    // banner takes a grab; the arrow keys and the list of journals both turn the shelf
+    const { context, page, errors } = await chromePage(DESK);
+    await page.goto(BASE + "/fx-harness/notebook", { waitUntil: "networkidle" });
+    const live = await shelfLive(page);
+    const cloth = await page
+      .waitForSelector('[data-fx="cloth-study"][data-fx-state="live"]', { timeout: 15000 })
+      .then(() => true)
+      .catch(() => false);
+    const d = await shelfData(page);
+    const pegs = await page.evaluate(() => document.querySelector('[data-fx="cloth-study"] canvas')?.dataset.pegs ?? null);
+    const gl = await page.evaluate(() => window.__gl());
+    check("notebook-desk", "six volumes on the shelf, the banner on six pegs, one context", live && cloth && d.volumes === "6" && pegs === "6" && gl.live === 1, { live, cloth, volumes: d.volumes, pegs, gl });
+
+    let rested = false;
+    let draws = [];
+    for (let i = 0; i < 20 && !rested; i++) {
+      const a = (await shelfData(page)).draws;
+      await page.waitForTimeout(3000);
+      const b = (await shelfData(page)).draws;
+      draws = [a, b];
+      rested = a !== undefined && a === b;
+    }
+    check("notebook-desk", "the shelf stops drawing once nothing moves", rested, { draws });
+
+    const heading = await page.getByRole("heading", { level: 1, name: "notebook" }).count();
+    const list = await page
+      .getByRole("navigation", { name: "Journals" })
+      .getByRole("link")
+      .evaluateAll((as) => as.map((a) => a.getAttribute("href")));
+    const expected = ["reflections", "fragments", "annotations", "responses", "buildlog", "cookbook"].map((j) => `/notebook/${j}`);
+    check("notebook-desk", "the room heading, and the six journals as links", heading === 1 && JSON.stringify(list) === JSON.stringify(expected), { heading, list });
+
+    // The banner: a grab holds a point of the sheet until the pointer lets go
+    const banner = await page.locator("[data-cloth-heading]").boundingBox();
+    const held = (v) =>
+      page
+        .waitForFunction((want) => (document.querySelector('[data-fx="cloth-study"] canvas')?.dataset.held ?? null) === want, v, { timeout: 3000 })
+        .then(() => true)
+        .catch(() => false);
+    await page.mouse.move(banner.x + banner.width / 2, banner.y + banner.height * 0.55);
+    await page.mouse.down();
+    await page.mouse.move(banner.x + banner.width / 2 + 60, banner.y + banner.height * 0.75, { steps: 4 });
+    const grabbed = await held("1");
+    await page.mouse.up();
+    const dropped = await held(null);
+    check("notebook-desk", "the banner takes a grab and lets go", grabbed && dropped, { grabbed, dropped });
+
+    await page.getByRole("button", { name: "Next journal" }).focus();
+    await page.keyboard.press("ArrowRight");
+    const keyed = await shelfIs(page, "selected", "1", 10000);
+    const caption = await page.locator("[data-shelf-current]").innerText();
+    await page.getByRole("navigation", { name: "Journals" }).getByRole("link", { name: /Annotations/ }).hover();
+    const listed = await shelfIs(page, "selected", "2", 10000);
+    check("notebook-desk", "the arrow keys and the list both turn the shelf, and the bar follows", keyed && /Fragments/.test(caption) && listed, { keyed, caption, listed });
+    check("notebook-desk", "no page errors", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, "notebook-desk.png") });
+    await context.close();
+  }
+
+  {
+    // Reduced motion: every step lands at once, so the whole inspection runs on one frame per command
+    const { context, page, errors } = await chromePage({ ...DESK, reducedMotion: "reduce" });
+    await page.goto(BASE + "/fx-harness/notebook", { waitUntil: "networkidle" });
+    await shelfLive(page);
+    await page.getByRole("button", { name: "look inside" }).click();
+    const out = await shelfMode(page, "detail");
+    await page.waitForTimeout(300);
+    const focused = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? null);
+    const titled = await page.getByRole("heading", { level: 2, name: "Reflections" }).isVisible();
+    const latest = await page.locator("[data-shelf-latest] a").count();
+    check("notebook-shelf", "look inside takes a volume down: its panel, its latest six, focus on the book", out && titled && latest === 6 && focused === "open the book", { out, titled, latest, focused });
+
+    await page.keyboard.press("Enter");
+    const opened = await shelfIs(page, "open", "1");
+    const counter = await page.locator("[data-shelf-page]").first().innerText();
+    await page.getByRole("button", { name: "Next page" }).click();
+    const turned = await shelfIs(page, "page", "1");
+    const said = await page.locator('[data-shelf] [role="status"]').innerText();
+    await page.keyboard.press("ArrowRight");
+    const keyed = await shelfIs(page, "page", "2");
+    await page.keyboard.press("ArrowLeft");
+    const back = await shelfIs(page, "page", "1");
+    check(
+      "notebook-shelf",
+      "the cover opens and the leaves turn by button and arrow key, each spread announced",
+      opened && /page 1 of 5/i.test(counter) && turned && /on staying and the long obedience/.test(said) && keyed && back,
+      { opened, counter, turned, said, keyed, back }
+    );
+
+    await page.keyboard.press("Escape");
+    const home = await shelfMode(page, "shelf");
+    await page.waitForTimeout(300);
+    const refocused = await page.evaluate(() => document.activeElement?.textContent?.trim() ?? null);
+    check("notebook-shelf", "Escape puts it back and focus returns to look inside", home && refocused === "look inside", { home, refocused });
+
+    // A click on a printed page goes to that entry: the first spread inside carries entries one and two
+    await page.getByRole("button", { name: "look inside" }).click();
+    await shelfMode(page, "detail");
+    await page.getByRole("button", { name: "open the book" }).last().click();
+    await shelfIs(page, "open", "1");
+    await page.getByRole("button", { name: "Next page" }).click();
+    await shelfIs(page, "page", "1");
+    const spot = (await shelfData(page)).rightPage?.split(",").map(Number);
+    const stage = await page.locator('[data-fx="bookshelf"]').boundingBox();
+    let went = false;
+    if (spot && stage) {
+      await page.mouse.click(stage.x + spot[0], stage.y + spot[1]);
+      went = await page
+        .waitForURL(/\/notebook\/reflections\/reflections-2$/, { timeout: 20000 })
+        .then(() => true)
+        .catch(() => false);
+    }
+    check("notebook-shelf", "a click on a printed entry opens it", went, { spot, url: page.url() });
+    check("notebook-shelf", "no page errors", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+  }
+
+  {
+    // A lost context rebuilds the shelf on a fresh canvas: it comes back with the page's
+    // journals and its interaction surface, not the sample volumes it holds for the lab. The
+    // context goes with a volume out and open, as on a phone backgrounded mid-read: the panel
+    // and the book's controls leave with the volume, and the next one taken down starts closed
+    const { context, page, errors } = await chromePage({ ...DESK, reducedMotion: "reduce" });
+    await page.goto(BASE + "/fx-harness/notebook", { waitUntil: "networkidle" });
+    await shelfLive(page);
+    await page.getByRole("button", { name: "look inside" }).click();
+    await shelfMode(page, "detail");
+    await page.keyboard.press("Enter");
+    await shelfIs(page, "open", "1");
+    await page.getByRole("button", { name: "Next page" }).click();
+    await shelfIs(page, "page", "1");
+    const before = await page.evaluate(() => window.__fx.attempts());
+    // Each frame until the stage is back: while the stage isn't live, nothing of the volume stays
+    // reachable. The page hears the stage's status one commit after the stage shows it, so a
+    // single frame between the two is expected; two frames in a row is the volume left behind
+    const strays = await page.evaluate(async (sel) => {
+      document.querySelector(sel)?.getContext("webgl2")?.getExtension("WEBGL_lose_context")?.loseContext();
+      const seen = [];
+      let previous = "";
+      const t0 = performance.now();
+      while (performance.now() - t0 < 2000) {
+        await new Promise((r) => requestAnimationFrame(r));
+        let reachable = "";
+        if (document.querySelector('[data-fx="bookshelf"]')?.dataset.fxState !== "live") {
+          reachable = ["[data-shelf-panel]", "[data-shelf-book-controls]"]
+            .filter((s) => {
+              const el = document.querySelector(s);
+              return el && !el.closest("[inert]");
+            })
+            .join();
+        }
+        if (reachable && previous) seen.push(reachable);
+        previous = reachable;
+      }
+      return seen;
+    }, SHELF);
+    const rebuilt = await page
+      .waitForFunction(
+        ([sel, n]) => window.__fx.attempts() > n && document.querySelector('[data-fx="bookshelf"]')?.dataset.fxState === "live" && document.querySelector(sel)?.dataset.ready === "1",
+        [SHELF, before],
+        { timeout: 90000 }
+      )
+      .then(() => true)
+      .catch(() => false);
+    const d = await shelfData(page);
+    const home = await shelfMode(page, "shelf", 5000);
+    await page.getByRole("button", { name: "Next journal" }).click();
+    const steps = await shelfIs(page, "selected", "1", 20000);
+    check(
+      "notebook-shelf",
+      "after a lost context the shelf comes back with the page's journals and its surface",
+      rebuilt && d.source === "page" && d.surface === "1" && home && steps,
+      { rebuilt, source: d.source, surface: d.surface, home, steps }
+    );
+    await page.getByRole("button", { name: "look inside" }).click();
+    const out = await shelfMode(page, "detail");
+    await page.waitForTimeout(300);
+    const said = await page.locator('[data-shelf] [role="status"]').innerText();
+    const toggle = await page.locator("[data-shelf-toggle]").innerText();
+    check(
+      "notebook-shelf",
+      "a volume out when the context went leaves with it, and the next one taken down starts closed",
+      strays.length === 0 && out && /is out/.test(said) && toggle === "open the book",
+      { strays: strays.slice(0, 3), out, said, toggle }
+    );
+    check("notebook-shelf", "no page errors (context loss)", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+  }
+
+  {
+    // A phone: nothing scrolls sideways, and an open volume's spread sits wholly inside the stage
+    const { context, page, errors } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, reducedMotion: "reduce" });
+    await page.goto(BASE + "/fx-harness/notebook", { waitUntil: "networkidle" });
+    await shelfLive(page);
+    const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
+    await page.getByRole("button", { name: "look inside" }).click();
+    await shelfMode(page, "detail");
+    await page.getByRole("button", { name: "open the book" }).last().click();
+    await shelfIs(page, "open", "1");
+    await page.waitForTimeout(300);
+    const box = (await shelfData(page)).bookBox?.split(",").map(Number);
+    const stage = await page.locator('[data-fx="bookshelf"]').boundingBox();
+    const inside = !!box && box[0] >= 0 && box[2] <= stage.width;
+    check("notebook-phone", "no sideways scroll, and the open spread fits the stage", scrollW <= 390 && inside, { scrollW, box, stageWidth: stage?.width });
+    check("notebook-phone", "no page errors", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, "notebook-phone-open.png") });
+    await context.close();
+  }
+
+  {
+    // The same with motion, where the spread's slide is damped frame by frame: it has to survive
+    // the runtime lowering the pixel ratio on slow frames (which SwiftShader always triggers)
+    // and a real size change (a rotation, the URL bar) after the shelf has come to rest
+    const { context, page, errors } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(BASE + "/fx-harness/notebook", { waitUntil: "networkidle" });
+    await shelfLive(page);
+    const rest = async () => {
+      for (let i = 0; i < 40; i++) {
+        const a = (await shelfData(page)).draws;
+        await page.waitForTimeout(2500);
+        if (a !== undefined && a === (await shelfData(page)).draws) return true;
+      }
+      return false;
+    };
+    const fits = async () => {
+      const box = (await shelfData(page)).bookBox?.split(",").map(Number);
+      const stage = await page.locator('[data-fx="bookshelf"]').boundingBox();
+      return { box, width: stage?.width, inside: !!box && !!stage && box[0] >= 0 && box[2] <= stage.width };
+    };
+    await page.getByRole("button", { name: "look inside" }).click();
+    await shelfMode(page, "detail", 120000);
+    await page.getByRole("button", { name: "open the book" }).last().click();
+    await shelfIs(page, "open", "1");
+    const settled = await rest();
+    const atRest = await fits();
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.waitForTimeout(500);
+    const resettled = await rest();
+    const resized = await fits();
+    check(
+      "notebook-phone",
+      "with motion, the open spread stays inside the stage at rest and after a resize",
+      settled && atRest.inside && resettled && resized.inside,
+      { settled, atRest, resettled, resized }
+    );
+    check("notebook-phone", "no page errors (motion)", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+  }
+
+  // The real routes, without a database: the desk shows six empty journals, a journal page is
+  // prebuilt, and an entry that wasn't built at deploy time renders on demand (its not-found
+  // page here) instead of failing as a static page that turned dynamic. The room's loading
+  // state streams first, so a missing page is a soft 404: the not-found page (and Next's 404
+  // fallback marker, with noindex) under a 200
+  const routes = {};
+  for (const route of ["/notebook", "/notebook/reflections", "/notebook/reflections/not-built-yet", "/notebook/not-a-journal"]) {
+    const res = await fetch(BASE + route);
+    const html = await res.text();
+    routes[route] = { status: res.status, missing: html.includes("NEXT_HTTP_ERROR_FALLBACK;404") };
+  }
+  const desk = routes["/notebook"];
+  const journal = routes["/notebook/reflections"];
+  check(
+    "notebook-routes",
+    "the desk and a journal render; a missing entry or journal shows the not-found page, never a 500",
+    desk.status === 200 &&
+      !desk.missing &&
+      journal.status === 200 &&
+      !journal.missing &&
+      ["/notebook/reflections/not-built-yet", "/notebook/not-a-journal"].every((r) => routes[r].status !== 500 && routes[r].missing),
+    routes
+  );
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────

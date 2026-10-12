@@ -35,4 +35,6 @@ export const FX_LOADERS: Record<FxId, Loader> = {
   "player-glow": () => import("./effects/player-glow/renderer") as unknown as ReturnType<Loader>,
   "stream-convergence": () => import("./effects/stream-convergence/renderer") as unknown as ReturnType<Loader>,
   "liquid-form": () => import("./effects/liquid-form/renderer") as unknown as ReturnType<Loader>,
+  "bookshelf": () => import("./effects/bookshelf/renderer") as unknown as ReturnType<Loader>,
+  "cloth-study": () => import("./effects/cloth-study/renderer") as unknown as ReturnType<Loader>,
 };
