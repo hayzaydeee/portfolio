@@ -6,8 +6,9 @@
  *   FX_BASE=http://localhost:3100 node scripts/fx-verify.mjs
  *
  * Checks per harness route: WebGL really runs (SwiftShader renderer string), live context
- * count, rAF frame-time percentiles, no console errors, reduced-motion still frame,
- * pause/resume on visibilitychange, and audio analysis on the kick fixture. Then the
+ * count, rAF frame-time percentiles, the render scale stepping down on slow frames, no
+ * console errors, reduced-motion still frame, pause/resume on visibilitychange, and audio
+ * analysis on the kick fixture. Then the
  * chrome on real routes: the dock in every room, room visibility, magnification, the
  * portal between rooms (state walk, one push, focus, back/forward, reduced motion), the
  * context budget over repeated laps, and the splash handing its logo to the dock.
@@ -74,6 +75,25 @@ const FADE_PROBE = () => {
         else if (window.__fade.firstLive === null) window.__fade.firstLive = eff;
       }
     }
+    requestAnimationFrame(tick);
+  };
+  requestAnimationFrame(tick);
+};
+
+/** The ticker's render scale from the first frame a stage draws: each step, and the frame times of the first two seconds */
+const SCALE_PROBE = () => {
+  window.__scale = { first: null, steps: [], deltas: [] };
+  let scale = null;
+  let prev = 0;
+  const tick = (now) => {
+    const stats = window.__fx?.stats();
+    if (stats) {
+      if (window.__scale.first === null && stats.stages.some((s) => s.frames > 0)) window.__scale.first = now;
+      else if (window.__scale.first !== null && now - window.__scale.first <= 2000) window.__scale.deltas.push(now - prev);
+      if (scale !== null && stats.renderScale !== scale) window.__scale.steps.push({ at: Math.round(now - window.__scale.first), scale: +stats.renderScale.toFixed(3) });
+      scale = stats.renderScale;
+    }
+    prev = now;
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);
@@ -331,6 +351,7 @@ for (const route of ROUTES) {
   const context = await browser.newContext({ ...CONTEXT_OPTS, viewport: { width: 1440, height: 900 } });
   await context.addInitScript(COUNT_CONTEXTS);
   await context.addInitScript(FADE_PROBE);
+  await context.addInitScript(SCALE_PROBE);
   const page = await context.newPage();
   const errors = [];
   const notes = [];
@@ -372,6 +393,14 @@ for (const route of ROUTES) {
   check(route.name, `live webgl contexts <= ${route.maxLive}`, gl.live <= route.maxLive, gl);
   check(route.name, "runtime lease count matches", fx.live === gl.live, { leases: fx.live });
   check(route.name, "frames rendering", timing.frames > 20, timing);
+  // The ticker judges p90 over two seconds (at least 12 frames). A first window well past its
+  // 22 ms line, so its own judgement can't land the other side, has to step the scale down soon
+  const scale = await page.evaluate(() => window.__scale);
+  const firstP90 = scale.deltas.length ? [...scale.deltas].sort((a, b) => a - b)[Math.floor(scale.deltas.length * 0.9)] : 0;
+  if (firstP90 > 30) {
+    const step = scale.steps[0];
+    check(route.name, "a slow stage steps the render scale down within 4 s", !!step && step.scale < 1 && step.at <= 4000, { firstP90: +firstP90.toFixed(1), steps: scale.steps });
+  }
   await page.screenshot({ path: path.join(OUT, `${route.name}.png`) });
 
   // Visibility: frames freeze while hidden and resume after
@@ -388,7 +417,7 @@ for (const route of ROUTES) {
   check(route.name, "resumes when visible", after > hiddenB, { after });
 
   check(route.name, "no same-origin console/page errors", errors.length === 0, errors.slice(0, 3));
-  results.push({ route: route.name, timing, ticker: fx.stats, notes });
+  results.push({ route: route.name, timing, ticker: fx.stats, scale, notes });
   await context.close();
 }
 

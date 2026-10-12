@@ -7,7 +7,7 @@ The WebGL / Canvas effect runtime behind the rooms. Effects are adapted from [Th
 | File | Job |
 |---|---|
 | `FxStage.tsx` | The only React host. Renders a poster on the server, lazy-loads the renderer, creates the canvas imperatively (StrictMode-safe), leases a WebGL slot, wires resize, pointer, clicks, audio and reduced motion, and exposes `handle.command()` |
-| `runtime/ticker.ts` | One rAF loop for every effect: pauses while the tab is hidden, adapts a global render scale from p90 frame time |
+| `runtime/ticker.ts` | One rAF loop for every effect: pauses while the tab is hidden, adapts a global render scale from the p90 frame time of the last 2 s (at least 12 frames), so a slow device steps as soon as a fast one |
 | `runtime/budget.ts` | WebGL context leases (max 6, priority-aware eviction). `window.__fx` debug handle |
 | `runtime/palette.ts` | Maps colour roles (`base`, `glow`, `warm`...) to each room's `:root` tokens. The only place effects get colour from |
 | `runtime/pointer.ts` | One window pointer store; canvases stay `pointer-events: none` |

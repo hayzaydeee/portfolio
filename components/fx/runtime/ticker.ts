@@ -12,11 +12,16 @@ type TickEntry = {
   cpuMs: number;
 };
 
+type FrameSample = { at: number; dt: number };
+
 type TickerState = {
   entries: Map<string, TickEntry>;
   raf: number;
   lastNow: number;
-  frameTimes: number[];
+  /** Frames of the current judging window, oldest first */
+  samples: FrameSample[];
+  /** When the window's first frame landed; 0 while it holds none */
+  windowStart: number;
   renderScale: number;
   scaleListeners: Set<(scale: number) => void>;
   lastScaleChange: number;
@@ -25,7 +30,10 @@ type TickerState = {
 const GLOBAL_KEY = "__hzyFxTicker";
 type G = typeof globalThis & { [GLOBAL_KEY]?: TickerState };
 
-const FRAME_WINDOW = 120;
+/** p90 over this much time, so a 5 fps device steps as soon as a 60 fps one does */
+const WINDOW_MS = 2000;
+/** Two seconds holds too few frames for a p90 below 6 fps, so the window never keeps fewer */
+const MIN_SAMPLES = 12;
 const SLOW_P90_MS = 22;
 const FAST_P90_MS = 14;
 const SCALE_STEP_DOWN = 0.85;
@@ -45,7 +53,8 @@ function state(): TickerState {
       entries: new Map(),
       raf: 0,
       lastNow: 0,
-      frameTimes: [],
+      samples: [],
+      windowStart: 0,
       renderScale: 1,
       scaleListeners: new Set(),
       lastScaleChange: 0,
@@ -58,25 +67,33 @@ function state(): TickerState {
   return g[GLOBAL_KEY]!;
 }
 
-function p90(values: number[]) {
-  const sorted = [...values].sort((a, b) => a - b);
+function p90(samples: FrameSample[]) {
+  const sorted = samples.map((f) => f.dt).sort((a, b) => a - b);
   return sorted[Math.floor(sorted.length * 0.9)] ?? 0;
+}
+
+function resetWindow(s: TickerState) {
+  s.samples.length = 0;
+  s.windowStart = 0;
 }
 
 function adaptScale(now: number, dt: number) {
   const s = state();
-  s.frameTimes.push(dt);
-  if (s.frameTimes.length > FRAME_WINDOW) s.frameTimes.shift();
-  if (s.frameTimes.length < FRAME_WINDOW || now - s.lastScaleChange < SCALE_COOLDOWN_MS) return;
+  if (!s.samples.length) s.windowStart = now;
+  s.samples.push({ at: now, dt });
+  while (s.samples.length > MIN_SAMPLES && now - s.samples[0].at > WINDOW_MS) s.samples.shift();
+  // Judge only a full window: two seconds watched (as long at 60 fps as at 5), with frames enough for a p90
+  if (now - s.windowStart < WINDOW_MS || s.samples.length < MIN_SAMPLES) return;
+  if (now - s.lastScaleChange < SCALE_COOLDOWN_MS) return;
 
-  const slow = p90(s.frameTimes);
+  const slow = p90(s.samples);
   let next = s.renderScale;
   if (slow > SLOW_P90_MS) next = Math.max(SCALE_FLOOR, s.renderScale * SCALE_STEP_DOWN);
   else if (slow < FAST_P90_MS && s.renderScale < 1) next = Math.min(1, s.renderScale * SCALE_STEP_UP);
   if (next !== s.renderScale) {
     s.renderScale = next;
     s.lastScaleChange = now;
-    s.frameTimes.length = 0;
+    resetWindow(s);
     s.scaleListeners.forEach((cb) => cb(next));
   }
 }
@@ -89,16 +106,18 @@ function tick(now: number) {
   const dt = s.lastNow ? Math.min(now - s.lastNow, 100) : 16.67;
   s.lastNow = now;
 
-  let anyActive = false;
-  for (const entry of s.entries.values()) {
-    if (!entry.isActive()) continue;
-    anyActive = true;
+  const active = [...s.entries].filter(([, entry]) => entry.isActive());
+  // Before drawing: stages resized by a scale step draw this frame at the new size instead of presenting a cleared buffer
+  if (active.length) adaptScale(now, dt);
+  // Frames from before an idle spell say nothing about the ones after it
+  else resetWindow(s);
+  for (const [id, entry] of active) {
+    if (s.entries.get(id) !== entry) continue; // removed earlier this frame
     const t0 = performance.now();
     entry.render(now, dt);
     entry.cpuMs += performance.now() - t0;
     entry.frames += 1;
   }
-  if (anyActive) adaptScale(now, dt);
   if (s.entries.size > 0) s.raf = requestAnimationFrame(tick);
 }
 
@@ -106,6 +125,7 @@ function start() {
   const s = state();
   if (s.raf || s.entries.size === 0 || isDocumentHidden()) return;
   s.lastNow = 0; // no giant dt after a pause
+  resetWindow(s); // and no frames from before it
   s.raf = requestAnimationFrame(tick);
 }
 

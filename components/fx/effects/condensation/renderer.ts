@@ -24,6 +24,7 @@ export function create(ctx: FxContext, initial: CondensationOptions): FxInstance
   if (!g) throw new Error("2D canvas unavailable");
 
   let palette = ctx.palette;
+  let pane = { w: 0, h: 0 };
   let W = 1;
   let H = 1;
   let n = 1;
@@ -89,6 +90,24 @@ export function create(ctx: FxContext, initial: CondensationOptions): FxInstance
     capacity = Math.max(80, Math.min(240, Math.round((W * H) / (n * n) / 5200)));
     const target = Math.round(capacity * opts.dropAmount * 0.62);
     for (let i = 0; i < target; i++) seed(Math.random() * 3);
+  };
+
+  /** The same pane at a new pixel ratio: every bead and ripple keeps its place, in the new device pixels */
+  const rescale = (k: number) => {
+    for (const b of beads) {
+      b.x *= k;
+      b.y *= k;
+      b.r *= k;
+      b.rMax *= k;
+      b.grow *= k;
+      b.vy *= k;
+    }
+    for (const s of splashes) {
+      s.x *= k;
+      s.y = floor;
+      s.r0 *= k;
+    }
+    sprites.clear();
   };
 
   const step = (k: number) => {
@@ -162,11 +181,16 @@ export function create(ctx: FxContext, initial: CondensationOptions): FxInstance
 
   return {
     resize(cssW, cssH, pr) {
+      // The runtime lowers the ratio when frames run slow; only a new pane size seeds a new field
+      const repane = cssW !== pane.w || cssH !== pane.h;
+      const k = pr / n;
+      pane = { w: cssW, h: cssH };
       n = pr;
       W = canvas.width = Math.max(1, Math.floor(cssW * pr));
       H = canvas.height = Math.max(1, Math.floor(cssH * pr));
       floor = Math.max(1, H - 2 * n);
-      populate();
+      if (repane) populate();
+      else rescale(k);
       draw();
     },
 

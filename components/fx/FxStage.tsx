@@ -328,9 +328,11 @@ export function FxStage({
       const created = instance;
 
       let size = { w: 0, h: 0 };
+      let ratio = 0;
       const resize = () => {
         if (!size.w || !size.h) return;
-        created.resize(size.w, size.h, pixelRatioFor(size.w, size.h, meta.pixelBudget));
+        ratio = pixelRatioFor(size.w, size.h, meta.pixelBudget);
+        created.resize(size.w, size.h, ratio);
       };
       cleanups.push(
         observeSize(host, (w, h) => {
@@ -338,7 +340,12 @@ export function FxStage({
           resize();
         })
       );
-      cleanups.push(onRenderScaleChange(resize));
+      cleanups.push(
+        onRenderScaleChange(() => {
+          // A stage held to its pixel budget (or the floor) draws at the same ratio whatever the scale: nothing to reallocate
+          if (size.w && size.h && pixelRatioFor(size.w, size.h, meta.pixelBudget) !== ratio) resize();
+        })
+      );
       const r = host.getBoundingClientRect();
       size = { w: r.width, h: r.height };
       resize();
