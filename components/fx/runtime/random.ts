@@ -1,3 +1,13 @@
+/** FNV-1a: a stable number from a string (an entry's slug, a journal's id) to seed from */
+export function hashString(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i += 1) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
+}
+
 /** mulberry32: a seeded generator, so a scene lands the same way on every visit and its still frame is stable */
 export function seeded(seed: number): () => number {
   let s = seed | 0;
