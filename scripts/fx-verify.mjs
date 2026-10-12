@@ -140,6 +140,9 @@ const ROUTES = [
   { name: "woven-cloth-notebook", path: "/fx-harness/woven-cloth?room=notebook", maxLive: 1 },
   { name: "engraved-plate-notebook", path: "/fx-harness/engraved-plate?room=notebook", maxLive: 0, canvas2d: true },
   { name: "particle-drift-notebook", path: "/fx-harness/particle-drift?room=notebook", maxLive: 0, canvas2d: true },
+  { name: "gallery-ring-wall", path: "/fx-harness/gallery-ring?room=wall", maxLive: 0, canvas2d: true },
+  { name: "dust-motes-wall", path: "/fx-harness/dust-motes?room=wall", maxLive: 0, canvas2d: true },
+  { name: "ember-seal-wall", path: "/fx-harness/ember-seal?room=wall", maxLive: 0, canvas2d: true },
 ];
 
 /** Per-route live WebGL budget from the plan, for the real room routes */
@@ -2532,6 +2535,133 @@ const backdropFrames = (page) =>
   const res = await fetch(BASE + "/notebook/annotations");
   const page = await res.text();
   check("notebook-routes", "a journal's route renders its heading and its noren", res.status === 200 && page.includes("noren-stage") && !page.includes("NEXT_HTTP_ERROR_FALLBACK;404"), { status: res.status });
+}
+
+// ── Wall (5a): the ring heading, the window light, polaroids that develop and lean, seals ──
+{
+  const H = "/fx-harness/wall";
+  const live = (page, sel, timeout = 60000) =>
+    page
+      .waitForSelector(`${sel}[data-fx-state="live"]`, { timeout })
+      .then(() => true)
+      .catch(() => false);
+  const states = (page) => page.evaluate(() => Object.fromEntries([...document.querySelectorAll("[data-polaroid]")].map((e) => [e.dataset.polaroid, e.dataset.develop])));
+
+  {
+    // The wall: its heading in the pieces' colours, the light, the pieces and the seals, all in 2D
+    const { context, page, errors } = await chromePage({ viewport: { width: 1440, height: 900 } });
+    await page.goto(BASE + H, { waitUntil: "networkidle" });
+    const ring = await live(page, '[data-fx="gallery-ring"]');
+    const light = await live(page, '[data-fx="dust-motes"]');
+    const seals = await page.waitForFunction(() => document.querySelectorAll('[data-fx="ember-seal"][data-fx-state="live"]').length === 2, null, { timeout: 60000 }).then(() => true).catch(() => false);
+    const source = await page.waitForFunction(() => document.querySelector('[data-fx="gallery-ring"] canvas')?.dataset.plateSource === "pieces", null, { timeout: 15000 }).then(() => true).catch(() => false);
+    const gl = await page.evaluate(() => window.__gl());
+    const heading = await page.getByRole("heading", { level: 1, name: "the wall" }).count();
+    const items = await page.locator("[data-wall] ul > li").count();
+    const sealedText = await page.locator("[data-sealed] figcaption").allInnerTexts();
+    check("wall", "the heading, the light and both seals are live, with no WebGL", ring && light && seals && gl.created === 0 && heading === 1, { ring, light, seals, gl, heading });
+    check("wall", "the heading's plates take the pieces' colours", source);
+    check("wall", "every piece and seal is pinned, the seals first with their dates", items === 10 && /unseals 21 march 2027/.test(sealedText[0] ?? "") && /unseals 1 june 2027/.test(sealedText[1] ?? ""), { items, sealedText });
+
+    // A polaroid in view develops and is left clean; one below the fold waits until it's reached
+    const early = await states(page);
+    await page.waitForTimeout(1600);
+    const settled = await states(page);
+    const canvases = await page.locator(".develop-canvas").count();
+    check(
+      "wall",
+      "pieces in view develop and clear, pieces below the fold wait",
+      settled["fixture-night"] === "developed" && settled["fixture-charcoal"] === "pending" && canvases === 0,
+      { early, settled, canvases }
+    );
+    await page.locator('[data-polaroid="fixture-charcoal"]').scrollIntoViewIfNeeded();
+    const reached = await page.waitForFunction(() => document.querySelector('[data-polaroid="fixture-charcoal"]')?.dataset.develop === "developed", null, { timeout: 5000 }).then(() => true).catch(() => false);
+    check("wall", "a piece develops when it's scrolled to", reached);
+    await page.evaluate(() => window.scrollTo(0, 0));
+
+    // The ring turns while the pointer is over it, and settles when it leaves
+    const ringBox = await page.locator("[data-wall-heading]").boundingBox();
+    await page.mouse.move(ringBox.x + ringBox.width / 2, ringBox.y + ringBox.height / 2);
+    const turning = await page.waitForFunction(() => document.querySelector('[data-fx="gallery-ring"] canvas')?.dataset.turning === "true", null, { timeout: 3000 }).then(() => true).catch(() => false);
+    // Off the stage but still in the viewport, so the move is seen
+    await page.mouse.move(ringBox.x + ringBox.width / 2, Math.min(890, ringBox.y + ringBox.height + 160), { steps: 3 });
+    const rested = await page.waitForFunction(() => document.querySelector('[data-fx="gallery-ring"] canvas')?.dataset.turning === "false", null, { timeout: 15000 }).then(() => true).catch(() => false);
+    check("wall", "the ring turns under the pointer and comes to rest when it leaves", turning && rested, { turning, rested });
+
+    // A polaroid leans toward the pointer, and straightens when it leaves
+    const tiltEl = page.locator('[data-polaroid="fixture-night"]').locator("xpath=..");
+    const box = await tiltEl.boundingBox();
+    await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.15, { steps: 4 });
+    const leaning = await tiltEl.evaluate((el) => ({ x: el.style.getPropertyValue("--tilt-x"), y: el.style.getPropertyValue("--tilt-y"), tracking: el.hasAttribute("data-tracking") }));
+    await page.mouse.move(5, 5, { steps: 2 });
+    await page.waitForTimeout(100);
+    const straight = await tiltEl.evaluate((el) => ({ x: el.style.getPropertyValue("--tilt-x"), y: el.style.getPropertyValue("--tilt-y") }));
+    check(
+      "wall",
+      "a polaroid leans toward the pointer and straightens after",
+      parseFloat(leaning.x) > 2 && parseFloat(leaning.y) > 2 && leaning.tracking && straight.x === "0deg" && straight.y === "0deg",
+      { leaning, straight }
+    );
+
+    // Every piece is reachable by name; art opens in the lightbox and Escape closes it; a video
+    // without a preview links out
+    const open = page.getByRole("button", { name: "Open the street after the rain stopped" });
+    await open.focus();
+    await page.keyboard.press("Enter");
+    const shown = await page.getByText("gouache on card, done in one sitting").waitFor({ timeout: 5000 }).then(() => true).catch(() => false);
+    await page.keyboard.press("Escape");
+    const closed = await page.getByText("gouache on card, done in one sitting").waitFor({ state: "detached", timeout: 5000 }).then(() => true).catch(() => false);
+    const watch = page.getByRole("link", { name: "Watch a minute of the sea, cut to a song (opens in a new tab)" });
+    const watchTarget = await watch.getAttribute("target").catch(() => null);
+    check("wall", "a piece opens from the keyboard, Escape closes it, and a video without a preview links out", shown && closed && watchTarget === "_blank", { shown, closed, watchTarget });
+    check("wall", "no page errors", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, "wall.png") });
+    await context.close();
+  }
+
+  {
+    // A phone: two columns, no sideways scroll
+    const { context, page, errors } = await chromePage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    await page.goto(BASE + H, { waitUntil: "networkidle" });
+    await live(page, '[data-fx="gallery-ring"]');
+    const layout = await page.evaluate(() => {
+      const items = [...document.querySelectorAll("[data-wall] ul > li")].slice(0, 4).map((li) => Math.round(li.getBoundingClientRect().top));
+      return { scrollW: document.documentElement.scrollWidth, rows: items };
+    });
+    check("wall", "two to a row and no sideways scroll on a phone", layout.scrollW <= 390 && layout.rows[0] === layout.rows[1] && layout.rows[2] > layout.rows[1], layout);
+    check("wall", "no page errors (phone)", errors.length === 0, errors.slice(0, 3));
+    await page.screenshot({ path: path.join(OUT, "wall-phone.png") });
+    await context.close();
+  }
+
+  {
+    // Reduced motion: nothing veiled, nothing leaning, the photos shown as they are
+    const { context, page, errors } = await chromePage({ viewport: { width: 1440, height: 900 }, reducedMotion: "reduce" });
+    await page.goto(BASE + H, { waitUntil: "networkidle" });
+    await live(page, '[data-fx="gallery-ring"]');
+    await page.waitForTimeout(300);
+    const veils = await page.locator(".develop-veil").evaluateAll((vs) => vs.filter((v) => getComputedStyle(v).display !== "none").length);
+    const develop = await states(page);
+    const box = await page.locator('[data-polaroid="fixture-night"]').boundingBox();
+    await page.mouse.move(box.x + box.width * 0.85, box.y + box.height * 0.15, { steps: 3 });
+    const tilt = await page.locator('[data-polaroid="fixture-night"]').locator("xpath=..").evaluate((el) => getComputedStyle(el).transform);
+    check("wall", "reduced motion: no veils, everything developed, no lean", veils === 0 && Object.values(develop).every((d) => d === "developed") && tilt === "none", { veils, develop, tilt });
+    check("wall", "no page errors (reduced)", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+  }
+
+  {
+    // An empty wall falls back to its placeholders; the real route renders
+    const { context, page, errors } = await chromePage();
+    await page.goto(BASE + `${H}?empty=1&sealed=0`, { waitUntil: "networkidle" });
+    const placeholders = await page.locator("[data-wall] ul > li").count();
+    check("wall", "an empty wall shows its placeholders", placeholders === 6, { placeholders });
+    check("wall", "no page errors (empty)", errors.length === 0, errors.slice(0, 3));
+    await context.close();
+    const res = await fetch(BASE + "/wall");
+    const html = await res.text();
+    check("wall-routes", "the wall's route renders its heading and its light", res.status === 200 && html.includes("data-wall-heading") && html.includes("data-wall-backdrop"), { status: res.status });
+  }
 }
 
 // ── Dev only: StrictMode double-mount must not leak contexts ───────────────────

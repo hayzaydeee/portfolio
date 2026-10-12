@@ -105,6 +105,18 @@ Entry plates are chosen per journal in the lab (engraved, drift or none; `compon
 
 Two notes on the shelf beyond the rules for effects in three: it is an r165 port, so it renders the way the original does (sRGB output, ACES at a lower exposure for a cream room, lights in physical units with no PI factor) rather than through `createRenderer()`; and its leaves are printed only when a volume is first taken down. `/fx-harness/notebook` renders the desk from fixtures (`?exposure=`, `?environment=` and `?tint=` override the lab values).
 
+## Wall effects
+
+| Effect | Source | On the wall |
+|---|---|---|
+| `gallery-ring` | Gallery Heading ("One Wall, Twelve Plates") | The heading (`wall.heading`): "the wall" ringed by twelve 4:3 plates on a tilted ring, passing behind the type and in front of it. The plates take the pieces' colours (`plates` command, from `components/wall/usePieceColours.ts`; the original's palette until they're read, `data-plate-source`), each shaded on a halftone screen. It rests until the pointer is over it, then eases up to a turn every fifteen seconds, and it arrives turning so it's seen to move once (`data-turning`). It draws only while it turns |
+| `dust-motes` | after Particle Drift | The room's backdrop (`wall.backdrop`, mounted in `app/wall/layout.tsx`): afternoon light through a four-pane window, a beam to a patch on the wall with the mullions in both, and dust drifting through it, lit only where the beam catches it. The pointer stirs it |
+| `ember-seal` | Spark Badge (its technique) | A sealed piece (`wall.seal`): a wax seal drawn in embers thrown off its scalloped edge, its carved ring and its lettering, bent by shared curl fields, with rain across the dark plate. Seeded by the piece, so no two burn alike |
+
+A polaroid's lean toward the pointer and the way its photo develops (tiles of undeveloped film clearing left to right, then the colour coming up) are Koi Studies' tilt and pixel reveal, in `components/wall/polaroidMotion.ts` and `app/styles/wall.css`; the veil is in the server's markup so a photo already in view never flashes first. `/fx-harness/wall` renders the wall from fixtures (`?empty=1` for the placeholders, `?sealed=0` without seals).
+
+`--z-backdrop` is negative, so a fixed backdrop paints under any in-flow element with a background. A light room that keeps its colour on the layout (the wall, unlike the studio) makes that wrapper its own stacking context (`isolate`), so the backdrop lands between the colour and the page.
+
 The lobby sections share one progress source (`components/lobby/sectionProgress.ts`): scroll in the resting page, a timed 0 to 1 per slide in the sequence. Each section poses the horizon (`components/lobby/poses.ts`), and `data-gesture-capture="x"` (or `"all"`) on an element keeps the sequence's wheel, swipe and arrow handling off the gestures it needs.
 
 ## Adding an effect
